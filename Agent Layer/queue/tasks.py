@@ -1,0 +1,208 @@
+"""
+Aether Agent Layer — Celery Task Definitions
+Thin wrappers that deserialize task payloads and delegate to the
+BaseWorker.run() lifecycle (same guardrails apply as in-memory mode).
+
+These tasks are registered with the Celery app but can also be called
+directly (bypassing Celery) via execute_task_sync() for testing.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Optional
+
+from config.settings import WorkerType, TaskPriority
+from models.core import AgentTask, TaskResult
+
+logger = logging.getLogger("aether.queue.tasks")
+
+# ---------------------------------------------------------------------------
+# Priority mapping (Celery uses 0=highest, 9=lowest)
+# ---------------------------------------------------------------------------
+
+_PRIORITY_TO_CELERY: dict[TaskPriority, int] = {
+    TaskPriority.CRITICAL: 0,
+    TaskPriority.HIGH: 2,
+    TaskPriority.MEDIUM: 5,
+    TaskPriority.LOW: 7,
+    TaskPriority.BACKGROUND: 9,
+}
+
+
+def _task_to_dict(task: AgentTask) -> dict[str, Any]:
+    """Serialize an AgentTask to a JSON-safe dict for Celery."""
+    return {
+        "task_id": task.task_id,
+        "worker_type": task.worker_type.value,
+        "priority": task.priority.value,
+        "payload": task.payload,
+        "created_at": task.created_at.isoformat(),
+        "retries": task.retries,
+    }
+
+
+def _dict_to_task(data: dict[str, Any]) -> AgentTask:
+    """Deserialize a dict back into an AgentTask."""
+    from datetime import datetime
+    return AgentTask(
+        worker_type=WorkerType(data["worker_type"]),
+        priority=TaskPriority(data["priority"]),
+        payload=data["payload"],
+        task_id=data["task_id"],
+        retries=data.get("retries", 0),
+    )
+
+
+def _result_to_dict(result: TaskResult) -> dict[str, Any]:
+    """Serialize a TaskResult to a JSON-safe dict."""
+    return {
+        "task_id": result.task_id,
+        "worker_type": result.worker_type.value,
+        "success": result.success,
+        "data": result.data,
+        "confidence": result.confidence,
+        "error": result.error,
+        "source_attribution": result.source_attribution,
+        "created_at": result.created_at.isoformat(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Celery tasks (registered only if Celery is available)
+# ---------------------------------------------------------------------------
+
+from queue.celery_app import get_celery_app, is_celery_available
+
+_app = get_celery_app()
+
+if _app is not None:
+
+    @_app.task(
+        name="queue.tasks.execute_task",
+        bind=True,
+        max_retries=3,
+        default_retry_delay=30,
+        acks_late=True,
+    )
+    def execute_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """
+        General-purpose Celery task. Resolves the worker from the
+        global registry and runs it through the guardrails lifecycle.
+        """
+        task = _dict_to_task(task_data)
+        result = _run_with_worker(task)
+        return _result_to_dict(result)
+
+    @_app.task(
+        name="queue.tasks.execute_discovery_task",
+        bind=True,
+        max_retries=3,
+        default_retry_delay=30,
+        queue="discovery",
+    )
+    def execute_discovery_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """Celery task routed to the 'discovery' queue."""
+        task = _dict_to_task(task_data)
+        result = _run_with_worker(task)
+        return _result_to_dict(result)
+
+    @_app.task(
+        name="queue.tasks.execute_enrichment_task",
+        bind=True,
+        max_retries=3,
+        default_retry_delay=30,
+        queue="enrichment",
+    )
+    def execute_enrichment_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """Celery task routed to the 'enrichment' queue."""
+        task = _dict_to_task(task_data)
+        result = _run_with_worker(task)
+        return _result_to_dict(result)
+
+
+# ---------------------------------------------------------------------------
+# Worker resolution (shared between Celery and in-memory modes)
+# ---------------------------------------------------------------------------
+
+# Global worker registry — populated by the controller on startup
+_worker_registry: dict[WorkerType, Any] = {}
+
+
+def register_worker_for_tasks(worker: Any) -> None:
+    """Called by the controller to make workers available to Celery tasks."""
+    _worker_registry[worker.worker_type] = worker
+
+
+def _run_with_worker(task: AgentTask) -> TaskResult:
+    """Resolve worker from registry and execute via BaseWorker.run()."""
+    worker = _worker_registry.get(task.worker_type)
+    if worker is None:
+        logger.error(f"No worker registered for {task.worker_type.value}")
+        task.mark_failed(f"No worker for {task.worker_type.value}")
+        return task.result  # type: ignore
+    return worker.run(task)
+
+
+# ---------------------------------------------------------------------------
+# Discovery vs. Enrichment worker types (for queue routing)
+# ---------------------------------------------------------------------------
+
+_DISCOVERY_TYPES = {
+    WorkerType.WEB_CRAWLER,
+    WorkerType.API_SCANNER,
+    WorkerType.SOCIAL_LISTENER,
+    WorkerType.CHAIN_MONITOR,
+    WorkerType.COMPETITOR_TRACKER,
+}
+
+_ENRICHMENT_TYPES = {
+    WorkerType.ENTITY_RESOLVER,
+    WorkerType.PROFILE_ENRICHER,
+    WorkerType.TEMPORAL_FILLER,
+    WorkerType.SEMANTIC_TAGGER,
+    WorkerType.QUALITY_SCORER,
+}
+
+
+def submit_celery_task(task: AgentTask) -> Optional[str]:
+    """
+    Submit a task to the appropriate Celery queue.
+    Returns the Celery AsyncResult ID, or None if Celery isn't available.
+    """
+    if not is_celery_available() or _app is None:
+        return None
+
+    task_data = _task_to_dict(task)
+    celery_priority = _PRIORITY_TO_CELERY.get(task.priority, 5)
+
+    if task.worker_type in _DISCOVERY_TYPES:
+        async_result = execute_discovery_task.apply_async(
+            args=[task_data],
+            priority=celery_priority,
+        )
+    elif task.worker_type in _ENRICHMENT_TYPES:
+        async_result = execute_enrichment_task.apply_async(
+            args=[task_data],
+            priority=celery_priority,
+        )
+    else:
+        async_result = execute_task.apply_async(
+            args=[task_data],
+            priority=celery_priority,
+        )
+
+    logger.info(
+        f"Task {task.task_id} submitted to Celery "
+        f"(celery_id={async_result.id}, queue="
+        f"{'discovery' if task.worker_type in _DISCOVERY_TYPES else 'enrichment'})"
+    )
+    return async_result.id
+
+
+def execute_task_sync(task: AgentTask) -> TaskResult:
+    """
+    Run a task synchronously (bypass Celery).
+    Used for testing and in-memory fallback mode.
+    """
+    return _run_with_worker(task)
