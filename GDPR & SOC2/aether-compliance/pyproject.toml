@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aether-compliance"
+version = "1.0.0"
+description = "Aether GDPR Compliance & SOC 2 Type II Readiness Framework"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+aws = ["boto3>=1.28"]
+dev = ["pytest>=7.0", "pytest-cov"]
+
+[tool.setuptools.packages.find]
+include = ["config*", "shared*", "gdpr*", "soc2*", "audit*", "policies*", "tests*"]
