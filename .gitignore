@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.*
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing / Coverage
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs
+*.log
+
+# Archives (originals already extracted)
+*.zip
+
+# Extracted originals (enhanced versions exist in package dirs)
+extracted/
+
+# Generated docs
+docs/api/
+
+# ML artifacts
+*.onnx
+*.tflite
+*.h5
+*.pt
+*.pkl
+mlruns/
