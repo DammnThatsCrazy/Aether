@@ -1,0 +1,53 @@
+name: "Setup Node + Python"
+description: "Reusable composite action to setup Node.js, Python, and install dependencies with caching"
+
+inputs:
+  node-version:
+    description: "Node.js version"
+    default: "20"
+  python-version:
+    description: "Python version"
+    default: "3.12"
+  install-node:
+    description: "Install Node.js dependencies"
+    default: "true"
+  install-python:
+    description: "Install Python dependencies"
+    default: "false"
+  python-packages:
+    description: "Space-separated Python packages to install"
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      if: inputs.install-node == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "npm"
+
+    - name: Setup Python
+      if: inputs.install-python == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cache pip packages
+      if: inputs.install-python == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: pip-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt', '**/pyproject.toml') }}
+        restore-keys: pip-${{ runner.os }}-${{ inputs.python-version }}-
+
+    - name: Install Node dependencies
+      if: inputs.install-node == 'true'
+      shell: bash
+      run: npm ci
+
+    - name: Install Python packages
+      if: inputs.install-python == 'true' && inputs.python-packages != ''
+      shell: bash
+      run: pip install ${{ inputs.python-packages }}
