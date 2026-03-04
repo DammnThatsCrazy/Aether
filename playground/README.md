@@ -1,6 +1,6 @@
 # Aether SDK Playground
 
-An interactive testing environment for the [Aether Web SDK](../packages/web) (`@aether/web`). Use it to experiment with SDK initialization, event tracking, user identification, and consent management -- all from a single-page demo interface served by Vite.
+An interactive **multi-VM Web3 wallet simulation** environment for the [Aether Web SDK](../packages/web) (`@aether/web` v5.0). Simulate wallet connections across EVM, Solana, and Bitcoin chains, trigger DeFi protocol interactions (Uniswap, AAVE, Jupiter, Marinade, Wormhole), view cross-chain portfolios, and inspect SDK event capture -- all from a single-page demo interface served by Vite.
 
 ## Tech Stack
 
@@ -9,16 +9,18 @@ An interactive testing environment for the [Aether Web SDK](../packages/web) (`@
 | Markup    | HTML                      |
 | Logic     | Vanilla JavaScript (ES Modules) |
 | Dev Server| [Vite](https://vitejs.dev/) 5.x (port **5173**) |
-| SDK       | `@aether/web` (linked locally via `file:../packages/web`) |
+| SDK       | `@aether/web` v5.0 (linked locally via `file:../packages/web`) |
 
 ## Features
 
-- **SDK initialization with debug mode** -- configure the API key, endpoint, privacy settings, and feature modules (auto-discovery, performance tracking, error tracking, experiments, intent prediction).
-- **Event tracking demos** -- fire custom events, page views, and conversion events with a single click.
-- **User identification** -- hydrate a user identity with traits (name, email, plan) and inspect the result in real time.
-- **Consent management** -- view the current consent state reported by the SDK.
-- **Real-time Event Log** -- a scrollable, timestamped log of every action performed during the session (capped at 50 entries).
-- **Identity and Consent panels** -- live JSON views of the SDK's identity and consent state, updated after every action.
+- **Multi-VM wallet connections** -- simulate MetaMask (EVM), Ledger (EVM), Phantom (Solana/SVM), and UniSat (Bitcoin) wallet connections with realistic addresses and chain data
+- **DeFi protocol simulations** -- trigger Uniswap swaps, AAVE supply, Jupiter swaps, Marinade staking, and Wormhole cross-chain bridge transfers
+- **Cross-chain portfolio dashboard** -- view aggregated portfolio value, token balances, and DeFi positions across all connected wallets
+- **Wallet classification** -- automatic wallet type tagging (hot, cold, smart, exchange) with visual badges
+- **Event log** -- real-time, timestamped log of every SDK event (wallet connects, transactions, DeFi interactions, portfolio updates) with color-coded categories
+- **Connected wallets panel** -- live view of all connected wallets with VM-specific icons, addresses, chain info, and classification tags
+- **Tabbed detail views** -- Portfolio, Tokens, DeFi Positions, Identity, and Consent tabs with live JSON state
+- **SDK initialization with debug mode** -- configure the API key, endpoint, privacy settings, Web3 tracking modules, and feature flags
 
 ## Quick Start
 
@@ -37,42 +39,69 @@ Vite will start on **http://localhost:5173**. Open the URL in your browser to lo
 
 ## Demo Interface
 
-The playground presents a dark-themed single-page UI with the following layout:
+The playground presents a dark-themed single-page UI organized into action groups by VM family:
 
 ```
-+--------------------------------------------------+
-|  Aether SDK Playground  v4.0.0                   |
-|  Interactive SDK testing environment              |
-|                                                   |
-|  [Init SDK] [Track Event] [Page View]            |
-|  [Conversion] [Identify User] [Get Identity]     |
-|  [Reset]                                         |
-|                                                   |
-|  Status: SDK initialized                          |
-+--------------------------------------------------+
-|  Event Log       |  Identity    |  Consent State  |
-|  ─────────────── |  ────────── |  ────────────── |
-|  [12:00:01]      |  {          |  {              |
-|   SDK initialized|   "userId": |   ...           |
-|  [12:00:03]      |   "user_123"|                 |
-|   Tracked:       |   ...       |                 |
-|   button_click   |  }          |  }              |
-+--------------------------------------------------+
++--------------------------------------------------------------------------+
+|  Aether SDK Playground  v5.0.0                                           |
+|  Multi-VM Web3 Wallet Tracking — EVM • Solana • Bitcoin • SUI • NEAR ... |
+|                                                                          |
+|  SDK [Init SDK] [Reset]                                                  |
+|  EVM [Connect MetaMask] [Connect Ledger] [Uniswap Swap] [AAVE Supply]   |
+|  SVM [Connect Phantom] [Jupiter Swap] [Marinade Stake]                   |
+|  Multi [Connect BTC] [Bridge ETH→SOL] [Portfolio] [Disconnect All]       |
+|                                                                          |
+|  ● SDK initialized  [EVM] [SVM] [BTC] [3 wallets]                       |
++------------------------------------+-------------------------------------+
+|  Event Log           (12 events)   |  Connected Wallets    (3 wallets)   |
+|  ───────────────────────────────── |  ──────────────────────────────── |
+|  [12:00:01] WALLET MetaMask...     |  ┌─────────────────────────────┐  |
+|  [12:00:03] TX Uniswap swap...     |  │ EVM 0xd8dA...6045  hot     │  |
+|  [12:00:05] DEFI AAVE supply...    |  │ SVM 7xKX...9mP1   hot     │  |
+|  [12:00:07] PORTFOLIO update...    |  │ BTC bc1q...w508d   cold    │  |
+|                                    |  └─────────────────────────────┘  |
++--------------------------------------------------------------------------+
+|  [Portfolio]  [Tokens]  [DeFi Positions]  [Identity]  [Consent]          |
+|  ─────────────────────────────────────────────────────────────           |
+|  Total Value     Wallets      Chains        24h Change                  |
+|  $156,847.32     3            3 (EVM/SVM/BTC)  +2.4%                    |
++--------------------------------------------------------------------------+
 ```
-
-The top row contains action buttons (purple primary buttons and grey secondary buttons). Below them, three cards display live data in a responsive grid.
 
 ## Available Demo Actions
 
+### SDK Actions
+
 | Button            | SDK Method Called                          | Description                                      |
 |-------------------|-------------------------------------------|--------------------------------------------------|
-| **Init SDK**      | `aether.init({...})`                      | Initializes the SDK with a demo API key, debug mode enabled, and all feature modules turned on. |
-| **Track Event**   | `aether.track('button_click', {...})`     | Sends a custom `button_click` event with a random value.    |
-| **Page View**     | `aether.pageView('/playground', {...})`   | Records a page view for the `/playground` path.             |
-| **Conversion**    | `aether.conversion('purchase', 49.99, {...})` | Tracks a conversion event (purchase of "Pro Plan" at $49.99). |
-| **Identify User** | `aether.hydrateIdentity({...})`           | Sets the current user to `user_123` with name, email, and plan traits. |
-| **Get Identity**  | `aether.getIdentity()`                    | Refreshes the Identity panel with the latest identity state. |
-| **Reset**         | `aether.reset()`                          | Resets the SDK to its uninitialized state and clears identity/consent data. |
+| **Init SDK**      | `aether.init({...})`                      | Initializes the SDK with Web3 multi-VM tracking enabled. |
+| **Reset**         | `aether.reset()`                          | Resets the SDK, disconnects all wallets, clears state. |
+
+### EVM Actions
+
+| Button               | SDK Method Called                              | Description                                      |
+|----------------------|------------------------------------------------|--------------------------------------------------|
+| **Connect MetaMask** | `aether.wallet.connect(addr, {chainId, type})` | Simulates MetaMask wallet connection on Ethereum mainnet. |
+| **Connect Ledger**   | `aether.wallet.connect(addr, {type: 'ledger'})` | Simulates Ledger hardware wallet (classified as cold wallet). |
+| **Uniswap Swap**     | `aether.wallet.transaction(txHash, {...})`     | Simulates a WETH→USDC swap on Uniswap V3 with DeFi protocol tracking. |
+| **AAVE Supply**      | `aether.wallet.transaction(txHash, {...})`     | Simulates an ETH supply position on AAVE V3 lending protocol. |
+
+### SVM (Solana) Actions
+
+| Button               | SDK Method Called                              | Description                                      |
+|----------------------|------------------------------------------------|--------------------------------------------------|
+| **Connect Phantom**  | `aether.wallet.connectSVM(addr, {type})`       | Simulates Phantom wallet connection on Solana mainnet. |
+| **Jupiter Swap**     | `aether.wallet.transaction(sig, {...})`        | Simulates a SOL→USDC swap on Jupiter aggregator. |
+| **Marinade Stake**   | `aether.wallet.transaction(sig, {...})`        | Simulates SOL staking via Marinade Finance for mSOL. |
+
+### Multi-Chain Actions
+
+| Button               | SDK Method Called                              | Description                                      |
+|----------------------|------------------------------------------------|--------------------------------------------------|
+| **Connect BTC**      | `aether.wallet.connectBTC(addr, {type})`       | Simulates UniSat wallet connection on Bitcoin mainnet. |
+| **Bridge ETH→SOL**   | `aether.wallet.transaction(txHash, {...})`     | Simulates a cross-chain bridge transfer via Wormhole (EVM to Solana). |
+| **Portfolio**        | `aether.wallet.getPortfolio()`                 | Refreshes the cross-chain portfolio aggregation view. |
+| **Disconnect All**   | `aether.wallet.disconnect()`                   | Disconnects all wallets and clears wallet state. |
 
 ## Configuration Options
 
@@ -89,6 +118,15 @@ aether.init({
     errorTracking: true,
     experiments: true,
     intentPrediction: true,
+    walletTracking: true,
+    svmTracking: true,
+    bitcoinTracking: true,
+    tokenTracking: true,
+    nftDetection: true,
+    defiTracking: true,
+    portfolioTracking: true,
+    walletClassification: true,
+    crossChainTracking: true,
   },
   privacy: {
     maskSensitiveFields: true,
@@ -96,17 +134,33 @@ aether.init({
 });
 ```
 
-| Option                          | Default                    | Description                                    |
-|---------------------------------|----------------------------|------------------------------------------------|
-| `apiKey`                        | `playground_demo_key`      | API key used for the demo (not a real key).    |
-| `debug`                         | `true`                     | Enables verbose console logging from the SDK.  |
-| `endpoint`                      | `https://localhost:9999`   | Event ingestion endpoint (demo/stub).          |
-| `modules.autoDiscovery`         | `true`                     | Automatic element discovery.                   |
-| `modules.performanceTracking`   | `true`                     | Web performance metric collection.             |
-| `modules.errorTracking`         | `true`                     | Automatic error capture and reporting.         |
-| `modules.experiments`           | `true`                     | A/B experiment support.                        |
-| `modules.intentPrediction`      | `true`                     | User intent prediction engine.                 |
-| `privacy.maskSensitiveFields`   | `true`                     | Redacts sensitive field values before sending.  |
+| Option                             | Default                    | Description                                    |
+|------------------------------------|----------------------------|------------------------------------------------|
+| `apiKey`                           | `playground_demo_key`      | API key used for the demo (not a real key).    |
+| `debug`                            | `true`                     | Enables verbose console logging from the SDK.  |
+| `endpoint`                         | `https://localhost:9999`   | Event ingestion endpoint (demo/stub).          |
+| `modules.walletTracking`           | `true`                     | EVM wallet connection and event tracking.      |
+| `modules.svmTracking`              | `true`                     | Solana/SVM wallet and transaction tracking.    |
+| `modules.bitcoinTracking`          | `true`                     | Bitcoin wallet and UTXO tracking.              |
+| `modules.tokenTracking`            | `true`                     | ERC-20/SPL token balance tracking.             |
+| `modules.nftDetection`             | `true`                     | NFT ownership detection.                       |
+| `modules.defiTracking`             | `true`                     | DeFi protocol interaction tracking (15 categories). |
+| `modules.portfolioTracking`        | `true`                     | Cross-chain portfolio value aggregation.       |
+| `modules.walletClassification`     | `true`                     | Wallet type classification (hot, cold, smart, exchange). |
+| `modules.crossChainTracking`       | `true`                     | Cross-chain bridge and transfer tracking.      |
+| `privacy.maskSensitiveFields`      | `true`                     | Redacts sensitive field values before sending.  |
+
+## UI Panels
+
+| Panel                | Content                                                                 |
+|----------------------|-------------------------------------------------------------------------|
+| **Event Log**        | Color-coded real-time log: wallet (purple), tx (yellow), defi (green), portfolio (blue), system (grey), identity (violet) |
+| **Connected Wallets**| Cards with VM-colored icons (EVM blue, SVM purple, BTC orange), addresses, chain info, classification tags |
+| **Portfolio**        | Aggregated stats: total value, wallet count, chain count, 24h change    |
+| **Tokens**           | Token balances across all chains with amounts and USD values            |
+| **DeFi Positions**   | Active DeFi positions with protocol name, category, TVL, and APY       |
+| **Identity**         | Live JSON view of the SDK's identity state                              |
+| **Consent**          | Live JSON view of the SDK's consent state                               |
 
 ## License
 

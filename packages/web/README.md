@@ -1,13 +1,13 @@
 # @aether/web
 
 <!-- Badges -->
-![Version](https://img.shields.io/badge/version-4.0.0-blue)
+![Version](https://img.shields.io/badge/version-5.0.0-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![Build](https://img.shields.io/badge/build-Rollup-EC4A3F)
 ![Tests](https://img.shields.io/badge/tests-Vitest-6E9F18)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey)
 
-**Behavioral analytics SDK for the browser.** Track user interactions, resolve identities across sessions, run A/B experiments, monitor Web3 wallets, and score sessions with on-device ML -- all with built-in GDPR consent management and privacy-first data collection.
+**Behavioral analytics SDK for the browser with multi-chain Web3 support.** Track user interactions, resolve identities across sessions, run A/B experiments, monitor Web3 wallets across 7 VM families (EVM, Solana, Bitcoin, MoveVM, NEAR, TRON, Cosmos), track DeFi positions across 150+ protocols, aggregate cross-chain portfolios, and score sessions with on-device ML -- all with built-in GDPR consent management and privacy-first data collection.
 
 ---
 
@@ -19,7 +19,9 @@
 - **GDPR consent management** -- configurable banner UI with per-purpose opt-in/opt-out
 - **Auto-discovery** -- automatic capture of clicks, forms, scroll depth, rage clicks, and dead clicks
 - **A/B experiments** -- deterministic variant assignment with weighted splits and exposure tracking
-- **Web3 wallet tracking** -- Ethereum provider detection, chain switching, and transaction monitoring
+- **Multi-chain Web3 wallet tracking** -- 7 VM families (EVM, SVM/Solana, Bitcoin, MoveVM/SUI, NEAR, TVM/TRON, Cosmos) with 20+ blockchain support, wallet classification (hot, cold, smart, exchange, protocol, multisig), and automatic provider detection
+- **DeFi protocol tracking** -- 150+ protocols across 15 categories (DEX, lending, perpetuals, staking, bridges, NFTs, yield, governance, insurance, options, launchpads, payments, restaking, CEX, routing)
+- **Cross-chain portfolio aggregation** -- real-time portfolio value tracking, token balances, and DeFi position monitoring across all connected chains
 - **Edge ML** -- in-browser intent prediction, bot detection, and session scoring (no server round-trip)
 - **Performance monitoring** -- Core Web Vitals (LCP, FID, CLS, TTFB, FCP) and error tracking
 - **Event batching** -- configurable batch size, flush intervals, retry with exponential backoff, and offline queue persistence
@@ -44,7 +46,7 @@ pnpm add @aether/web
 ### CDN (UMD)
 
 ```html
-<script src="https://cdn.aether.network/sdk/v4/aether.umd.js"></script>
+<script src="https://cdn.aether.network/sdk/v5/aether.umd.js"></script>
 <script>
   const aether = Aether.default;
   aether.init({ apiKey: 'your-key' });
@@ -102,9 +104,23 @@ aether.init({
     performanceTracking: true,     // Core Web Vitals
     errorTracking: true,           // JS error capture
     experiments: true,             // A/B testing framework
-    walletTracking: true,          // Web3 wallet events
     intentPrediction: true,        // edge ML intent model
     predictiveAnalytics: true,     // ML prediction event forwarding
+
+    // Web3 — Multi-VM wallet tracking (v5.0)
+    walletTracking: true,          // EVM wallet events (MetaMask, Coinbase, etc.)
+    svmTracking: true,             // Solana/SVM wallet tracking (Phantom, Solflare)
+    bitcoinTracking: true,         // Bitcoin wallet tracking (UniSat, Xverse)
+    moveVMTracking: true,          // MoveVM/SUI wallet tracking
+    nearTracking: true,            // NEAR wallet tracking
+    tronTracking: true,            // TRON/TVM wallet tracking (TronLink)
+    cosmosTracking: true,          // Cosmos wallet tracking (Keplr)
+    tokenTracking: true,           // ERC-20/SPL token balance tracking
+    nftDetection: true,            // NFT ownership detection
+    defiTracking: true,            // DeFi protocol interaction tracking
+    portfolioTracking: true,       // Cross-chain portfolio aggregation
+    walletClassification: true,    // Wallet type classification
+    crossChainTracking: true,      // Cross-chain bridge and transfer tracking
   },
 
   privacy: {
@@ -145,7 +161,7 @@ aether.init({
 | `track` | `(event: string, properties?: Record<string, unknown>) => void` | Track a custom event. |
 | `pageView` | `(page?: string, properties?: Record<string, unknown>) => void` | Record a page view. Called automatically on init and SPA navigation. |
 | `conversion` | `(event: string, value?: number, properties?: Record<string, unknown>) => void` | Track a conversion event with optional monetary value. |
-| `hydrateIdentity` | `(data: IdentityData) => void` | Merge anonymous identity with known user data. Accepts `userId`, `traits`, `walletAddress`, and chain info. |
+| `hydrateIdentity` | `(data: IdentityData) => void` | Merge anonymous identity with known user data. Accepts `userId`, `traits`, wallet addresses, and chain info across all supported VMs. |
 | `getIdentity` | `() => Identity \| null` | Return the current identity object. |
 | `reset` | `() => void` | Clear identity, session, and experiment data. Creates a fresh anonymous identity. |
 | `flush` | `() => Promise<void>` | Send all queued events immediately. |
@@ -186,33 +202,102 @@ const unsubscribe = aether.consent.onUpdate((state) => {
 
 Events are automatically filtered by consent category at flush time. Consent events themselves always pass through.
 
-### Web3 Wallet Tracking
+### Multi-Chain Web3 Wallet Tracking
 
 ```typescript
-// Connect a wallet
+// EVM wallet connection (MetaMask, Coinbase, Brave, etc.)
 aether.wallet.connect('0xabc...def', {
   chainId: 1,
   type: 'metamask',
   ens: 'user.eth',
 });
 
-// Track a transaction
+// Solana/SVM wallet connection (Phantom, Solflare)
+aether.wallet.connectSVM('7xKX...9mP1', {
+  type: 'phantom',
+  cluster: 'mainnet-beta',
+});
+
+// Bitcoin wallet connection (UniSat, Xverse)
+aether.wallet.connectBTC('bc1q...w508d', {
+  type: 'unisat',
+  network: 'mainnet',
+});
+
+// MoveVM/SUI, NEAR, TRON, Cosmos
+aether.wallet.connectSUI('0xsui...addr', { type: 'sui-wallet' });
+aether.wallet.connectNEAR('user.near', { type: 'near-wallet' });
+aether.wallet.connectTRON('T...addr', { type: 'tronlink' });
+aether.wallet.connectCosmos('cosmos1...addr', { type: 'keplr' });
+
+// Track a transaction (works across all VMs)
 aether.wallet.transaction('0xtxhash...', {
   type: 'swap',
   value: '1.5',
   from: '0xabc...def',
   to: '0x123...789',
   chainId: 1,
+  protocol: 'uniswap-v3',        // DeFi protocol tracking
+  category: 'dex',               // DeFi category
 });
 
-// Get wallet info
-const wallet = aether.wallet.getInfo();
+// Get all connected wallets
+const wallets = aether.wallet.getWallets();
 
-// Disconnect
+// Get wallets filtered by VM family
+const evmWallets = aether.wallet.getWalletsByVM('evm');
+const svmWallets = aether.wallet.getWalletsByVM('svm');
+
+// Cross-chain portfolio aggregation
+const portfolio = aether.wallet.getPortfolio();
+// => { totalValue, walletCount, chainCount, tokens, defiPositions, ... }
+
+// Wallet classification
+const classification = aether.wallet.classifyWallet('0xabc...def');
+// => { type: 'hot', confidence: 0.95, labels: ['active-trader', 'defi-user'] }
+
+// Listen for wallet changes (connect/disconnect/chain-switch across all VMs)
+const unsub = aether.wallet.onWalletChange((event) => {
+  // event.type: 'connect' | 'disconnect' | 'chainChanged' | 'accountChanged'
+  // event.vm: 'evm' | 'svm' | 'btc' | 'move' | 'near' | 'tvm' | 'cosmos'
+  // event.wallet: WalletInfo
+});
+
+// Disconnect all wallets
 aether.wallet.disconnect();
 ```
 
-When `walletTracking` is enabled, the SDK automatically detects `window.ethereum` providers (MetaMask, Coinbase Wallet, Brave Wallet) and tracks account and chain changes.
+**Supported VM Families (7):**
+
+| VM Family | Blockchains | Providers |
+|-----------|-------------|-----------|
+| EVM       | Ethereum, Polygon, Arbitrum, Optimism, BSC, Avalanche, Base | MetaMask, Coinbase, Brave, Ledger, WalletConnect |
+| SVM       | Solana | Phantom, Solflare, Backpack |
+| Bitcoin   | Bitcoin mainnet, testnet | UniSat, Xverse, Leather |
+| MoveVM    | SUI, Aptos | SUI Wallet, Petra |
+| NEAR      | NEAR mainnet | NEAR Wallet, MyNearWallet |
+| TVM       | TRON | TronLink |
+| Cosmos    | Cosmos Hub, Osmosis, Juno | Keplr, Leap |
+
+**DeFi Protocol Tracking (15 categories, 150+ protocols):**
+
+| Category | Protocols |
+|----------|-----------|
+| DEX | Uniswap, SushiSwap, Curve, Jupiter, Raydium, Orca |
+| Lending | AAVE, Compound, MakerDAO, Solend, Marginfi |
+| Perpetuals | GMX, dYdX, Drift |
+| Staking | Lido, Rocket Pool, Marinade, Jito |
+| Bridges | Wormhole, LayerZero, Stargate, Across |
+| NFT Marketplaces | OpenSea, Blur, Magic Eden, Tensor |
+| Yield | Yearn, Convex, Beefy |
+| Governance | Snapshot, Tally |
+| Insurance | Nexus Mutual |
+| Options | Lyra, Dopex |
+| Launchpads | Fjord, Copper Launch |
+| Payments | Request Network |
+| Restaking | EigenLayer, Symbiotic |
+| CEX | Coinbase, Binance |
+| Routing | 1inch, Paraswap, CowSwap |
 
 ### A/B Experiments
 
@@ -309,7 +394,7 @@ aether.use(myPlugin);
 
 ## Modules
 
-| Directory | File | Responsibility |
+| Directory | File(s) | Responsibility |
 |---|---|---|
 | `src/core/` | `identity.ts` | Anonymous ID generation, identity merging, cross-subdomain persistence via cookies and localStorage |
 | `src/core/` | `session.ts` | Session lifecycle, 30-minute inactivity timeout, heartbeat, page/event counting |
@@ -319,7 +404,13 @@ aether.use(myPlugin);
 | `src/modules/` | `performance.ts` | Core Web Vitals collection (LCP, FID, CLS, TTFB, FCP) and global error tracking |
 | `src/modules/` | `experiments.ts` | Deterministic A/B variant assignment (FNV-1a hashing), weighted splits, exposure tracking |
 | `src/ml/` | `edge-ml.ts` | Browser-side behavioral signal collection, intent prediction, bot detection, session scoring |
-| `src/web3/` | `index.ts` | Ethereum provider detection, wallet connect/disconnect, chain switching, transaction monitoring |
+| `src/web3/` | `index.ts` | Multi-VM wallet orchestrator, unified wallet interface, connection lifecycle |
+| `src/web3/providers/` | `evm-provider.ts`, `svm-provider.ts`, `bitcoin-provider.ts`, `move-provider.ts`, `near-provider.ts`, `tron-provider.ts`, `cosmos-provider.ts` | VM-specific wallet provider adapters for each blockchain family |
+| `src/web3/chains/` | `chain-registry.ts`, `evm-chains.ts`, `chain-utils.ts` | Multi-chain registry with 20+ blockchains, chain metadata, and utility functions |
+| `src/web3/tracking/` | `evm-tracker.ts`, `svm-tracker.ts`, `btc-tracker.ts`, `move-tracker.ts`, `near-tracker.ts`, `tron-tracker.ts`, `cosmos-tracker.ts` | Per-VM event trackers for transactions, token transfers, and chain-specific events |
+| `src/web3/defi/` | `protocol-registry.ts`, `dex-tracker.ts`, `lending-tracker.ts`, `staking-tracker.ts`, `perpetuals-tracker.ts`, `bridge-tracker.ts`, `nft-marketplace-tracker.ts`, + 9 more | DeFi protocol detection and tracking across 15 categories and 150+ protocols |
+| `src/web3/wallet/` | `wallet-classifier.ts`, `wallet-labels.ts` | Wallet classification (hot, cold, smart, exchange, protocol, multisig) and behavioral labeling |
+| `src/web3/portfolio/` | `portfolio-tracker.ts` | Cross-chain portfolio aggregation, token balances, and DeFi position monitoring |
 | `src/utils/` | `index.ts` | ID generation, timestamps, localStorage/cookie helpers, device/page/campaign context extraction |
 | `src/` | `types.ts` | Full TypeScript interface definitions for config, events, identity, session, ML, Web3, and consent |
 
@@ -372,7 +463,49 @@ packages/web/
     ml/
       edge-ml.ts          # Browser-side ML predictions
     web3/
-      index.ts            # Ethereum wallet tracking
+      index.ts            # Multi-VM wallet orchestrator
+      providers/          # VM-specific wallet provider adapters
+        evm-provider.ts   #   EVM (MetaMask, Coinbase, WalletConnect)
+        svm-provider.ts   #   Solana (Phantom, Solflare)
+        bitcoin-provider.ts # Bitcoin (UniSat, Xverse)
+        move-provider.ts  #   MoveVM/SUI (SUI Wallet, Petra)
+        near-provider.ts  #   NEAR (NEAR Wallet)
+        tron-provider.ts  #   TRON (TronLink)
+        cosmos-provider.ts #  Cosmos (Keplr)
+      chains/             # Chain registry and utilities
+        chain-registry.ts #   20+ blockchain metadata
+        evm-chains.ts     #   EVM chain definitions
+        chain-utils.ts    #   Chain utility functions
+      tracking/           # Per-VM event trackers
+        evm-tracker.ts    #   EVM transaction tracking
+        svm-tracker.ts    #   Solana transaction tracking
+        btc-tracker.ts    #   Bitcoin UTXO tracking
+        move-tracker.ts   #   MoveVM transaction tracking
+        near-tracker.ts   #   NEAR transaction tracking
+        tron-tracker.ts   #   TRON transaction tracking
+        cosmos-tracker.ts #   Cosmos transaction tracking
+      defi/               # DeFi protocol tracking (15 categories)
+        protocol-registry.ts # 150+ protocol definitions
+        dex-tracker.ts    #   DEX interactions
+        lending-tracker.ts #  Lending protocol tracking
+        staking-tracker.ts #  Staking protocol tracking
+        perpetuals-tracker.ts # Perpetuals tracking
+        bridge-tracker.ts #   Cross-chain bridge tracking
+        nft-marketplace-tracker.ts # NFT marketplace tracking
+        yield-tracker.ts  #   Yield aggregator tracking
+        governance-tracker.ts # Governance tracking
+        insurance-tracker.ts # Insurance protocol tracking
+        options-tracker.ts #  Options protocol tracking
+        launchpad-tracker.ts # Launchpad tracking
+        payments-tracker.ts # Payment protocol tracking
+        restaking-tracker.ts # Restaking tracking
+        cex-tracker.ts    #   CEX integration tracking
+        router-tracker.ts #   DEX aggregator/router tracking
+      wallet/             # Wallet analysis
+        wallet-classifier.ts # Wallet type classification
+        wallet-labels.ts  #   Behavioral labeling
+      portfolio/          # Cross-chain portfolio
+        portfolio-tracker.ts # Portfolio aggregation
     utils/
       index.ts            # Helper functions
   dist/                   # Compiled bundles
@@ -393,7 +526,13 @@ The SDK targets modern browsers with support for:
 - `navigator.sendBeacon`
 - `Intl.DateTimeFormat`
 - `history.pushState` / `popstate` (SPA routing)
-- `window.ethereum` (Web3 features, optional)
+- `window.ethereum` (EVM Web3, optional)
+- `window.solana` / `window.phantom` (Solana/SVM, optional)
+- `window.unisat` / `window.bitcoin` (Bitcoin, optional)
+- `window.suiWallet` (MoveVM/SUI, optional)
+- `window.near` (NEAR, optional)
+- `window.tronWeb` / `window.tronLink` (TRON/TVM, optional)
+- `window.keplr` (Cosmos, optional)
 - `PerformanceObserver` (Web Vitals, optional)
 
 ---

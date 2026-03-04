@@ -1,6 +1,6 @@
 # Aether AWS Deployment
 
-Multi-account AWS infrastructure for the Aether platform, provisioned with Terraform and operated via Python automation scripts. Spans five AWS accounts, four VPCs, nine ECS Fargate services, eight managed data stores, and a full security/compliance posture -- all orchestrated from a single configuration source.
+Multi-account AWS infrastructure for the Aether platform, provisioned with Terraform and operated via Python automation scripts. Spans six AWS accounts, five VPCs, nine ECS Fargate services, eight managed data stores, and a full security/compliance posture -- all orchestrated from a single configuration source.
 
 ---
 
@@ -39,7 +39,7 @@ Multi-account AWS infrastructure for the Aether platform, provisioned with Terra
 
 ## Architecture Overview
 
-### AWS Accounts (5)
+### AWS Accounts (6)
 
 | Account              | ID             | Purpose                                                      |
 |----------------------|----------------|--------------------------------------------------------------|
@@ -48,10 +48,11 @@ Multi-account AWS infrastructure for the Aether platform, provisioned with Terra
 | `aether-production`  | `333333333333` | Live customer traffic -- Multi-AZ, auto-scaling, full monitoring |
 | `aether-data`        | `444444444444` | Data lake, ML training, SageMaker jobs, Athena queries        |
 | `aether-security`    | `555555555555` | CloudTrail aggregation, GuardDuty, Security Hub               |
+| `aether-demo`        | `666666666666` | Sales and BD demo environment -- pre-seeded data, single-AZ   |
 
-### VPC Networking (4 VPCs)
+### VPC Networking (5 VPCs)
 
-Each VPC is deployed with 3 Availability Zones, public subnets (ALB, NAT Gateways, bastion hosts) and private subnets (ECS tasks, RDS, ElastiCache, Neptune, Lambda).
+Each VPC is deployed with 3 Availability Zones, public subnets (ALB, NAT Gateways, bastion hosts) and private subnets (ECS tasks, RDS, ElastiCache, Neptune, Lambda). The demo VPC uses a simplified single-AZ topology.
 
 | VPC          | CIDR            | NAT Gateways | Flow Log Retention |
 |--------------|-----------------|:------------:|:------------------:|
@@ -59,6 +60,7 @@ Each VPC is deployed with 3 Availability Zones, public subnets (ALB, NAT Gateway
 | staging      | `10.1.0.0/16`   | 1            | 14 days            |
 | production   | `10.2.0.0/16`   | 3 (HA)       | 30 days            |
 | data         | `10.3.0.0/16`   | 1            | 30 days            |
+| demo         | `10.3.0.0/16`   | 1            | 7 days             |
 
 **VPC Peering:** production <-> data (ML model access)
 
@@ -87,7 +89,7 @@ Each VPC is deployed with 3 Availability Zones, public subnets (ALB, NAT Gateway
 | notification   |  256 |  512M  |   1 |   5 |     60%     | 8008 | `/v1/health`     |
 | admin          |  256 |  512M  |   1 |   3 |     60%     | 8009 | `/v1/health`     |
 
-*Production specs shown above. Staging runs at half scale (min_count=1). Dev runs at minimal resources (256 CPU, 512M, single instance).*
+*Production specs shown above. Staging runs at half scale (min_count=1). Dev and demo run at minimal resources (256 CPU, 512M, single instance).*
 
 Additional compute: Lambda functions (EventBridge-triggered ML retraining, data cleanup), API Gateway WebSocket for real-time streaming.
 
@@ -181,7 +183,7 @@ Cross-region replication is configured for S3, DynamoDB (global tables), RDS (sn
   +-----+  +--------+  +-------+  +---------+   |  CloudTrail        |
                                                  +--------------------+
 
-  Accounts: dev (10.0/16) | staging (10.1/16) | production (10.2/16) | data (10.3/16) | security
+  Accounts: dev (10.0/16) | staging (10.1/16) | production (10.2/16) | data (10.3/16) | demo (10.3/16) | security
   Regions:  us-east-1 (primary)  |  us-west-2 (DR -- cross-region replication)
 ```
 
@@ -229,6 +231,7 @@ aether-aws/
       dev/main.tf                  # Dev composition (minimal resources)
       staging/main.tf              # Staging composition (half-scale)
       production/main.tf           # Production composition (full Multi-AZ)
+      demo/main.tf                 # Demo composition (single-AZ, pre-seeded data, playground hosting)
       shared/                      # Shared variables and outputs
   tests/                           # pytest test suite (moto for AWS mocking)
 ```
@@ -298,10 +301,10 @@ All infrastructure parameters are defined in `config/aws_config.py`. This file i
 
 | Object              | Description                                                        |
 |---------------------|--------------------------------------------------------------------|
-| `AWS_ACCOUNTS`      | 5 accounts (dev, staging, production, data, security) with IDs and regions |
+| `AWS_ACCOUNTS`      | 6 accounts (dev, staging, production, data, security, demo) with IDs and regions |
 | `VPC_CONFIGS`       | CIDR blocks, AZ count, subnet layout, NAT gateway count per VPC   |
 | `VPC_ENDPOINTS`     | 12 PrivateLink endpoint definitions with type and rationale        |
-| `COMPUTE_SPECS`     | Per-service CPU, memory, scaling bounds for all 3 environments     |
+| `COMPUTE_SPECS`     | Per-service CPU, memory, scaling bounds for all 4 environments     |
 | `DATA_STORES`       | Instance types, configurations, encryption settings                |
 | `SECRETS`           | 9 managed secrets with rotation schedules                          |
 | `MONITORING_STACK`  | 7 monitoring layers (metrics, logging, tracing, alerting, dashboards, cost, security) |
@@ -327,7 +330,7 @@ All infrastructure parameters are defined in `config/aws_config.py`. This file i
 
 ### Overview
 
-17 Terraform modules compose the full infrastructure across 3 environment layers. State is stored in S3 with DynamoDB locking (per-environment keys).
+17 Terraform modules compose the full infrastructure across 4 environment layers (dev, staging, production, demo). State is stored in S3 with DynamoDB locking (per-environment keys).
 
 | Module           | Resources                                                           |
 |------------------|---------------------------------------------------------------------|
@@ -356,6 +359,7 @@ All infrastructure parameters are defined in `config/aws_config.py`. This file i
 | dev         | `dev/terraform.tfstate`          | $2,000/mo   | Minimal (1 task per service) |
 | staging     | `staging/terraform.tfstate`      | $3,000/mo   | Half-scale     |
 | production  | `production/terraform.tfstate`   | $15,000/mo  | Full Multi-AZ  |
+| demo        | `demo/terraform.tfstate`         | $2,500/mo   | Minimal, single-AZ, playground hosting |
 
 ### Usage
 

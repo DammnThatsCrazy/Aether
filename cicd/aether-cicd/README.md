@@ -1,6 +1,6 @@
 # Aether CI/CD Pipeline
 
-Modular, production-grade CI/CD pipeline for the **Aether platform** -- a monorepo spanning 5 SDK packages, 9 microservices, and shared infrastructure. Built in Python with a clean separation between configuration, quality gates, CI stages, CD stages, and SDK release automation.
+Modular, production-grade CI/CD pipeline for the **Aether platform** -- a monorepo spanning 5 SDK packages, 9 microservices, and shared infrastructure. Built in Python with a clean separation between configuration, quality gates, CI stages, CD stages, SDK release automation, and demo environment management.
 
 ---
 
@@ -21,7 +21,7 @@ Modular, production-grade CI/CD pipeline for the **Aether platform** -- a monore
 
 ## Pipeline Overview
 
-The pipeline is divided into **8 CI stages**, **6 CD stages**, a **quality-gate engine**, and an **SDK release system**.
+The pipeline is divided into **8 CI stages**, **6 CD stages** (production), a **3-stage demo pipeline**, a **quality-gate engine**, and an **SDK release system**.
 
 ```
   Source Push
@@ -35,6 +35,8 @@ The pipeline is divided into **8 CI stages**, **6 CD stages**, a **quality-gate 
       |                                    +---> Rollback (automatic)
       |
       +---> SDK Release (npm, PyPI, Maven, CocoaPods)
+      |
+      +---> Demo Pipeline (deploy → smoke → seed)
 ```
 
 All stages share a single configuration source (`config/pipeline_config.py`) and delegate command execution to shared utilities (`shared/runner.py`).
@@ -54,14 +56,22 @@ aether-cicd/
 |   |-- ci/
 |   |   +-- ci_stages.py        # 8-stage CI pipeline
 |   |-- cd/
-|   |   +-- cd_stages.py        # 6-stage progressive CD pipeline
+|   |   +-- cd_stages.py        # 6-stage production CD + 3-stage demo CD pipeline
 |   +-- sdk/
 |       +-- sdk_release.py      # Multi-platform SDK release automation
+|-- scripts/
+|   +-- seed_demo_data.py       # Pre-seed demo environment with realistic data
 |-- shared/
 |   |-- runner.py               # run_cmd(), log(), timed() -- single subprocess wrapper
 |   |-- notifier.py             # Slack / PagerDuty notification dispatch
 |   |-- parsers.py              # Output parsers for tool results
 |   +-- change_detect.py        # Monorepo change detection (selective CI)
+|-- .github/workflows/
+|   |-- ci.yml                  # CI workflow (8 stages)
+|   |-- cd.yml                  # CD workflow (production + demo)
+|   |-- infrastructure.yml      # Terraform plan/apply/drift (4 environments)
+|   |-- sdk-release.yml         # SDK release automation
+|   +-- demo-management.yml     # Demo lifecycle (deploy/teardown/reset/status)
 +-- pyproject.toml              # Project metadata and dependencies
 ```
 
@@ -96,6 +106,18 @@ Stages 1 (Lint) and 5 (Security Scan) run **in parallel** when both are eligible
 | 6 | **Post-Deploy Verify** | 100%    | Critical alert within 30 min           | No       |
 
 Deployments use **weighted ALB target groups** for traffic shifting with automatic rollback to previous ECS task definitions when any trigger fires.
+
+### Demo CD Pipeline (3 Stages)
+
+The demo environment uses a simplified deployment pipeline -- no canary, no progressive rollout, no approval gates. A data-seeding step populates the environment with realistic sample data on each deploy.
+
+| # | Stage              | Description                                           | Rollback Trigger       |
+| - | ------------------ | ----------------------------------------------------- | ---------------------- |
+| 1 | **Demo Deploy**    | Terraform + ECS deploy to `aether-demo` cluster       | Any deployment failure |
+| 2 | **Demo Smoke**     | Health checks + critical API flow validation           | Any smoke test failure |
+| 3 | **Demo Seed**      | Seed demo environment with realistic sample data       | Seed script failure    |
+
+The demo pipeline is triggered by pushes to the `demo` branch or via `workflow_dispatch` with `environment=demo`. Rollback is simplified: redeploy previous ECS task definitions (no ALB weight management).
 
 ---
 
@@ -134,6 +156,7 @@ develop ---------o-o--------------> integration branch
 feature/*  ----   |  ----
 hotfix/*   -------
 release/*  -------
+demo ----o----o----o--------------> demo environment (sales/BD)
 ```
 
 | Branch        | Purpose                                   | Deploys To  |
@@ -141,6 +164,7 @@ release/*  -------
 | `main`        | Production-ready code                     | Production  |
 | `staging`     | Pre-production validation                 | Staging     |
 | `develop`     | Integration branch for feature work       | Dev         |
+| `demo`        | Demo environment for sales and BD         | Demo        |
 | `feature/*`   | New feature development                   | Dev (PR)    |
 | `hotfix/*`    | Urgent production fixes                   | Production  |
 | `release/*`   | Release candidate stabilization           | Staging     |
@@ -185,13 +209,14 @@ All pipeline stages delegate to a common set of utilities in `shared/`, eliminat
 
 Dispatches pipeline events to **Slack** and **PagerDuty**:
 
-| Channel           | Purpose                   |
-| ----------------- | ------------------------- |
-| `#aether-ci`      | CI pipeline events        |
-| `#aether-deploys` | CD deployment events      |
-| `#aether-alerts`  | Rollback and drift alerts |
+| Channel           | Purpose                        |
+| ----------------- | ------------------------------ |
+| `#aether-ci`      | CI pipeline events             |
+| `#aether-deploys` | CD deployment events           |
+| `#aether-demo`    | Demo environment deployments   |
+| `#aether-alerts`  | Rollback and drift alerts      |
 
-Notifications fire on: CI failure, CD start, CD success, rollback, and Terraform drift detection.
+Notifications fire on: CI failure, CD start, CD success, rollback, demo deployments, and Terraform drift detection.
 
 ### `change_detect.py`
 
@@ -234,7 +259,7 @@ The pipeline manages the following Aether monorepo layout:
 Terraform modules managed by this pipeline:
 
 ```
-vpc | ecs | rds | elasticache | neptune | s3 | cloudfront | sagemaker | iam | monitoring
+vpc | ecs | rds | elasticache | neptune | s3 | cloudfront | sagemaker | iam | monitoring | waf | secrets | vpc_endpoints | dynamodb | msk | opensearch | api_gateway
 ```
 
 | Setting               | Value                        |
@@ -244,7 +269,7 @@ vpc | ecs | rds | elasticache | neptune | s3 | cloudfront | sagemaker | iam | mo
 | Plan review           | Atlantis                     |
 | Drift detection       | Daily at 06:00 UTC           |
 
-**AWS Accounts:**
+**AWS Accounts (6):**
 
 | Account              | Environment | Purpose                          |
 | -------------------- | ----------- | -------------------------------- |
@@ -253,6 +278,7 @@ vpc | ecs | rds | elasticache | neptune | s3 | cloudfront | sagemaker | iam | mo
 | `aether-production`  | production  | Live customer traffic            |
 | `aether-data`        | data        | Data lake and ML training        |
 | `aether-security`    | security    | Centralized logging and security |
+| `aether-demo`        | demo        | Sales and BD demo environment    |
 
 ---
 
@@ -297,10 +323,11 @@ All pipeline configuration lives in `config/pipeline_config.py`. Key exports:
 | ------------------------- | --------------------- | --------------------------------------------- |
 | `CI_STAGES`              | `List[CIStage]`       | 8 CI stage definitions with tools and gates   |
 | `CD_STAGES`              | `List[CDStage]`       | 6 CD stage definitions with rollback triggers |
+| `DEMO_CD_STAGES`         | `List[CDStage]`       | 3 demo CD stages (deploy, smoke, seed)        |
 | `QUALITY_THRESHOLDS`     | `QualityThresholds`   | All pass/fail thresholds                      |
 | `SDK_RELEASE_TARGETS`    | `List[SDKReleaseTarget]` | 4 platform release configurations          |
-| `BRANCH_CONFIG`          | `BranchConfig`        | GitFlow branch naming                         |
-| `AWS_ACCOUNTS`           | `List[AWSAccount]`    | 5 AWS account definitions                     |
+| `BRANCH_CONFIG`          | `BranchConfig`        | GitFlow branch naming (incl. demo branch)     |
+| `AWS_ACCOUNTS`           | `List[AWSAccount]`    | 6 AWS account definitions                     |
 | `REPO_SERVICES`          | `Dict`                | 9 microservice paths and metadata             |
 | `REPO_PACKAGES`          | `Dict`                | 5 SDK/shared package paths                    |
 | `TERRAFORM_CONFIG`       | `TerraformConfig`     | IaC backend and module list                   |
