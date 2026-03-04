@@ -19,6 +19,7 @@ class Environment(str, Enum):
     DEV = "dev"
     STAGING = "staging"
     PRODUCTION = "production"
+    DEMO = "demo"
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ AWS_ACCOUNTS = [
     AWSAccount("aether-production", "333333333333", "Live customer traffic",            "production"),
     AWSAccount("aether-data",       "444444444444", "Data lake and ML training",        "data"),
     AWSAccount("aether-security",   "555555555555", "Centralized logging and security", "security"),
+    AWSAccount("aether-demo",       "666666666666", "Sales and BD demo environment",   "demo"),
 ]
 
 
@@ -48,6 +50,7 @@ class BranchConfig:
     main: str = "main"
     staging: str = "staging"
     develop: str = "develop"
+    demo: str = "demo"
     feature_prefix: str = "feature/"
     hotfix_prefix: str = "hotfix/"
     release_prefix: str = "release/"
@@ -196,6 +199,26 @@ CD_STAGES = [
 
 
 # --------------------------------------------------------------------------- #
+# DEMO CD PIPELINE -- 3 STAGES (simplified, no canary/rollout)
+# --------------------------------------------------------------------------- #
+
+DEMO_CD_STAGES = [
+    CDStage(1, "demo_deploy",
+        "Deploy all services to demo via Terraform + ECS",
+        "Any deployment failure",
+        requires_approval=False),
+    CDStage(2, "demo_smoke",
+        "Health checks + critical API flow validation",
+        "Any smoke test failure",
+        validation_minutes=3),
+    CDStage(3, "demo_seed",
+        "Seed demo environment with realistic sample data",
+        "Seed script failure",
+        validation_minutes=2),
+]
+
+
+# --------------------------------------------------------------------------- #
 # QUALITY GATE THRESHOLDS
 # --------------------------------------------------------------------------- #
 
@@ -294,6 +317,7 @@ class NotificationConfig:
     """Centralised notification settings for all pipeline events."""
     slack_channel_ci: str = "#aether-ci"
     slack_channel_cd: str = "#aether-deploys"
+    slack_channel_demo: str = "#aether-demo"
     slack_channel_alerts: str = "#aether-alerts"
     slack_webhook_env_var: str = "SLACK_WEBHOOK"
     pagerduty_routing_key_env_var: str = "PAGERDUTY_ROUTING_KEY"

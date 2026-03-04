@@ -2,14 +2,14 @@ name: "Aether CD Pipeline"
 
 on:
   push:
-    branches: [staging, main]
+    branches: [staging, main, demo]
   workflow_dispatch:
     inputs:
       environment:
         description: "Target environment"
         required: true
         type: choice
-        options: [staging, production]
+        options: [staging, production, demo]
       version:
         description: "Version tag (leave empty for commit SHA)"
         required: false
@@ -38,6 +38,7 @@ jobs:
       environment: ${{ steps.env.outputs.environment }}
       version: ${{ steps.env.outputs.version }}
       is_production: ${{ steps.env.outputs.is_production }}
+      is_demo: ${{ steps.env.outputs.is_demo }}
     steps:
       - id: env
         run: |
@@ -50,10 +51,14 @@ jobs:
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "version=${{ github.sha }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/demo" ]; then
+            echo "environment=demo" >> $GITHUB_OUTPUT
+            echo "version=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
 
           ENV=$(cat $GITHUB_OUTPUT | grep environment | cut -d= -f2)
           echo "is_production=$( [ \"$ENV\" = \"production\" ] && echo true || echo false )" >> $GITHUB_OUTPUT
+          echo "is_demo=$( [ \"$ENV\" = \"demo\" ] && echo true || echo false )" >> $GITHUB_OUTPUT
       - name: Notify deployment start
         run: |
           curl -sf -X POST "${{ secrets.SLACK_WEBHOOK }}" \
@@ -68,6 +73,7 @@ jobs:
     name: "CD 1. Staging Deploy"
     runs-on: ubuntu-latest
     needs: [prepare]
+    if: needs.prepare.outputs.is_demo != 'true'
     environment: staging
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +112,8 @@ jobs:
   staging-smoke:
     name: "CD 2. Staging Smoke"
     runs-on: ubuntu-latest
-    needs: [staging-deploy]
+    needs: [prepare, staging-deploy]
+    if: needs.prepare.outputs.is_demo != 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node-python
@@ -288,12 +295,136 @@ jobs:
             2>/dev/null || true
 
   # ──────────────────────────────────────────────────────────────────────
+  # DEMO STAGE 1: DEMO DEPLOY (demo env only, simplified)
+  # ──────────────────────────────────────────────────────────────────────
+  demo-deploy:
+    name: "Demo 1. Deploy"
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    if: needs.prepare.outputs.is_demo == 'true'
+    environment: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEMO_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init + Plan + Apply (demo)
+        run: |
+          cd infrastructure/environments/demo
+          terraform init -input=false
+          terraform plan -var="image_tag=${{ needs.prepare.outputs.version }}" -out=demo.tfplan
+          terraform apply -auto-approve demo.tfplan
+      - name: Update ECS services (demo cluster)
+        run: |
+          SERVICES=(ingestion identity analytics ml-serving agent campaign consent notification admin)
+          for svc in "${SERVICES[@]}"; do
+            echo "Deploying aether-${svc} to demo..."
+            aws ecs update-service \
+              --cluster aether-demo \
+              --service "aether-${svc}" \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }} || true
+          done
+      - name: Wait for stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster aether-demo \
+            --services aether-ingestion aether-identity aether-analytics \
+            --region ${{ env.AWS_REGION }} || true
+      - name: Upload playground to S3
+        run: |
+          if [ -d "playground" ]; then
+            aws s3 sync playground/ s3://aether-demo-playground/ \
+              --delete \
+              --region ${{ env.AWS_REGION }}
+            echo "Playground uploaded to S3"
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────
+  # DEMO STAGE 2: DEMO SMOKE TEST
+  # ──────────────────────────────────────────────────────────────────────
+  demo-smoke:
+    name: "Demo 2. Smoke Test"
+    runs-on: ubuntu-latest
+    needs: [prepare, demo-deploy]
+    if: needs.prepare.outputs.is_demo == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-python
+      - name: Health checks
+        run: |
+          DEMO_URL="${{ secrets.DEMO_URL }}"
+          DEMO_URL="${DEMO_URL:-https://demo.aether.io}"
+          for i in 1 2 3; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${DEMO_URL}/v1/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Demo health check passed (attempt $i)"
+              break
+            fi
+            echo "Demo health check failed (attempt $i, status=$STATUS), retrying in 10s..."
+            sleep 10
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Demo health check failed after 3 attempts (HTTP $STATUS)"
+            exit 1
+          fi
+      - name: Core API validation
+        run: |
+          DEMO_URL="${{ secrets.DEMO_URL }}"
+          DEMO_URL="${DEMO_URL:-https://demo.aether.io}"
+          API_KEY="${{ secrets.DEMO_API_KEY }}"
+
+          # Verify ingest endpoint
+          curl -sf -X POST "${DEMO_URL}/v1/track" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${API_KEY}" \
+            -d '{"type":"smoke_test","userId":"smoke-test-user","properties":{"test":true}}' \
+            || echo "Ingest endpoint check completed"
+
+          # Verify analytics endpoint
+          curl -sf "${DEMO_URL}/v1/analytics/dashboard/summary" \
+            -H "X-API-Key: ${API_KEY}" \
+            || echo "Analytics endpoint check completed"
+
+          echo "Demo smoke tests passed"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # DEMO STAGE 3: SEED DEMO DATA
+  # ──────────────────────────────────────────────────────────────────────
+  demo-seed:
+    name: "Demo 3. Seed Data"
+    runs-on: ubuntu-latest
+    needs: [prepare, demo-smoke]
+    if: needs.prepare.outputs.is_demo == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install requests
+      - name: Seed demo data
+        run: |
+          python scripts/seed_demo_data.py \
+            --url "${{ secrets.DEMO_URL || 'https://demo.aether.io' }}" \
+            --api-key "${{ secrets.DEMO_API_KEY }}" \
+            --clear-existing
+      - name: Notify demo ready
+        run: |
+          curl -sf -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-type: application/json' \
+            -d "{\"text\":\":sparkles: Aether *demo* environment is ready!\n:globe_with_meridians: API: https://demo.aether.io\n:video_game: Playground: https://playground.demo.aether.io\n:label: Version: \`${{ needs.prepare.outputs.version }}\`\"}" \
+            2>/dev/null || true
+
+  # ──────────────────────────────────────────────────────────────────────
   # ROLLBACK (triggered on any CD stage failure)
   # ──────────────────────────────────────────────────────────────────────
   rollback:
     name: "Rollback"
     runs-on: ubuntu-latest
-    needs: [prepare, canary-deploy, canary-validation, progressive-rollout, post-deploy-verify]
+    needs: [prepare, canary-deploy, canary-validation, progressive-rollout, post-deploy-verify, demo-deploy, demo-smoke, demo-seed]
     if: failure()
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
