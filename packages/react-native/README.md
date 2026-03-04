@@ -1,12 +1,12 @@
 # @aether/react-native
 
 <!-- Badges -->
-![Version](https://img.shields.io/badge/version-4.0.0-blue)
+![Version](https://img.shields.io/badge/version-5.0.0-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey)
 
-**React Native bridge to the Aether native iOS and Android SDKs.** Track events, resolve identities, manage consent, monitor Web3 wallets, run A/B experiments, and capture screen views -- all through a unified JavaScript API backed by native Swift and Kotlin modules.
+**React Native bridge to the Aether native iOS and Android SDKs with multi-chain Web3 support.** Track events, resolve identities, manage consent, monitor Web3 wallets across 7 VM families (EVM, Solana, Bitcoin, MoveVM, NEAR, TRON, Cosmos), track DeFi interactions, aggregate cross-chain portfolios, run A/B experiments, and capture screen views -- all through a unified JavaScript API backed by native Swift and Kotlin modules.
 
 ---
 
@@ -16,7 +16,7 @@
 - **Identity resolution** -- anonymous-to-known user merging with reactive hooks for identity changes
 - **Session management** -- automatic session lifecycle handled by the underlying native SDKs
 - **Consent management** -- per-purpose grant/revoke for analytics, marketing, and Web3 categories
-- **Web3 wallet tracking** -- wallet connect/disconnect, on-chain transaction tracking, and multi-chain support
+- **Multi-chain Web3 wallet tracking** -- 7 VM families (EVM, SVM/Solana, Bitcoin, MoveVM/SUI, NEAR, TVM/TRON, Cosmos) with wallet connect/disconnect, on-chain transaction tracking, DeFi protocol detection (150+ protocols), cross-chain portfolio aggregation, and wallet classification (hot, cold, smart, exchange)
 - **A/B experiments** -- deterministic variant assignment with async hooks for React components
 - **Auto-screen tracking** -- declarative `useScreenTracking` hook for React Navigation integration
 - **Deep link attribution** -- pass deep link URLs to the native attribution engine
@@ -60,7 +60,7 @@ pnpm add @aether/react-native
 cd ios && pod install && cd ..
 ```
 
-The podspec declares a dependency on `AetherSDK ~> 4.0`, which CocoaPods will resolve automatically.
+The podspec declares a dependency on `AetherSDK ~> 5.0`, which CocoaPods will resolve automatically.
 
 ### 3. Android -- Gradle
 
@@ -148,8 +148,19 @@ Aether.init({
     screenTracking: true,          // automatic activity/screen tracking (native)
     deepLinkAttribution: true,     // deep link attribution engine
     pushTracking: true,            // push notification open tracking
-    walletTracking: false,         // Web3 wallet event tracking
     experiments: true,             // A/B experiment framework
+
+    // Web3 — Multi-VM wallet tracking (v5.0)
+    walletTracking: true,          // EVM wallet event tracking
+    svmTracking: true,             // Solana/SVM wallet tracking
+    bitcoinTracking: true,         // Bitcoin wallet tracking
+    moveVMTracking: false,         // MoveVM/SUI wallet tracking
+    nearTracking: false,           // NEAR wallet tracking
+    tronTracking: false,           // TRON/TVM wallet tracking
+    cosmosTracking: false,         // Cosmos wallet tracking
+    defiTracking: true,            // DeFi protocol interaction tracking
+    portfolioTracking: true,       // Cross-chain portfolio aggregation
+    walletClassification: true,    // Wallet type classification
   },
 
   privacy: {
@@ -171,7 +182,7 @@ Aether.init({
 | `track` | `(event: string, properties?: Record<string, unknown>) => void` | Track a custom event with optional properties. |
 | `screenView` | `(screenName: string, properties?: Record<string, unknown>) => void` | Record a screen view event. |
 | `conversion` | `(event: string, value?: number, properties?: Record<string, unknown>) => void` | Track a conversion event with optional monetary value. |
-| `hydrateIdentity` | `(data: IdentityData) => void` | Merge anonymous identity with known user data. Accepts `userId`, `walletAddress`, `walletType`, `chainId`, and `traits`. |
+| `hydrateIdentity` | `(data: IdentityData) => void` | Merge anonymous identity with known user data. Accepts `userId`, wallet addresses across all supported VMs, and `traits`. |
 | `getIdentity` | `() => Promise<Identity>` | Return the current identity object asynchronously from the native layer. |
 | `reset` | `() => void` | Clear identity, session, and experiment data. Creates a fresh anonymous identity. |
 | `flush` | `() => void` | Send all queued events to the server immediately. |
@@ -182,9 +193,20 @@ Aether.init({
 
 | Method | Signature | Description |
 |---|---|---|
-| `wallet.connect` | `(address: string, options?: { type?: string; chainId?: number }) => void` | Register a wallet connection with optional wallet type and chain ID. |
-| `wallet.disconnect` | `() => void` | Record a wallet disconnection event. |
-| `wallet.transaction` | `(txHash: string, options?: Record<string, unknown>) => void` | Track an on-chain transaction by hash with optional metadata. |
+| `wallet.connect` | `(address: string, options?: { type?: string; chainId?: number; ens?: string }) => void` | Connect an EVM wallet with optional wallet type, chain ID, and ENS name. |
+| `wallet.connectSVM` | `(address: string, options?: { type?: string; cluster?: string }) => void` | Connect a Solana/SVM wallet (Phantom, Solflare, Backpack). |
+| `wallet.connectBTC` | `(address: string, options?: { type?: string; network?: string }) => void` | Connect a Bitcoin wallet (UniSat, Xverse, Leather). |
+| `wallet.connectSUI` | `(address: string, options?: { type?: string }) => void` | Connect a MoveVM/SUI wallet. |
+| `wallet.connectNEAR` | `(address: string, options?: { type?: string }) => void` | Connect a NEAR wallet. |
+| `wallet.connectTRON` | `(address: string, options?: { type?: string }) => void` | Connect a TRON/TVM wallet (TronLink). |
+| `wallet.connectCosmos` | `(address: string, options?: { type?: string }) => void` | Connect a Cosmos wallet (Keplr, Leap). |
+| `wallet.disconnect` | `() => void` | Disconnect all wallets and record the event. |
+| `wallet.transaction` | `(txHash: string, options?: Record<string, unknown>) => void` | Track an on-chain transaction with optional DeFi protocol metadata (`protocol`, `category`). |
+| `wallet.getWallets` | `() => WalletInfo[]` | Get all connected wallets across all VMs. |
+| `wallet.getWalletsByVM` | `(vm: string) => WalletInfo[]` | Get connected wallets filtered by VM family (`'evm'`, `'svm'`, `'btc'`, `'move'`, `'near'`, `'tvm'`, `'cosmos'`). |
+| `wallet.getPortfolio` | `() => Promise<Portfolio>` | Get aggregated cross-chain portfolio (total value, tokens, DeFi positions). |
+| `wallet.classifyWallet` | `(address: string) => Classification` | Classify a wallet's type (hot, cold, smart, exchange, protocol, multisig). |
+| `wallet.onWalletChange` | `(callback: (event: WalletEvent) => void) => () => void` | Subscribe to wallet events (connect, disconnect, chainChanged) across all VMs. Returns an unsubscribe function. |
 
 ### Experiment Methods
 
@@ -273,7 +295,13 @@ function Root() {
       config={{
         apiKey: 'your-api-key',
         environment: 'production',
-        modules: { walletTracking: true },
+        modules: {
+          walletTracking: true,
+          svmTracking: true,
+          bitcoinTracking: true,
+          defiTracking: true,
+          portfolioTracking: true,
+        },
         privacy: { gdprMode: true, anonymizeIP: true },
       }}
     >
@@ -291,7 +319,7 @@ The provider re-initializes only when `apiKey` changes.
 
 ### iOS
 
-The podspec (`aether-react-native.podspec`) declares a dependency on `AetherSDK ~> 4.0` and targets iOS 14.0+. After installing the npm package:
+The podspec (`aether-react-native.podspec`) declares a dependency on `AetherSDK ~> 5.0` and targets iOS 14.0+. After installing the npm package:
 
 ```bash
 cd ios && pod install

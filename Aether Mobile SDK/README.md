@@ -1,6 +1,6 @@
 # Aether Mobile SDK
 
-The Aether Mobile SDK provides native analytics, identity resolution, and event tracking for iOS, Android, and React Native applications. It is designed for high-throughput mobile environments with offline support, automatic batching, and GDPR-compliant consent management.
+The Aether Mobile SDK provides native analytics, identity resolution, multi-chain Web3 wallet tracking, and event tracking for iOS, Android, and React Native applications. It is designed for high-throughput mobile environments with offline support, automatic batching, and GDPR-compliant consent management.
 
 ---
 
@@ -20,7 +20,7 @@ The Aether Mobile SDK provides native analytics, identity resolution, and event 
 - **Identity resolution** -- seamless anonymous-to-known-user transition
 - **Session management** -- automatic session rotation on foreground re-entry
 - **GDPR consent management** -- purpose-based consent (analytics, marketing, web3)
-- **Web3 wallet tracking** -- wallet connect/disconnect and transaction events
+- **Multi-chain Web3 wallet tracking** -- 7 VM families (EVM, SVM/Solana, Bitcoin, MoveVM/SUI, NEAR, TVM/TRON, Cosmos) with wallet connect/disconnect, transaction tracking, DeFi interactions, portfolio aggregation, and wallet classification
 - **A/B experiment framework** -- variant assignment with persistent bucketing
 - **Auto screen tracking** -- automatic view controller / activity tracking
 - **Offline event queuing** -- batched delivery with automatic retry on failure
@@ -47,14 +47,14 @@ Enter the repository URL:
 https://github.com/aether-network/aether-ios-sdk.git
 ```
 
-Set the version rule to **4.0.0** or later.
+Set the version rule to **5.0.0** or later.
 
 ### iOS -- CocoaPods
 
 Add the following to your `Podfile`:
 
 ```ruby
-pod 'AetherSDK', '~> 4.0'
+pod 'AetherSDK', '~> 5.0'
 ```
 
 Then run:
@@ -73,7 +73,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.aether:sdk-android:4.0.0")
+    implementation("com.aether:sdk-android:5.0.0")
 }
 ```
 
@@ -121,7 +121,11 @@ var config = AetherConfig(apiKey: "your-api-key")
 config.environment = .production
 config.debug = false
 config.modules.screenTracking = true
-config.modules.walletTracking = false
+config.modules.walletTracking = true
+config.modules.svmTracking = true       // Solana wallet tracking
+config.modules.bitcoinTracking = true   // Bitcoin wallet tracking
+config.modules.defiTracking = true      // DeFi protocol tracking
+config.modules.portfolioTracking = true // Cross-chain portfolio
 config.privacy.gdprMode = true
 config.privacy.anonymizeIP = true
 
@@ -180,7 +184,11 @@ class MyApp : Application() {
             debug = false,
             modules = ModuleConfig(
                 activityTracking = true,
-                walletTracking = false,
+                walletTracking = true,
+                svmTracking = true,          // Solana wallet tracking
+                bitcoinTracking = true,      // Bitcoin wallet tracking
+                defiTracking = true,         // DeFi protocol tracking
+                portfolioTracking = true,    // Cross-chain portfolio
                 errorTracking = true
             ),
             privacy = PrivacyConfig(
@@ -239,7 +247,11 @@ function App() {
       debug: false,
       modules: {
         screenTracking: true,
-        walletTracking: false,
+        walletTracking: true,
+        svmTracking: true,
+        bitcoinTracking: true,
+        defiTracking: true,
+        portfolioTracking: true,
         experiments: true,
       },
       privacy: {
@@ -286,9 +298,19 @@ Aether.track('app_opened');
 Aether.handleDeepLink('https://app.example.com/promo?utm_source=email');
 Aether.trackPushOpened({ campaign_id: 'summer_2025' });
 
-// 4. Wallet tracking
-Aether.wallet.connect('0xABC...DEF', { type: 'metamask', chainId: 1 });
-Aether.wallet.transaction('0xTXHASH...', { value: '1.5', token: 'ETH' });
+// 4. Multi-chain wallet tracking
+Aether.wallet.connect('0xABC...DEF', { type: 'metamask', chainId: 1 });       // EVM
+Aether.wallet.connectSVM('7xKX...9mP1', { type: 'phantom' });                 // Solana
+Aether.wallet.connectBTC('bc1q...w508d', { type: 'unisat' });                 // Bitcoin
+Aether.wallet.connectSUI('0xsui...addr', { type: 'sui-wallet' });             // SUI
+Aether.wallet.connectNEAR('user.near', { type: 'near-wallet' });              // NEAR
+Aether.wallet.connectTRON('T...addr', { type: 'tronlink' });                  // TRON
+Aether.wallet.connectCosmos('cosmos1...addr', { type: 'keplr' });             // Cosmos
+Aether.wallet.transaction('0xTXHASH...', { value: '1.5', token: 'ETH', protocol: 'uniswap-v3' });
+Aether.wallet.getWallets();                                                    // All connected wallets
+Aether.wallet.getWalletsByVM('evm');                                           // Filter by VM
+Aether.wallet.getPortfolio();                                                  // Cross-chain portfolio
+Aether.wallet.classifyWallet('0xABC...DEF');                                   // Wallet classification
 Aether.wallet.disconnect();
 
 // 5. Experiment assignment
@@ -326,7 +348,16 @@ Aether.reset();
 | `screenTracking`        | `boolean` | `true`  | Auto-track screen views via swizzling (iOS) or `ActivityLifecycleCallbacks` (Android). |
 | `deepLinkAttribution`   | `boolean` | `true`  | Capture UTM and click-ID parameters from deep links. |
 | `pushNotificationTracking` / `pushTracking` | `boolean` | `true` | Enable push notification open tracking. |
-| `walletTracking`        | `boolean` | `false` | Enable Web3 wallet connection and transaction tracking. |
+| `walletTracking`        | `boolean` | `false` | Enable EVM wallet connection and transaction tracking. |
+| `svmTracking`           | `boolean` | `false` | Enable Solana/SVM wallet tracking (Phantom, Solflare). |
+| `bitcoinTracking`       | `boolean` | `false` | Enable Bitcoin wallet tracking (UniSat, Xverse). |
+| `moveVMTracking`        | `boolean` | `false` | Enable MoveVM/SUI wallet tracking. |
+| `nearTracking`          | `boolean` | `false` | Enable NEAR wallet tracking. |
+| `tronTracking`          | `boolean` | `false` | Enable TRON/TVM wallet tracking (TronLink). |
+| `cosmosTracking`        | `boolean` | `false` | Enable Cosmos wallet tracking (Keplr). |
+| `defiTracking`          | `boolean` | `false` | Enable DeFi protocol interaction tracking (150+ protocols). |
+| `portfolioTracking`     | `boolean` | `false` | Enable cross-chain portfolio aggregation. |
+| `walletClassification`  | `boolean` | `false` | Enable wallet type classification (hot, cold, smart, exchange). |
 | `purchaseTracking`      | `boolean` | `true`  | Enable purchase and transaction event tracking.  |
 | `errorTracking`         | `boolean` | `true`  | Capture uncaught exceptions (Android).           |
 | `experiments`           | `boolean` | `true`  | Enable the A/B experiment framework.             |
@@ -363,9 +394,20 @@ Aether.reset();
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `wallet.connect` | `wallet.connect(address, options?)` | Track a wallet connection event. Options: `type`, `chainId`. |
-| `wallet.disconnect` | `wallet.disconnect()` | Track a wallet disconnection event. |
-| `wallet.transaction` | `wallet.transaction(txHash, options?)` | Track an on-chain transaction. |
+| `wallet.connect` | `wallet.connect(address, options?)` | Connect an EVM wallet. Options: `type`, `chainId`, `ens`. |
+| `wallet.connectSVM` | `wallet.connectSVM(address, options?)` | Connect a Solana/SVM wallet. Options: `type`, `cluster`. |
+| `wallet.connectBTC` | `wallet.connectBTC(address, options?)` | Connect a Bitcoin wallet. Options: `type`, `network`. |
+| `wallet.connectSUI` | `wallet.connectSUI(address, options?)` | Connect a MoveVM/SUI wallet. |
+| `wallet.connectNEAR` | `wallet.connectNEAR(address, options?)` | Connect a NEAR wallet. |
+| `wallet.connectTRON` | `wallet.connectTRON(address, options?)` | Connect a TRON wallet. |
+| `wallet.connectCosmos` | `wallet.connectCosmos(address, options?)` | Connect a Cosmos wallet. |
+| `wallet.disconnect` | `wallet.disconnect()` | Disconnect all wallets and track the event. |
+| `wallet.transaction` | `wallet.transaction(txHash, options?)` | Track an on-chain transaction with optional DeFi protocol metadata. |
+| `wallet.getWallets` | `wallet.getWallets() -> WalletInfo[]` | Get all connected wallets across all VMs. |
+| `wallet.getWalletsByVM` | `wallet.getWalletsByVM(vm) -> WalletInfo[]` | Get connected wallets filtered by VM family. |
+| `wallet.getPortfolio` | `wallet.getPortfolio() -> Portfolio` | Get aggregated cross-chain portfolio data. |
+| `wallet.classifyWallet` | `wallet.classifyWallet(address) -> Classification` | Classify wallet type (hot, cold, smart, exchange). |
+| `wallet.onWalletChange` | `wallet.onWalletChange(callback) -> unsubscribe` | Listen for wallet connect/disconnect/chain changes across all VMs. |
 
 ### Experiment Methods (React Native)
 
