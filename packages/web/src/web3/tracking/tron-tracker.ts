@@ -3,13 +3,9 @@
 // TRC-20/TRC-721, energy/bandwidth tracking, contract interactions
 // =============================================================================
 
-import type { TokenBalance, GasAnalytics, DeFiCategory } from '../../types';
-
-export interface TronTrackerCallbacks {
-  onTokenBalance: (balance: TokenBalance) => void;
-  onGasAnalytics: (gas: GasAnalytics) => void;
-  onDeFiInteraction: (data: Record<string, unknown>) => void;
-}
+import type { TokenBalance, DeFiCategory } from '../../types';
+import type { VMType } from '../providers/base-provider';
+import { BaseVMTracker, type TrackerCallbacks } from './base-tracker';
 
 const KNOWN_TRON_CONTRACTS: Record<string, { name: string; category?: DeFiCategory }> = {
   'TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax': { name: 'SunSwap V2', category: 'dex' },
@@ -20,12 +16,13 @@ const KNOWN_TRON_CONTRACTS: Record<string, { name: string; category?: DeFiCatego
   'TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR': { name: 'WTRX' },
 };
 
-export class TronTracker {
-  private callbacks: TronTrackerCallbacks;
+export class TronTracker extends BaseVMTracker {
+  readonly vm: VMType = 'tvm';
+
   private network: string = 'tron:mainnet';
 
-  constructor(callbacks: TronTrackerCallbacks, network?: string) {
-    this.callbacks = callbacks;
+  constructor(callbacks: TrackerCallbacks, network?: string) {
+    super(callbacks);
     if (network) this.network = network;
   }
 
@@ -40,9 +37,9 @@ export class TronTracker {
     contractRet?: string;
   }): void {
     // Energy/Bandwidth analytics (TRON's resource model)
-    this.callbacks.onGasAnalytics({
+    this.emitGasAnalytics({
       gasCostNative: (((tx.netFee ?? 0) + (tx.energyFee ?? 0)) / 1e6).toFixed(6),
-      chainId: this.network, vm: 'tvm',
+      chainId: this.network,
       energyUsed: tx.energyUsage, bandwidthUsed: tx.bandwidthUsage,
     });
 
@@ -50,9 +47,9 @@ export class TronTracker {
     if (tx.contractAddress) {
       const protocol = KNOWN_TRON_CONTRACTS[tx.contractAddress];
       if (protocol?.category) {
-        this.callbacks.onDeFiInteraction({
+        this.emitDeFiInteraction({
           txHash: tx.txID, protocol: protocol.name,
-          category: protocol.category, vm: 'tvm', chainId: this.network,
+          category: protocol.category, chainId: this.network,
         });
       }
     }
@@ -68,7 +65,7 @@ export class TronTracker {
         balance: String(data?.data?.[0]?.balance ?? 0), decimals: 6,
         vm: 'tvm', chainId: this.network, standard: 'native',
       };
-      this.callbacks.onTokenBalance(balance);
+      this.callbacks.onTokenBalance?.(balance);
       return balance;
     } catch { return null; }
   }
@@ -85,7 +82,7 @@ export class TronTracker {
           balance: t.balance, decimals: t.decimals,
           vm: 'tvm' as const, chainId: this.network, standard: 'trc20' as const,
         }));
-      balances.forEach((b) => this.callbacks.onTokenBalance(b));
+      balances.forEach((b) => this.callbacks.onTokenBalance?.(b));
       return balances;
     } catch { return []; }
   }
@@ -98,6 +95,4 @@ export class TronTracker {
     };
     return map[this.network] ?? map['tron:mainnet'];
   }
-
-  destroy(): void { /* no timers */ }
 }

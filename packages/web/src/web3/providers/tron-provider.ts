@@ -3,12 +3,7 @@
 // TronLink / TronWeb detection
 // =============================================================================
 
-import type { WalletInfo } from '../../types';
-
-export interface TronProviderCallbacks {
-  onWalletEvent: (action: string, data: Record<string, unknown>) => void;
-  onTransaction: (txid: string, data: Record<string, unknown>) => void;
-}
+import { BaseVMProvider, type VMType, type ProviderCallbacks } from './base-provider';
 
 interface TronWebProvider {
   ready?: boolean;
@@ -32,14 +27,15 @@ declare global {
   }
 }
 
-export class TronProvider {
-  private callbacks: TronProviderCallbacks;
+export class TronProvider extends BaseVMProvider {
+  readonly vm: VMType = 'tvm';
+  readonly defaultChainId: string = 'tron:mainnet';
+
   private tronWeb: TronWebProvider | null = null;
-  private wallet: WalletInfo | null = null;
   private network: string = 'tron:mainnet';
 
-  constructor(callbacks: TronProviderCallbacks) {
-    this.callbacks = callbacks;
+  constructor(callbacks: ProviderCallbacks) {
+    super(callbacks);
   }
 
   init(): void {
@@ -55,47 +51,45 @@ export class TronProvider {
     });
   }
 
-  connect(address: string, options?: Partial<WalletInfo>): void {
-    this.wallet = {
-      address, chainId: this.network,
-      type: options?.type ?? 'tronlink', vm: 'tvm',
-      classification: 'hot', isConnected: true,
-      connectedAt: new Date().toISOString(),
-    };
-    this.callbacks.onWalletEvent('connect', {
-      address, chainId: this.network, walletType: 'tronlink',
-      vm: 'tvm', classification: 'hot',
-    });
-  }
-
-  disconnect(): void {
-    if (!this.wallet) return;
-    this.callbacks.onWalletEvent('disconnect', {
-      address: this.wallet.address, chainId: this.network,
-      walletType: this.wallet.type, vm: 'tvm',
-    });
-    this.wallet = { ...this.wallet, isConnected: false };
-  }
-
-  getWallet(): WalletInfo | null {
-    return this.wallet ? { ...this.wallet } : null;
-  }
-
-  transaction(txid: string, data: Record<string, unknown>): void {
-    this.callbacks.onTransaction(txid, {
-      txHash: txid, chainId: this.network, vm: 'tvm',
-      status: 'pending', ...data,
-    });
-    this.monitorTransaction(txid);
-  }
-
   destroy(): void {
-    this.wallet = null;
     this.tronWeb = null;
+    super.destroy();
   }
+
+  // ---------------------------------------------------------------------------
+  // Protected — abstract implementations
+  // ---------------------------------------------------------------------------
+
+  protected detectWalletType(): string {
+    return 'tronlink';
+  }
+
+  protected async monitorTransaction(txid: string): Promise<void> {
+    if (!this.tronWeb?.trx) return;
+    let attempts = 0;
+    const check = async (): Promise<void> => {
+      try {
+        const tx = await this.tronWeb!.trx!.getTransaction(txid);
+        if (tx?.ret && tx.ret.length > 0) {
+          const status = tx.ret[0].contractRet === 'SUCCESS' ? 'confirmed' : 'failed';
+          this.callbacks.onTransaction(txid, {
+            txHash: txid, chainId: this.network, vm: 'tvm', status,
+          });
+          return;
+        }
+        if (++attempts < 40) setTimeout(check, 5000);
+      } catch { /* API error */ }
+    };
+    setTimeout(check, 3000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private — VM-specific helpers
+  // ---------------------------------------------------------------------------
 
   private setupProvider(tw: TronWebProvider): void {
     this.tronWeb = tw;
+    this.walletType = this.detectWalletType();
     this.detectNetwork(tw);
     if (tw.ready && tw.defaultAddress?.base58) {
       this.connect(tw.defaultAddress.base58);
@@ -122,24 +116,5 @@ export class TronProvider {
     if (host.includes('shasta')) this.network = 'tron:shasta';
     else if (host.includes('nile')) this.network = 'tron:nile';
     else this.network = 'tron:mainnet';
-  }
-
-  private async monitorTransaction(txid: string): Promise<void> {
-    if (!this.tronWeb?.trx) return;
-    let attempts = 0;
-    const check = async (): Promise<void> => {
-      try {
-        const tx = await this.tronWeb!.trx!.getTransaction(txid);
-        if (tx?.ret && tx.ret.length > 0) {
-          const status = tx.ret[0].contractRet === 'SUCCESS' ? 'confirmed' : 'failed';
-          this.callbacks.onTransaction(txid, {
-            txHash: txid, chainId: this.network, vm: 'tvm', status,
-          });
-          return;
-        }
-        if (++attempts < 40) setTimeout(check, 5000);
-      } catch { /* API error */ }
-    };
-    setTimeout(check, 3000);
   }
 }

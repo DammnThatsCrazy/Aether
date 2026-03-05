@@ -1,13 +1,13 @@
 // =============================================================================
 // AETHER SDK — WEB3 MODULE (MULTI-VM ORCHESTRATOR)
-// Coordinates 7 VM providers, 7 VM trackers, 14 DeFi trackers,
+// Coordinates 7 VM providers, 7 VM trackers, generic DeFi trackers,
 // wallet classification, and portfolio aggregation
 // =============================================================================
 
 import type {
   WalletInfo, TransactionOptions, VMType, ConnectedWallet,
   PortfolioSnapshot, WalletClassification, TokenBalance, NFTAsset,
-  DeFiPosition, WhaleAlert, GasAnalytics,
+  DeFiPosition, WhaleAlert, GasAnalytics, DeFiCategory,
 } from '../types';
 
 // Providers
@@ -30,6 +30,7 @@ import { CosmosTracker } from './tracking/cosmos-tracker';
 
 // DeFi
 import { DexTracker } from './defi/dex-tracker';
+import { createDeFiTrackers, type GenericDeFiTracker } from './defi/generic-defi-tracker';
 import { identifyProtocol } from './defi/protocol-registry';
 
 // Wallet
@@ -106,6 +107,7 @@ export class Web3Module {
 
   // DeFi
   private dexTracker: DexTracker | null = null;
+  private defiTrackers: Map<DeFiCategory, GenericDeFiTracker> | null = null;
 
   // Portfolio
   private portfolio: PortfolioTracker | null = null;
@@ -224,6 +226,10 @@ export class Web3Module {
         onSwap: (d) => this.callbacks.onDeFiInteraction?.(d),
         onLiquidityChange: (d) => this.callbacks.onDeFiInteraction?.(d),
         onPoolInteraction: (d) => this.callbacks.onDeFiInteraction?.(d),
+      });
+      this.defiTrackers = createDeFiTrackers({
+        onInteraction: (d) => this.callbacks.onDeFiInteraction?.(d),
+        onPositionChange: (d) => this.callbacks.onDeFiInteraction?.(d),
       });
     }
 
@@ -378,6 +384,7 @@ export class Web3Module {
     this.cosmosTracker?.destroy();
 
     this.dexTracker?.destroy();
+    this.defiTrackers?.forEach((t) => t.destroy());
     this.portfolio?.destroy();
 
     this.walletChangeListeners = [];
@@ -397,6 +404,7 @@ export class Web3Module {
     this.tronTracker = null;
     this.cosmosTracker = null;
     this.dexTracker = null;
+    this.defiTrackers = null;
     this.portfolio = null;
   }
 
@@ -437,12 +445,20 @@ export class Web3Module {
     const enriched = { ...data, vm };
     this.callbacks.onTransaction(txHash, enriched);
 
-    // Route to DeFi tracker for classification
-    if (this.dexTracker && data.to) {
-      this.dexTracker.detectSwap({
+    // Route to DeFi trackers for classification
+    if (data.to) {
+      const txData = {
         hash: txHash, to: data.to as string,
         chainId: data.chainId as number | string ?? 1,
         vm, input: data.input as string, value: data.value as string,
+        from: data.from as string,
+      };
+
+      this.dexTracker?.detectSwap(txData);
+
+      // Route through generic DeFi trackers (lending, staking, bridge, etc.)
+      this.defiTrackers?.forEach((tracker) => {
+        tracker.detect(txData);
       });
     }
   }

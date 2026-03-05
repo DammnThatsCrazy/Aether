@@ -49,7 +49,8 @@ from services.rewards.eligibility import (
     RewardTier,
 )
 from services.rewards.queue import RewardQueue
-from shared.common.common import APIResponse, NotFoundError
+from shared.common.common import NotFoundError
+from shared.decorators import api_response
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.service.rewards")
@@ -242,6 +243,7 @@ class ProcessResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.post("/evaluate", response_model=None)
+@api_response
 async def evaluate_event(body: EvaluateRequest):
     """
     Full reward-evaluation pipeline:
@@ -310,12 +312,13 @@ async def evaluate_event(body: EvaluateRequest):
         response.reward_id = reward_id
 
     metrics.increment("rewards_evaluate_requests")
-    return APIResponse(data=response.model_dump()).to_dict()
+    return response.model_dump()
 
 
 # -- campaign management ------------------------------------------------
 
 @router.post("/campaigns", response_model=None)
+@api_response
 async def create_campaign(body: CampaignCreate):
     """Register a new reward campaign with multi-chain support."""
     # Validate vm_type early
@@ -367,52 +370,55 @@ async def create_campaign(body: CampaignCreate):
     )
 
     _engine.register_campaign(campaign)
-    return APIResponse(data=campaign.to_dict()).to_dict()
+    return campaign.to_dict()
 
 
 @router.get("/campaigns", response_model=None)
+@api_response
 async def list_campaigns():
     """List all registered reward campaigns."""
     campaigns = _engine.list_campaigns()
-    return APIResponse(data=[c.to_dict() for c in campaigns]).to_dict()
+    return [c.to_dict() for c in campaigns]
 
 
 @router.get("/campaigns/{campaign_id}", response_model=None)
+@api_response
 async def get_campaign(campaign_id: str):
     """Get a single campaign by ID."""
-    try:
-        campaign = _engine.get_campaign(campaign_id)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    return APIResponse(data=campaign.to_dict()).to_dict()
+    campaign = _engine.get_campaign(campaign_id)
+    return campaign.to_dict()
 
 
 # -- queue management ---------------------------------------------------
 
 @router.get("/queue/stats", response_model=None)
+@api_response
 async def queue_stats():
     """Return current reward queue statistics."""
-    return APIResponse(data=_queue.get_stats()).to_dict()
+    return _queue.get_stats()
 
 
 @router.get("/user/{address}", response_model=None)
+@api_response
 async def get_user_rewards(address: str):
     """Return all rewards for a given wallet address."""
     rewards = _queue.get_user_rewards(address)
-    return APIResponse(data=[r.to_dict() for r in rewards]).to_dict()
+    return [r.to_dict() for r in rewards]
 
 
 @router.post("/process", response_model=None)
+@api_response
 async def process_queue():
     """Trigger processing of all pending rewards in the queue."""
     results = await _queue.process_all()
-    return APIResponse(data={
+    return {
         "processed": len(results),
         "results": [r.to_dict() for r in results],
-    }).to_dict()
+    }
 
 
 @router.get("/proof/{reward_id}", response_model=None)
+@api_response
 async def get_reward_proof(reward_id: str):
     """
     Retrieve the proof for a specific reward.
@@ -420,10 +426,7 @@ async def get_reward_proof(reward_id: str):
     Returns 404 if the reward doesn't exist, or 409 if the proof has not
     been generated yet.
     """
-    try:
-        reward = _queue.get_reward(reward_id)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Reward not found")
+    reward = _queue.get_reward(reward_id)
 
     if reward.proof is None:
         raise HTTPException(
@@ -431,11 +434,11 @@ async def get_reward_proof(reward_id: str):
             detail=f"Proof not yet available; reward status={reward.status}",
         )
 
-    return APIResponse(data={
+    return {
         "reward_id": reward.id,
         "status": reward.status,
         "proof": reward.proof,
-    }).to_dict()
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════

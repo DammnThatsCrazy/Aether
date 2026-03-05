@@ -4,42 +4,12 @@
 // =============================================================================
 
 import { storage, generateId, now } from '../utils';
+import type { SurveyType, SurveyQuestion, Survey as SharedSurvey, SurveyResponse, SurveyTrigger } from '../../../shared/feedback-types';
+export type { SurveyType, SurveyQuestion, SurveyResponse };
 
 // =============================================================================
-// TYPES
+// TYPES (Web-specific extensions of shared types)
 // =============================================================================
-
-export type SurveyType = 'nps' | 'csat' | 'ces' | 'custom';
-
-export interface SurveyQuestion {
-  id: string;
-  type: 'rating' | 'scale' | 'text' | 'multiple_choice' | 'boolean';
-  text: string;
-  options?: string[];
-  min?: number;
-  max?: number;
-  required?: boolean;
-}
-
-export interface Survey {
-  id: string;
-  type: SurveyType;
-  title: string;
-  questions: SurveyQuestion[];
-  trigger?: SurveyTrigger;
-  appearance?: SurveyAppearance;
-  thankYouMessage?: string;
-}
-
-export interface SurveyTrigger {
-  event?: string;
-  delay?: number;
-  pageUrl?: string;
-  sessionCount?: number;
-  minSessionDuration?: number;
-  sampleRate?: number;
-  maxDisplays?: number;
-}
 
 export interface SurveyAppearance {
   position?: 'bottom-right' | 'bottom-left' | 'center' | 'top-right';
@@ -48,12 +18,12 @@ export interface SurveyAppearance {
   zIndex?: number;
 }
 
-export interface SurveyResponse {
-  surveyId: string;
-  responses: Record<string, unknown>;
-  completedAt: number;
-  dismissed: boolean;
+export interface Survey extends SharedSurvey {
+  trigger?: SurveyTrigger;
+  appearance?: SurveyAppearance;
 }
+
+export type { SurveyTrigger };
 
 export interface FeedbackCallbacks {
   onTrack: (event: string, properties: Record<string, unknown>) => void;

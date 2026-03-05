@@ -3,13 +3,12 @@
 // SPL token tracking, program interaction detection, compute unit analytics
 // =============================================================================
 
-import type { TokenBalance, GasAnalytics, DeFiCategory } from '../../types';
+import type { TokenBalance, DeFiCategory } from '../../types';
+import type { VMType } from '../providers/base-provider';
+import { BaseVMTracker, type TrackerCallbacks } from './base-tracker';
 
-export interface SVMTrackerCallbacks {
-  onTokenBalance: (balance: TokenBalance) => void;
-  onGasAnalytics: (gas: GasAnalytics) => void;
-  onDeFiInteraction: (data: Record<string, unknown>) => void;
-  onProgramInteraction: (data: Record<string, unknown>) => void;
+export interface SVMTrackerCallbacks extends TrackerCallbacks {
+  onProgramInteraction?: (data: Record<string, unknown>) => void;
 }
 
 // Well-known Solana program IDs
@@ -36,12 +35,15 @@ const KNOWN_PROGRAMS: Record<string, { name: string; category?: DeFiCategory }> 
   'Vote111111111111111111111111111111111111111': { name: 'Vote Program', category: 'governance' },
 };
 
-export class SVMTracker {
-  private callbacks: SVMTrackerCallbacks;
+export class SVMTracker extends BaseVMTracker {
+  readonly vm: VMType = 'svm';
+
   private cluster: string = 'mainnet-beta';
+  private extCallbacks: SVMTrackerCallbacks;
 
   constructor(callbacks: SVMTrackerCallbacks, cluster?: string) {
-    this.callbacks = callbacks;
+    super(callbacks);
+    this.extCallbacks = callbacks;
     if (cluster) this.cluster = cluster;
   }
 
@@ -61,9 +63,9 @@ export class SVMTracker {
     accountKeys?: string[];
   }): void {
     // Compute unit analytics (Solana's gas equivalent)
-    this.callbacks.onGasAnalytics({
+    this.emitGasAnalytics({
       gasCostNative: ((tx.fee ?? 0) / 1e9).toFixed(9),
-      chainId: this.cluster, vm: 'svm',
+      chainId: this.cluster,
       computeUnits: tx.computeUnitsConsumed,
       priorityFee: tx.fee ? String(tx.fee) : undefined,
     });
@@ -72,15 +74,15 @@ export class SVMTracker {
     if (tx.programIds) {
       for (const programId of tx.programIds) {
         const program = this.identifyProgram(programId);
-        this.callbacks.onProgramInteraction({
+        this.extCallbacks.onProgramInteraction?.({
           signature: tx.signature, programId, programName: program.name,
           category: program.category, vm: 'svm', chainId: this.cluster,
         });
 
         if (program.category) {
-          this.callbacks.onDeFiInteraction({
+          this.emitDeFiInteraction({
             txHash: tx.signature, protocol: program.name,
-            category: program.category, vm: 'svm', chainId: this.cluster,
+            category: program.category, chainId: this.cluster,
           });
         }
       }
@@ -110,7 +112,7 @@ export class SVMTracker {
           vm: 'svm' as const, chainId: this.cluster, standard: 'spl' as const,
         };
       });
-      balances.forEach((b) => this.callbacks.onTokenBalance(b));
+      balances.forEach((b) => this.callbacks.onTokenBalance?.(b));
       return balances;
     } catch { return []; }
   }
@@ -129,13 +131,9 @@ export class SVMTracker {
         balance: String(lamports), decimals: 9,
         vm: 'svm', chainId: this.cluster, standard: 'native',
       };
-      this.callbacks.onTokenBalance(balance);
+      this.callbacks.onTokenBalance?.(balance);
       return balance;
     } catch { return null; }
-  }
-
-  destroy(): void {
-    // No timers to clean up
   }
 
   private getRpcUrl(): string {

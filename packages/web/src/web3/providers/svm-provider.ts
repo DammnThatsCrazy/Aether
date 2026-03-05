@@ -3,12 +3,7 @@
 // Phantom, Solflare, Backpack, Solana Wallet Standard
 // =============================================================================
 
-import type { WalletInfo, WalletClassification } from '../../types';
-
-export interface SVMProviderCallbacks {
-  onWalletEvent: (action: string, data: Record<string, unknown>) => void;
-  onTransaction: (signature: string, data: Record<string, unknown>) => void;
-}
+import { BaseVMProvider, type VMType, type ProviderCallbacks } from './base-provider';
 
 interface SolanaProvider {
   isPhantom?: boolean;
@@ -37,16 +32,16 @@ declare global {
   }
 }
 
-export class SVMProvider {
-  private callbacks: SVMProviderCallbacks;
+export class SVMProvider extends BaseVMProvider {
+  readonly vm: VMType = 'svm';
+  readonly defaultChainId: string = 'mainnet-beta';
+
   private provider: SolanaProvider | null = null;
-  private wallet: WalletInfo | null = null;
   private cluster: string = 'mainnet-beta';
   private handlers: Array<[string, (...args: unknown[]) => void]> = [];
-  private walletType: string = 'unknown';
 
-  constructor(callbacks: SVMProviderCallbacks) {
-    this.callbacks = callbacks;
+  constructor(callbacks: ProviderCallbacks) {
+    super(callbacks);
   }
 
   init(): void {
@@ -65,46 +60,6 @@ export class SVMProvider {
     }
   }
 
-  connect(address: string, options?: Partial<WalletInfo>): void {
-    this.wallet = {
-      address,
-      chainId: this.cluster,
-      type: options?.type ?? this.walletType,
-      vm: 'svm',
-      classification: 'hot' as WalletClassification,
-      isConnected: true,
-      connectedAt: new Date().toISOString(),
-    };
-
-    this.callbacks.onWalletEvent('connect', {
-      address, chainId: this.cluster, walletType: this.wallet.type, vm: 'svm',
-      classification: 'hot',
-    });
-  }
-
-  disconnect(): void {
-    if (!this.wallet) return;
-    this.callbacks.onWalletEvent('disconnect', {
-      address: this.wallet.address, chainId: this.cluster,
-      walletType: this.wallet.type, vm: 'svm',
-    });
-    this.wallet = { ...this.wallet, isConnected: false };
-  }
-
-  getWallet(): WalletInfo | null {
-    return this.wallet ? { ...this.wallet } : null;
-  }
-
-  transaction(signature: string, data: Record<string, unknown>): void {
-    this.callbacks.onTransaction(signature, {
-      txHash: signature, chainId: this.cluster, vm: 'svm',
-      status: 'pending', ...data,
-    });
-    if (this.provider) {
-      this.monitorTransaction(signature);
-    }
-  }
-
   destroy(): void {
     if (this.provider) {
       this.handlers.forEach(([event, handler]) => {
@@ -116,17 +71,63 @@ export class SVMProvider {
       });
     }
     this.handlers = [];
-    this.wallet = null;
     this.provider = null;
+    super.destroy();
   }
 
   // ---------------------------------------------------------------------------
-  // Private
+  // Protected — abstract implementations
+  // ---------------------------------------------------------------------------
+
+  protected detectWalletType(): string {
+    if (!this.provider) return 'unknown';
+    if (this.provider.isPhantom) return 'phantom';
+    if (this.provider.isSolflare) return 'solflare';
+    if (this.provider.isBackpack) return 'backpack';
+    if (this.provider.isGlow) return 'glow';
+    return 'solana';
+  }
+
+  protected async monitorTransaction(signature: string): Promise<void> {
+    if (!this.provider) return;
+    let attempts = 0;
+    const maxAttempts = 60;
+    const check = async (): Promise<void> => {
+      try {
+        // Use JSON-RPC to check signature status
+        const response = await fetch(this.getRpcUrl(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0', id: 1, method: 'getSignatureStatuses',
+            params: [[signature], { searchTransactionHistory: true }],
+          }),
+        });
+        const result = await response.json();
+        const status = result?.result?.value?.[0];
+        if (status) {
+          const confirmed = status.confirmationStatus === 'finalized' || status.confirmationStatus === 'confirmed';
+          const failed = status.err !== null;
+          this.callbacks.onTransaction(signature, {
+            txHash: signature, chainId: this.cluster, vm: 'svm',
+            status: failed ? 'failed' : confirmed ? 'confirmed' : 'pending',
+            slot: status.slot, confirmations: status.confirmations,
+          });
+          if (confirmed || failed) return;
+        }
+        if (++attempts < maxAttempts) setTimeout(check, 3000);
+      } catch { /* RPC error */ }
+    };
+    setTimeout(check, 2000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private — VM-specific helpers
   // ---------------------------------------------------------------------------
 
   private setupProvider(provider: SolanaProvider): void {
     this.provider = provider;
-    this.walletType = this.detectWalletType(provider);
+    this.walletType = this.detectWalletType();
 
     // Auto-detect existing connection
     if (provider.isConnected && provider.publicKey) {
@@ -160,47 +161,6 @@ export class SVMProvider {
       ['disconnect', disconnectHandler],
       ['accountChanged', accountChangeHandler]
     );
-  }
-
-  private detectWalletType(provider: SolanaProvider): string {
-    if (provider.isPhantom) return 'phantom';
-    if (provider.isSolflare) return 'solflare';
-    if (provider.isBackpack) return 'backpack';
-    if (provider.isGlow) return 'glow';
-    return 'solana';
-  }
-
-  private async monitorTransaction(signature: string): Promise<void> {
-    if (!this.provider) return;
-    let attempts = 0;
-    const maxAttempts = 60;
-    const check = async (): Promise<void> => {
-      try {
-        // Use JSON-RPC to check signature status
-        const response = await fetch(this.getRpcUrl(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0', id: 1, method: 'getSignatureStatuses',
-            params: [[signature], { searchTransactionHistory: true }],
-          }),
-        });
-        const result = await response.json();
-        const status = result?.result?.value?.[0];
-        if (status) {
-          const confirmed = status.confirmationStatus === 'finalized' || status.confirmationStatus === 'confirmed';
-          const failed = status.err !== null;
-          this.callbacks.onTransaction(signature, {
-            txHash: signature, chainId: this.cluster, vm: 'svm',
-            status: failed ? 'failed' : confirmed ? 'confirmed' : 'pending',
-            slot: status.slot, confirmations: status.confirmations,
-          });
-          if (confirmed || failed) return;
-        }
-        if (++attempts < maxAttempts) setTimeout(check, 3000);
-      } catch { /* RPC error */ }
-    };
-    setTimeout(check, 2000);
   }
 
   private getRpcUrl(): string {

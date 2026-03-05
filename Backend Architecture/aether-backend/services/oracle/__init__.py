@@ -4,6 +4,11 @@ Cryptographic proof generation and verification for on-chain reward claims.
 Supports multi-chain signing across EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, and Cosmos.
 """
 
+from services.oracle.base_signer import (
+    BaseProofConfig,
+    BaseProofSigner,
+    BaseRewardProof,
+)
 from services.oracle.signer import OracleSigner, ProofConfig, RewardProof
 from services.oracle.multichain_signer import (
     ChainConfig,
@@ -19,6 +24,10 @@ from services.oracle.verifier import (
 )
 
 __all__ = [
+    # Base signer infrastructure
+    "BaseProofConfig",
+    "BaseProofSigner",
+    "BaseRewardProof",
     # Legacy EVM-only signer
     "OracleSigner",
     "ProofConfig",

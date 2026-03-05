@@ -3,13 +3,12 @@
 // Action tracking, FT/NFT transfers, gas analytics
 // =============================================================================
 
-import type { TokenBalance, GasAnalytics, DeFiCategory } from '../../types';
+import type { TokenBalance, DeFiCategory } from '../../types';
+import type { VMType } from '../providers/base-provider';
+import { BaseVMTracker, type TrackerCallbacks } from './base-tracker';
 
-export interface NEARTrackerCallbacks {
-  onTokenBalance: (balance: TokenBalance) => void;
-  onGasAnalytics: (gas: GasAnalytics) => void;
-  onDeFiInteraction: (data: Record<string, unknown>) => void;
-  onActionDetected: (data: Record<string, unknown>) => void;
+export interface NEARTrackerCallbacks extends TrackerCallbacks {
+  onActionDetected?: (data: Record<string, unknown>) => void;
 }
 
 const KNOWN_NEAR_CONTRACTS: Record<string, { name: string; category?: DeFiCategory }> = {
@@ -25,12 +24,15 @@ const KNOWN_NEAR_CONTRACTS: Record<string, { name: string; category?: DeFiCatego
 
 type NEARActionKind = 'CreateAccount' | 'Transfer' | 'FunctionCall' | 'Stake' | 'AddKey' | 'DeleteKey' | 'DeleteAccount' | 'DeployContract';
 
-export class NEARTracker {
-  private callbacks: NEARTrackerCallbacks;
+export class NEARTracker extends BaseVMTracker {
+  readonly vm: VMType = 'near';
+
   private network: string = 'near:mainnet';
+  private extCallbacks: NEARTrackerCallbacks;
 
   constructor(callbacks: NEARTrackerCallbacks, network?: string) {
-    this.callbacks = callbacks;
+    super(callbacks);
+    this.extCallbacks = callbacks;
     if (network) this.network = network;
   }
 
@@ -43,16 +45,16 @@ export class NEARTracker {
   }): void {
     // Gas analytics
     if (tx.outcome) {
-      this.callbacks.onGasAnalytics({
+      this.emitGasAnalytics({
         gasCostNative: ((Number(tx.outcome.tokensBurnt ?? 0)) / 1e24).toFixed(12),
-        chainId: this.network, vm: 'near',
+        chainId: this.network,
         gasUsed: String(tx.outcome.gasBurnt ?? 0),
       });
     }
 
     // Action detection
     for (const action of tx.actions) {
-      this.callbacks.onActionDetected({
+      this.extCallbacks.onActionDetected?.({
         txHash: tx.hash, actionKind: action.kind,
         receiverId: tx.receiverId, vm: 'near', chainId: this.network,
         ...(action.args ?? {}),
@@ -62,11 +64,11 @@ export class NEARTracker {
       if (action.kind === 'FunctionCall') {
         const protocol = KNOWN_NEAR_CONTRACTS[tx.receiverId];
         if (protocol?.category) {
-          this.callbacks.onDeFiInteraction({
+          this.emitDeFiInteraction({
             txHash: tx.hash, protocol: protocol.name,
             category: protocol.category,
             action: (action.args?.methodName as string) ?? 'unknown',
-            vm: 'near', chainId: this.network,
+            chainId: this.network,
           });
         }
       }
@@ -89,7 +91,7 @@ export class NEARTracker {
         balance: result?.result?.amount ?? '0', decimals: 24,
         vm: 'near', chainId: this.network, standard: 'native',
       };
-      this.callbacks.onTokenBalance(balance);
+      this.callbacks.onTokenBalance?.(balance);
       return balance;
     } catch { return null; }
   }
@@ -117,7 +119,7 @@ export class NEARTracker {
           balance: balanceStr, decimals: 24, vm: 'near', chainId: this.network,
           standard: 'nep141',
         };
-        this.callbacks.onTokenBalance(balance);
+        this.callbacks.onTokenBalance?.(balance);
         return balance;
       }
       return null;
@@ -129,6 +131,4 @@ export class NEARTracker {
       ? 'https://rpc.testnet.near.org'
       : 'https://rpc.mainnet.near.org';
   }
-
-  destroy(): void { /* no timers */ }
 }

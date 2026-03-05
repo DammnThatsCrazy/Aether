@@ -1,5 +1,5 @@
 """
-Aether Backend — Oracle Proof Signer
+Aether Backend — Oracle Proof Signer (EVM-only)
 
 Generates cryptographic proofs for reward eligibility that are verifiable
 on-chain via EIP-712 typed data or raw keccak256 message signing.
@@ -16,22 +16,19 @@ Demo implementation:
 from __future__ import annotations
 
 import hashlib
-import hmac
-import os
 import struct
 import time
 from dataclasses import dataclass
-from typing import Optional
 
-from shared.common.common import BadRequestError
+from services.oracle.base_signer import BaseProofSigner
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.service.oracle.signer")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # DATA MODELS
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
 @dataclass(frozen=True)
 class ProofConfig:
@@ -107,21 +104,25 @@ class RewardProof:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # ORACLE SIGNER
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
-class OracleSigner:
+class OracleSigner(BaseProofSigner):
     """
     Generates and verifies EVM-compatible reward proofs.
 
+    Inherits shared HMAC signing, input validation, and nonce generation
+    from ``BaseProofSigner``.
+
     Production notes:
-        - Replace ``_simulate_keccak256`` with ``Web3.keccak``.
+        - Replace ``_build_message_hash`` with ``Web3.keccak`` over ABI-packed data.
         - Replace ``_simulate_sign`` with ``Account.sign_message``.
         - Replace ``_simulate_recover`` with ``Account.recover_message``.
     """
 
     def __init__(self, config: ProofConfig) -> None:
+        super().__init__(config.signer_private_key)
         self._config = config
         self._signer_address = self._derive_address(config.signer_private_key)
         logger.info(
@@ -151,13 +152,11 @@ class OracleSigner:
             3. Build the canonical message hash.
             4. Sign the hash with the oracle private key.
         """
-        if not user:
-            raise BadRequestError("user address is required for proof generation")
-        if amount_wei <= 0:
-            raise BadRequestError("amount_wei must be positive")
+        self._validate_proof_inputs(user, amount_wei)
 
-        nonce = os.urandom(32).hex()
-        expiry = int(time.time()) + self._config.proof_expiry_seconds
+        nonce, expiry = self._generate_nonce_and_expiry(
+            self._config.proof_expiry_seconds,
+        )
 
         # In production:  keccak256(abi.encodePacked(user, actionType, amountWei, nonce, expiry, chainId, contractAddress))
         message_hash = self._build_message_hash(
@@ -207,7 +206,9 @@ class OracleSigner:
         sig = proof.signature.removeprefix("0x")
 
         # In production:  Account.recoverHash(msg_hash, signature=sig)
-        recovered = self._simulate_recover(msg_hash, sig)
+        recovered = self._simulate_recover(
+            msg_hash, sig, expected_address=self._signer_address,
+        )
         valid = recovered.lower() == self._signer_address.lower()
 
         if not valid:
@@ -254,33 +255,7 @@ class OracleSigner:
         # Production: return Web3.keccak(packed).hex()
         return hashlib.sha256(packed).hexdigest()
 
-    # -- simulated crypto primitives ------------------------------------
-
-    def _simulate_sign(self, message_hash: str) -> str:
-        """
-        Produce a deterministic HMAC-SHA256 "signature" using the private key.
-
-        Production replacement:
-            ``Account.signHash(bytes.fromhex(message_hash), self._config.signer_private_key)``
-        """
-        sig = hmac.new(
-            key=bytes.fromhex(self._config.signer_private_key.removeprefix("0x")),
-            msg=bytes.fromhex(message_hash),
-            digestmod=hashlib.sha256,
-        ).hexdigest()
-        return sig
-
-    def _simulate_recover(self, message_hash: str, signature: str) -> str:
-        """
-        "Recover" the signer by recomputing the HMAC and comparing.
-
-        Production replacement:
-            ``Account.recoverHash(bytes.fromhex(message_hash), signature=signature)``
-        """
-        expected_sig = self._simulate_sign(message_hash)
-        if hmac.compare_digest(expected_sig, signature):
-            return self._signer_address
-        return "0x0000000000000000000000000000000000000000"
+    # -- address derivation ---------------------------------------------
 
     @staticmethod
     def _derive_address(private_key_hex: str) -> str:

@@ -4,14 +4,8 @@
 // =============================================================================
 
 import type { TokenBalance, NFTAsset, GasAnalytics, WhaleAlert, DeFiCategory } from '../../types';
-
-export interface EVMTrackerCallbacks {
-  onTokenBalance: (balance: TokenBalance) => void;
-  onNFTDetected: (nft: NFTAsset) => void;
-  onGasAnalytics: (gas: GasAnalytics) => void;
-  onWhaleAlert: (alert: WhaleAlert) => void;
-  onDeFiInteraction: (data: Record<string, unknown>) => void;
-}
+import type { VMType } from '../providers/base-provider';
+import { BaseVMTracker, type TrackerCallbacks } from './base-tracker';
 
 export interface EVMTrackerConfig {
   whaleThresholdETH?: number;
@@ -64,14 +58,15 @@ const METHOD_SELECTORS: Record<string, { name: string; type: string; defiCategor
   '0x8b95dd71': { name: 'setSubnodeRecord (ENS)', type: 'governance' },
 };
 
-export class EVMTracker {
-  private callbacks: EVMTrackerCallbacks;
+export class EVMTracker extends BaseVMTracker {
+  readonly vm: VMType = 'evm';
+
   private config: Required<EVMTrackerConfig>;
   private tokenCache: Map<string, TokenBalance[]> = new Map();
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(callbacks: EVMTrackerCallbacks, config?: EVMTrackerConfig) {
-    this.callbacks = callbacks;
+  constructor(callbacks: TrackerCallbacks, config?: EVMTrackerConfig) {
+    super(callbacks);
     this.config = {
       whaleThresholdETH: config?.whaleThresholdETH ?? 100,
       tokenRefreshIntervalMs: config?.tokenRefreshIntervalMs ?? 60000,
@@ -101,32 +96,30 @@ export class EVMTracker {
       const gasUsedBN = BigInt(tx.gasUsed || '0');
       const gasPriceBN = BigInt(tx.gasPrice || '0');
       const gasCostWei = gasUsedBN * gasPriceBN;
-      this.callbacks.onGasAnalytics({
+      this.emitGasAnalytics({
         gasPrice: tx.gasPrice, gasUsed: tx.gasUsed,
         gasCostNative: (Number(gasCostWei) / 1e18).toFixed(8),
-        chainId: tx.chainId, vm: 'evm',
+        chainId: tx.chainId,
       });
     }
 
     // Whale detection
     if (this.config.enableWhaleAlerts) {
       const valueETH = Number(BigInt(tx.value || '0')) / 1e18;
-      if (valueETH >= this.config.whaleThresholdETH) {
-        this.callbacks.onWhaleAlert({
-          txHash: tx.hash, value: tx.value, from: tx.from, to: tx.to,
-          chainId: tx.chainId, vm: 'evm',
-          threshold: String(this.config.whaleThresholdETH),
-        });
-      }
+      this.checkWhaleAlert({
+        txHash: tx.hash, value: valueETH,
+        threshold: this.config.whaleThresholdETH,
+        from: tx.from, to: tx.to, chainId: tx.chainId,
+      });
     }
 
     // DeFi classification
     const classification = this.classifyTransaction(tx.input);
     if (classification.defiCategory) {
-      this.callbacks.onDeFiInteraction({
+      this.emitDeFiInteraction({
         txHash: tx.hash, protocol: classification.name,
         category: classification.defiCategory, action: classification.type,
-        chainId: tx.chainId, vm: 'evm', from: tx.from, to: tx.to, value: tx.value,
+        chainId: tx.chainId, from: tx.from, to: tx.to, value: tx.value,
       });
     }
   }
@@ -152,7 +145,7 @@ export class EVMTracker {
         decimals: tokenInfo.decimals, vm: 'evm', chainId,
         standard: 'erc20',
       };
-      this.callbacks.onTokenBalance(tokenBalance);
+      this.callbacks.onTokenBalance?.(tokenBalance);
       return tokenBalance;
     } catch { return null; }
   }
@@ -178,7 +171,7 @@ export class EVMTracker {
           collection: nftInfo?.collection, standard: 'erc721',
           vm: 'evm', chainId,
         };
-        this.callbacks.onNFTDetected(nft);
+        this.callbacks.onNFTDetected?.(nft);
         return nft;
       }
       return null;
@@ -191,5 +184,6 @@ export class EVMTracker {
       this.refreshTimer = null;
     }
     this.tokenCache.clear();
+    super.destroy();
   }
 }

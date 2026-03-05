@@ -4,24 +4,8 @@
 // =============================================================================
 
 import { storage, now } from '../utils';
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface FeatureFlag {
-  key: string;
-  enabled: boolean;
-  value?: unknown;
-  variant?: string;
-  source: 'remote' | 'local' | 'default' | 'override';
-}
-
-export interface FlagDefinition {
-  key: string;
-  defaultValue: boolean | unknown;
-  description?: string;
-}
+import type { FeatureFlag, FlagDefinition } from '../../../shared/feature-flag-types';
+export type { FeatureFlag, FlagDefinition };
 
 export interface FeatureFlagCallbacks {
   onTrack: (event: string, properties: Record<string, unknown>) => void;

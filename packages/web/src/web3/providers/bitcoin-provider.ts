@@ -4,11 +4,7 @@
 // =============================================================================
 
 import type { WalletInfo } from '../../types';
-
-export interface BitcoinProviderCallbacks {
-  onWalletEvent: (action: string, data: Record<string, unknown>) => void;
-  onTransaction: (txid: string, data: Record<string, unknown>) => void;
-}
+import { BaseVMProvider, type VMType, type ProviderCallbacks } from './base-provider';
 
 interface BTCProvider {
   requestAccounts(): Promise<string[]>;
@@ -30,16 +26,16 @@ declare global {
   }
 }
 
-export class BitcoinProvider {
-  private callbacks: BitcoinProviderCallbacks;
+export class BitcoinProvider extends BaseVMProvider {
+  readonly vm: VMType = 'bitcoin';
+  readonly defaultChainId: string = 'mainnet';
+
   private provider: BTCProvider | null = null;
-  private wallet: WalletInfo | null = null;
-  private walletType: string = 'unknown';
   private network: string = 'mainnet';
   private handlers: Array<[string, (...args: unknown[]) => void]> = [];
 
-  constructor(callbacks: BitcoinProviderCallbacks) {
-    this.callbacks = callbacks;
+  constructor(callbacks: ProviderCallbacks) {
+    super(callbacks);
   }
 
   init(): void {
@@ -56,42 +52,18 @@ export class BitcoinProvider {
     }
   }
 
+  /** Override connect to include addressType and preserve BTC address casing */
   connect(address: string, options?: Partial<WalletInfo>): void {
-    this.wallet = {
+    super.connect(address, options);
+    // Emit extra addressType data
+    this.callbacks.onWalletEvent('connect', {
       address,
       chainId: this.network,
-      type: options?.type ?? this.walletType,
-      vm: 'bitcoin',
+      walletType: options?.type ?? this.walletType,
+      vm: this.vm,
       classification: 'hot',
-      isConnected: true,
-      connectedAt: new Date().toISOString(),
-    };
-
-    this.callbacks.onWalletEvent('connect', {
-      address, chainId: this.network, walletType: this.wallet.type, vm: 'bitcoin',
-      classification: 'hot', addressType: this.detectAddressType(address),
+      addressType: this.detectAddressType(address),
     });
-  }
-
-  disconnect(): void {
-    if (!this.wallet) return;
-    this.callbacks.onWalletEvent('disconnect', {
-      address: this.wallet.address, chainId: this.network,
-      walletType: this.wallet.type, vm: 'bitcoin',
-    });
-    this.wallet = { ...this.wallet, isConnected: false };
-  }
-
-  getWallet(): WalletInfo | null {
-    return this.wallet ? { ...this.wallet } : null;
-  }
-
-  transaction(txid: string, data: Record<string, unknown>): void {
-    this.callbacks.onTransaction(txid, {
-      txHash: txid, chainId: this.network, vm: 'bitcoin',
-      status: 'pending', ...data,
-    });
-    this.monitorTransaction(txid);
   }
 
   destroy(): void {
@@ -101,12 +73,48 @@ export class BitcoinProvider {
       });
     }
     this.handlers = [];
-    this.wallet = null;
     this.provider = null;
+    super.destroy();
   }
 
   // ---------------------------------------------------------------------------
-  // Private
+  // Protected — abstract implementations
+  // ---------------------------------------------------------------------------
+
+  protected detectWalletType(): string {
+    if (typeof window === 'undefined') return 'unknown';
+    if (window.unisat) return 'unisat';
+    if (window.xverse?.bitcoin) return 'xverse';
+    if (window.LeatherProvider) return 'leather';
+    if (window.okxwallet?.bitcoin) return 'okx';
+    return 'bitcoin';
+  }
+
+  protected async monitorTransaction(txid: string): Promise<void> {
+    let attempts = 0;
+    const maxAttempts = 120; // BTC blocks are ~10 min
+    const check = async (): Promise<void> => {
+      try {
+        const response = await fetch(`https://mempool.space/api/tx/${txid}/status`);
+        if (response.ok) {
+          const status = await response.json();
+          if (status.confirmed) {
+            this.callbacks.onTransaction(txid, {
+              txHash: txid, chainId: this.network, vm: 'bitcoin',
+              status: 'confirmed', blockHeight: status.block_height,
+              blockHash: status.block_hash, blockTime: status.block_time,
+            });
+            return;
+          }
+        }
+        if (++attempts < maxAttempts) setTimeout(check, 15000);
+      } catch { /* API error */ }
+    };
+    setTimeout(check, 10000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private — VM-specific helpers
   // ---------------------------------------------------------------------------
 
   private async setupProvider(provider: BTCProvider): Promise<void> {
@@ -143,43 +151,11 @@ export class BitcoinProvider {
     }
   }
 
-  private detectWalletType(): string {
-    if (typeof window === 'undefined') return 'unknown';
-    if (window.unisat) return 'unisat';
-    if (window.xverse?.bitcoin) return 'xverse';
-    if (window.LeatherProvider) return 'leather';
-    if (window.okxwallet?.bitcoin) return 'okx';
-    return 'bitcoin';
-  }
-
   private detectAddressType(address: string): string {
     if (address.startsWith('bc1p') || address.startsWith('tb1p')) return 'taproot';
     if (address.startsWith('bc1') || address.startsWith('tb1')) return 'native_segwit';
     if (address.startsWith('3')) return 'segwit';
     if (address.startsWith('1')) return 'legacy';
     return 'unknown';
-  }
-
-  private async monitorTransaction(txid: string): Promise<void> {
-    let attempts = 0;
-    const maxAttempts = 120; // BTC blocks are ~10 min
-    const check = async (): Promise<void> => {
-      try {
-        const response = await fetch(`https://mempool.space/api/tx/${txid}/status`);
-        if (response.ok) {
-          const status = await response.json();
-          if (status.confirmed) {
-            this.callbacks.onTransaction(txid, {
-              txHash: txid, chainId: this.network, vm: 'bitcoin',
-              status: 'confirmed', blockHeight: status.block_height,
-              blockHash: status.block_hash, blockTime: status.block_time,
-            });
-            return;
-          }
-        }
-        if (++attempts < maxAttempts) setTimeout(check, 15000);
-      } catch { /* API error */ }
-    };
-    setTimeout(check, 10000);
   }
 }

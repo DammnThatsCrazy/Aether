@@ -22,15 +22,14 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import hmac
 import json
-import os
 import struct
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from services.oracle.base_signer import BaseProofSigner
 from services.oracle.signer import RewardProof
 from shared.common.common import BadRequestError
 from shared.logger.logger import get_logger, metrics
@@ -38,9 +37,9 @@ from shared.logger.logger import get_logger, metrics
 logger = get_logger("aether.service.oracle.multichain_signer")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # VM TYPE ENUM
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
 class VMType(str, Enum):
     """Supported blockchain virtual machine families."""
@@ -66,9 +65,9 @@ class VMType(str, Enum):
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # CHAIN CONFIG
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
 @dataclass(frozen=True)
 class ChainConfig:
@@ -110,9 +109,9 @@ class MultiChainProofConfig:
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # MULTI-CHAIN REWARD PROOF
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
 @dataclass
 class MultiChainRewardProof:
@@ -212,9 +211,9 @@ class MultiChainRewardProof:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # BASE58 ENCODING UTILITY
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
 _BASE58_ALPHABET = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -245,16 +244,17 @@ def _base58_encode(data: bytes) -> str:
     return ("1" * num_leading_zeros) + result.decode("ascii")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 # MULTI-CHAIN SIGNER
-# ═══════════════════════════════════════════════════════════════════════════
+# ======================================================================
 
-class MultiChainSigner:
+class MultiChainSigner(BaseProofSigner):
     """
     Generates and verifies reward proofs across all supported VM families.
 
-    Extends the EVM-only ``OracleSigner`` pattern to handle chain-specific
-    message formats and address derivation.
+    Inherits shared HMAC signing, input validation, and nonce generation
+    from ``BaseProofSigner``. Adds VM-specific message hashing, address
+    derivation, and formatting.
 
     Production notes:
         - EVM/TVM: replace hashing with ``Web3.keccak``, signing with
@@ -267,6 +267,7 @@ class MultiChainSigner:
     """
 
     def __init__(self, config: MultiChainProofConfig) -> None:
+        super().__init__(config.signer_private_key)
         self._config = config
         self._signer_addresses: dict[VMType, str] = {}
 
@@ -305,11 +306,6 @@ class MultiChainSigner:
                     "chain_id": 1,
                     "contract_address": "0x..."
                 },
-                "svm": {
-                    "signer_address": "7abc...",
-                    "chain_id": 101,
-                    "contract_address": "Prog..."
-                },
                 ...
             }
         """
@@ -338,14 +334,6 @@ class MultiChainSigner:
         Build a signed proof authorising ``user`` to claim ``amount`` on the
         specified VM chain.
 
-        Steps:
-            1. Resolve the chain configuration for the VM type.
-            2. Generate a cryptographically random 32-byte nonce.
-            3. Compute the expiry timestamp.
-            4. Dispatch to the VM-specific message builder.
-            5. Sign the resulting hash.
-            6. Package into a ``MultiChainRewardProof``.
-
         Args:
             user:        Address/account of the reward recipient.
             action_type: The qualifying event type.
@@ -356,16 +344,14 @@ class MultiChainSigner:
         Returns:
             A fully signed ``MultiChainRewardProof``.
         """
-        if not user:
-            raise BadRequestError("user address is required for proof generation")
-        if amount <= 0:
-            raise BadRequestError("amount must be positive")
+        self._validate_proof_inputs(user, amount)
 
         chain_cfg = self._config.get_chain_config(vm_type)
         resolved_chain_id = chain_id if chain_id is not None else chain_cfg.chain_id
 
-        nonce = os.urandom(32).hex()
-        expiry = int(time.time()) + chain_cfg.proof_expiry_seconds
+        nonce, expiry = self._generate_nonce_and_expiry(
+            chain_cfg.proof_expiry_seconds,
+        )
 
         # Dispatch to VM-specific message builder
         message_hash = self._build_message_hash(
@@ -379,8 +365,8 @@ class MultiChainSigner:
             contract_address=chain_cfg.contract_address,
         )
 
-        # Sign the hash
-        signature = self._simulate_sign(message_hash, vm_type)
+        # Sign the hash (domain-separated by VM type)
+        signature = self._simulate_sign(message_hash, domain=vm_type.value)
 
         # Determine VM-specific optional fields
         program_id: Optional[str] = None
@@ -397,10 +383,10 @@ class MultiChainSigner:
         elif vm_type == VMType.COSMOS:
             base_denom = "uatom"
 
-        # Format nonce/signature prefixes per VM convention
-        nonce_formatted = self._format_nonce(nonce, vm_type)
-        signature_formatted = self._format_signature(signature, vm_type)
-        hash_formatted = self._format_hash(message_hash, vm_type)
+        # Format nonce/signature/hash prefixes per VM convention
+        nonce_formatted = self._format_hex_for_vm(nonce, vm_type, "nonce")
+        signature_formatted = self._format_hex_for_vm(signature, vm_type, "signature")
+        hash_formatted = self._format_hex_for_vm(message_hash, vm_type, "hash")
 
         proof = MultiChainRewardProof(
             user=user,
@@ -434,8 +420,7 @@ class MultiChainSigner:
         """
         Verify a multi-chain proof by:
             1. Checking the expiry timestamp.
-            2. Recomputing the message hash from proof fields.
-            3. Recovering the signer and comparing to the expected address.
+            2. Recovering the signer and comparing to the expected address.
 
         Args:
             proof: The proof to verify.
@@ -452,12 +437,16 @@ class MultiChainSigner:
             return False
 
         # Strip formatting prefixes for internal operations
-        msg_hash = self._strip_hash_prefix(proof.message_hash, proof.vm_type)
-        sig = self._strip_signature_prefix(proof.signature, proof.vm_type)
+        msg_hash = self._strip_hex_for_vm(proof.message_hash, proof.vm_type, "hash")
+        sig = self._strip_hex_for_vm(proof.signature, proof.vm_type, "signature")
 
-        # Verify via HMAC recovery
-        recovered = self._simulate_recover(msg_hash, sig, proof.vm_type)
+        # Verify via HMAC recovery (domain-separated by VM type)
         expected = self._signer_addresses[proof.vm_type]
+        recovered = self._simulate_recover(
+            msg_hash, sig,
+            domain=proof.vm_type.value,
+            expected_address=expected,
+        )
         valid = recovered.lower() == expected.lower()
 
         if not valid:
@@ -475,6 +464,78 @@ class MultiChainSigner:
             },
         )
         return valid
+
+    # -- VM-specific formatting -----------------------------------------
+
+    @staticmethod
+    def _format_hex_for_vm(
+        hex_str: str, vm_type: VMType, format_type: str,
+    ) -> str:
+        """
+        Apply VM-specific formatting to a raw hex string.
+
+        Args:
+            hex_str:     Raw hex string (no prefix).
+            vm_type:     Target VM family.
+            format_type: One of ``"nonce"``, ``"signature"``, or ``"hash"``.
+
+        Returns:
+            Formatted string in the VM's native convention.
+        """
+        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
+            return f"0x{hex_str}"
+
+        elif vm_type == VMType.SVM:
+            return _base58_encode(bytes.fromhex(hex_str))
+
+        elif vm_type == VMType.BITCOIN:
+            return hex_str  # raw hex for Bitcoin
+
+        elif vm_type == VMType.NEAR:
+            return base64.b64encode(bytes.fromhex(hex_str)).decode("ascii")
+
+        elif vm_type == VMType.COSMOS:
+            if format_type == "signature":
+                return base64.b64encode(bytes.fromhex(hex_str)).decode("ascii")
+            return hex_str  # nonce and hash stay as raw hex
+
+        else:
+            return f"0x{hex_str}"
+
+    @staticmethod
+    def _strip_hex_for_vm(
+        formatted: str, vm_type: VMType, format_type: str,
+    ) -> str:
+        """
+        Strip VM-specific formatting from a formatted string to get raw hex.
+
+        Args:
+            formatted:   The formatted string.
+            vm_type:     The VM family.
+            format_type: One of ``"hash"`` or ``"signature"``.
+
+        Returns:
+            Raw hex string.
+        """
+        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
+            return formatted.removeprefix("0x")
+
+        elif vm_type == VMType.SVM:
+            return formatted  # simplified; in production decode base58
+
+        elif vm_type == VMType.BITCOIN:
+            return formatted
+
+        elif vm_type == VMType.NEAR:
+            return base64.b64decode(formatted).hex()
+
+        elif vm_type == VMType.COSMOS:
+            if format_type == "signature":
+                return base64.b64decode(formatted).hex()
+            return formatted
+
+        else:
+            return formatted.removeprefix("0x")
 
     # -- message construction dispatching ----------------------------------
 
@@ -526,11 +587,6 @@ class MultiChainSigner:
         Simulate ``keccak256(abi.encodePacked(...))`` for EVM chains.
 
         Production: use ``Web3.keccak`` with ABI-encoded packed data.
-
-        Packing:
-            address(20B) | actionType(utf8) | uint256(amount,8B) |
-            bytes32(nonce,32B) | uint256(expiry,8B) | uint256(chainId,8B) |
-            address(contract,20B)
         """
         packed = b"".join([
             bytes.fromhex(user.removeprefix("0x").lower().zfill(40)),
@@ -541,7 +597,6 @@ class MultiChainSigner:
             struct.pack(">Q", chain_id),
             bytes.fromhex(contract_address.removeprefix("0x").lower().zfill(40)),
         ])
-        # Production: return Web3.keccak(packed).hex()
         return hashlib.sha256(packed).hexdigest()
 
     # -- SVM (Solana) message hash -----------------------------------------
@@ -559,22 +614,13 @@ class MultiChainSigner:
         """
         Simulate Borsh-serialized message hashing for Solana (SHA-256).
 
-        Borsh format (simplified):
-            discriminator(8B, sha256("aether:claim_reward")[:8]) |
-            pubkey(32B) | action_type_len(4B) | action_type(utf8) |
-            amount(8B LE) | nonce(32B) | expiry(8B LE) |
-            program_id(32B)
-
         Production: use ``borsh`` serialization library with proper schema.
         """
-        # Compute an 8-byte instruction discriminator
         discriminator = hashlib.sha256(b"aether:claim_reward").digest()[:8]
-
-        # Solana public keys are 32 bytes; pad/truncate the user identifier
         user_bytes = self._normalize_solana_pubkey(user)
 
         action_bytes = action_type.encode("utf-8")
-        action_len = struct.pack("<I", len(action_bytes))  # Borsh uses LE u32 for string length
+        action_len = struct.pack("<I", len(action_bytes))
 
         program_bytes = self._normalize_solana_pubkey(contract_address)
 
@@ -583,9 +629,9 @@ class MultiChainSigner:
             user_bytes,
             action_len,
             action_bytes,
-            struct.pack("<Q", amount),       # u64 LE (Borsh)
-            bytes.fromhex(nonce),            # 32 bytes
-            struct.pack("<Q", expiry),       # u64 LE (Borsh)
+            struct.pack("<Q", amount),
+            bytes.fromhex(nonce),
+            struct.pack("<Q", expiry),
             program_bytes,
         ])
         return hashlib.sha256(packed).hexdigest()
@@ -605,13 +651,6 @@ class MultiChainSigner:
         """
         Simulate Bitcoin signed message format (SHA-256d = double SHA-256).
 
-        Bitcoin message signing convention:
-            SHA256(SHA256(
-                "\\x18Bitcoin Signed Message:\\n" + varint(len(msg)) + msg
-            ))
-
-        The payload ``msg`` is a deterministic string encoding of the proof fields.
-
         Production: use ``bitcoinlib`` or ``python-bitcoinlib`` for proper
         message signing with secp256k1.
         """
@@ -621,14 +660,11 @@ class MultiChainSigner:
         )
         payload_bytes = payload.encode("utf-8")
 
-        # Bitcoin message prefix
         prefix = b"\x18Bitcoin Signed Message:\n"
-        # Variable-length integer encoding of message length (simplified)
         msg_len = self._bitcoin_varint(len(payload_bytes))
 
         full_message = prefix + msg_len + payload_bytes
 
-        # SHA-256d: double hash
         first_hash = hashlib.sha256(full_message).digest()
         return hashlib.sha256(first_hash).hexdigest()
 
@@ -647,19 +683,11 @@ class MultiChainSigner:
         """
         Simulate BCS-serialized message hashing for SUI (SHA3-256).
 
-        BCS (Binary Canonical Serialization) format:
-            module_prefix(utf8,"aether::rewards::ClaimProof") |
-            address(32B) | action_type_len(uleb128) | action_type(utf8) |
-            amount(8B LE) | nonce(32B) | expiry(8B LE) |
-            module_address(32B)
-
         Production: use ``pysui`` or custom BCS serializer with SHA3-256.
         """
-        # BCS struct tag / type prefix
         type_tag = b"aether::rewards::ClaimProof"
         type_tag_len = self._uleb128_encode(len(type_tag))
 
-        # SUI addresses are 32 bytes (64 hex chars)
         user_bytes = bytes.fromhex(user.removeprefix("0x").lower().zfill(64))
 
         action_bytes = action_type.encode("utf-8")
@@ -675,12 +703,11 @@ class MultiChainSigner:
             user_bytes,
             action_len,
             action_bytes,
-            struct.pack("<Q", amount),       # u64 LE (BCS)
-            bytes.fromhex(nonce),            # 32 bytes
-            struct.pack("<Q", expiry),       # u64 LE (BCS)
+            struct.pack("<Q", amount),
+            bytes.fromhex(nonce),
+            struct.pack("<Q", expiry),
             module_bytes,
         ])
-        # SUI uses SHA3-256
         return hashlib.sha3_256(packed).hexdigest()
 
     # -- NEAR message hash -------------------------------------------------
@@ -698,14 +725,6 @@ class MultiChainSigner:
         """
         Simulate Borsh-serialized message hashing for NEAR (SHA-256).
 
-        NEAR uses Borsh serialization for all on-chain data:
-            method_name_len(4B LE) | method_name(utf8) |
-            account_id_len(4B LE) | account_id(utf8) |
-            action_type_len(4B LE) | action_type(utf8) |
-            amount(16B LE, u128) | nonce(32B) |
-            expiry(8B LE) |
-            contract_id_len(4B LE) | contract_id(utf8)
-
         Production: use ``borsh-python`` or ``near-api-py`` for proper
         serialization.
         """
@@ -721,9 +740,9 @@ class MultiChainSigner:
             account_id,
             struct.pack("<I", len(action_bytes)),
             action_bytes,
-            struct.pack("<QQ", amount, 0),    # u128 as two u64s (LE)
-            bytes.fromhex(nonce),              # 32 bytes
-            struct.pack("<Q", expiry),         # u64 LE
+            struct.pack("<QQ", amount, 0),
+            bytes.fromhex(nonce),
+            struct.pack("<Q", expiry),
             struct.pack("<I", len(contract_id)),
             contract_id,
         ])
@@ -744,13 +763,8 @@ class MultiChainSigner:
         """
         TRON uses keccak256 + secp256k1 ECDSA, same as EVM.
 
-        The message format is identical to EVM ``abi.encodePacked``, but
-        TRON addresses use a Base58Check-encoded T-prefix format on the
-        wire. Internally they are 20-byte hashes like EVM.
-
         Production: use ``tronpy`` for proper keccak256 hashing and signing.
         """
-        # Normalize TRON address: strip 'T' prefix or '41' hex prefix if present
         user_hex = self._normalize_tron_address(user)
         contract_hex = self._normalize_tron_address(contract_address)
 
@@ -763,7 +777,6 @@ class MultiChainSigner:
             struct.pack(">Q", chain_id),
             bytes.fromhex(contract_hex.zfill(40)),
         ])
-        # Production: return keccak256(packed).hex()
         return hashlib.sha256(packed).hexdigest()
 
     # -- Cosmos message hash -----------------------------------------------
@@ -781,14 +794,9 @@ class MultiChainSigner:
         """
         Simulate Amino JSON canonical message hashing for Cosmos (SHA-256).
 
-        Cosmos SDK uses a canonical JSON representation of the sign doc,
-        sorted by key, then SHA-256 hashed. This mirrors the ``StdSignDoc``
-        used in Amino signing.
-
         Production: use ``cosmpy`` or ``cosmos-sdk-python`` for proper
         Amino/Protobuf serialization.
         """
-        # Amino-style canonical JSON (keys sorted, no whitespace)
         sign_doc = {
             "account_number": "0",
             "chain_id": str(chain_id),
@@ -812,56 +820,8 @@ class MultiChainSigner:
             ],
             "sequence": "0",
         }
-        # Canonical JSON: sorted keys, no whitespace, ensure_ascii
         canonical = json.dumps(sign_doc, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-    # -- simulated crypto primitives ---------------------------------------
-
-    def _simulate_sign(self, message_hash: str, vm_type: VMType) -> str:
-        """
-        Produce a deterministic HMAC-SHA256 "signature" using the private key.
-
-        The VM type is mixed into the HMAC key to ensure signatures are
-        domain-separated (a proof for EVM cannot be replayed on SVM).
-
-        Production replacement per VM:
-            - EVM/TVM:   ``Account.signHash(...)``
-            - SVM:       ``nacl.signing.SigningKey.sign(...)``
-            - Bitcoin:   ``ecdsa.sign(...)``
-            - MoveVM:    ``nacl.signing.SigningKey.sign(...)``
-            - NEAR:      ``nacl.signing.SigningKey.sign(...)``
-            - Cosmos:    ``ecdsa.sign(...)``
-        """
-        key_material = (
-            self._config.signer_private_key.removeprefix("0x") + ":" + vm_type.value
-        )
-        sig = hmac.new(
-            key=key_material.encode("utf-8"),
-            msg=bytes.fromhex(message_hash),
-            digestmod=hashlib.sha256,
-        ).hexdigest()
-        return sig
-
-    def _simulate_recover(
-        self, message_hash: str, signature: str, vm_type: VMType
-    ) -> str:
-        """
-        "Recover" the signer by recomputing the HMAC and comparing.
-
-        Production replacement per VM:
-            - EVM/TVM:   ``Account.recoverHash(...)``
-            - SVM:       ``nacl.signing.VerifyKey.verify(...)``
-            - Bitcoin:   ``ecdsa.recover(...)``
-            - MoveVM:    ``nacl.signing.VerifyKey.verify(...)``
-            - NEAR:      ``nacl.signing.VerifyKey.verify(...)``
-            - Cosmos:    ``ecdsa.recover(...)``
-        """
-        expected_sig = self._simulate_sign(message_hash, vm_type)
-        if hmac.compare_digest(expected_sig, signature):
-            return self._signer_addresses[vm_type]
-        # Return a null address in the format expected by the VM
-        return self._null_address(vm_type)
 
     # -- address derivation ------------------------------------------------
 
@@ -870,63 +830,40 @@ class MultiChainSigner:
         """
         Derive a pseudo-address from the private key for each VM type.
 
-        Each VM family has a distinct address format:
-            - EVM:     0x + 40 hex chars (20 bytes)
-            - TVM:     0x + 40 hex chars (TRON uses 20-byte addresses internally)
-            - SVM:     Base58-encoded 32 bytes (Solana public key)
-            - Bitcoin: 1 + 33 hex chars (P2PKH-style)
-            - MoveVM:  0x + 64 hex chars (SUI uses 32-byte addresses)
-            - NEAR:    20 hex chars + ".near"
-            - Cosmos:  cosmos1 + 38 hex chars
-
         Production: derive the actual public key using the chain's curve
         (secp256k1 for EVM/BTC/TRON/Cosmos, Ed25519 for SVM/MoveVM/NEAR).
         """
         key_bytes = bytes.fromhex(private_key_hex.removeprefix("0x"))
-        # Mix in the VM type for domain separation
         domain = f"{private_key_hex}:{vm_type.value}".encode("utf-8")
         addr_hash = hashlib.sha256(domain).hexdigest()
 
         if vm_type == VMType.EVM:
             return f"0x{addr_hash[:40]}"
-
         elif vm_type == VMType.TVM:
             return f"0x{addr_hash[:40]}"
-
         elif vm_type == VMType.SVM:
-            # Solana: base58-encoded 32 bytes
-            raw_bytes = bytes.fromhex(addr_hash[:64])  # 32 bytes
+            raw_bytes = bytes.fromhex(addr_hash[:64])
             return _base58_encode(raw_bytes)
-
         elif vm_type == VMType.BITCOIN:
-            # P2PKH-like: 1 + 33 hex chars
             return f"1{addr_hash[:33]}"
-
         elif vm_type == VMType.MOVEVM:
-            # SUI: 0x + 64 hex chars (32-byte address)
             return f"0x{addr_hash[:64]}"
-
         elif vm_type == VMType.NEAR:
-            # NEAR: hex prefix + ".near" implicit account
             return f"{addr_hash[:20]}.near"
-
         elif vm_type == VMType.COSMOS:
-            # Cosmos: cosmos1 + 38 hex chars (Bech32-like simulation)
             return f"cosmos1{addr_hash[:38]}"
-
         else:
-            # Fallback — should never happen with exhaustive enum
             return f"0x{addr_hash[:40]}"
 
     @staticmethod
-    def _null_address(vm_type: VMType) -> str:
+    def _null_address(vm_type: VMType = None) -> str:
         """Return a null/zero address in the format expected by the VM."""
-        if vm_type == VMType.EVM:
+        if vm_type is None or vm_type == VMType.EVM:
             return "0x" + "0" * 40
         elif vm_type == VMType.TVM:
             return "0x" + "0" * 40
         elif vm_type == VMType.SVM:
-            return "1" * 32  # base58 all-ones approximation of zero
+            return "1" * 32
         elif vm_type == VMType.BITCOIN:
             return "1" + "0" * 33
         elif vm_type == VMType.MOVEVM:
@@ -938,91 +875,6 @@ class MultiChainSigner:
         else:
             return "0x" + "0" * 40
 
-    # -- formatting helpers ------------------------------------------------
-
-    @staticmethod
-    def _format_nonce(nonce_hex: str, vm_type: VMType) -> str:
-        """Apply VM-specific nonce formatting."""
-        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
-            return f"0x{nonce_hex}"
-        elif vm_type == VMType.SVM:
-            # Solana: base58-encoded nonce
-            return _base58_encode(bytes.fromhex(nonce_hex))
-        elif vm_type == VMType.BITCOIN:
-            return nonce_hex  # raw hex for Bitcoin
-        elif vm_type == VMType.NEAR:
-            # NEAR: base64-encoded nonce
-            return base64.b64encode(bytes.fromhex(nonce_hex)).decode("ascii")
-        elif vm_type == VMType.COSMOS:
-            return nonce_hex  # raw hex for Cosmos
-        else:
-            return f"0x{nonce_hex}"
-
-    @staticmethod
-    def _format_signature(sig_hex: str, vm_type: VMType) -> str:
-        """Apply VM-specific signature formatting."""
-        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
-            return f"0x{sig_hex}"
-        elif vm_type == VMType.SVM:
-            return _base58_encode(bytes.fromhex(sig_hex))
-        elif vm_type == VMType.BITCOIN:
-            return sig_hex
-        elif vm_type == VMType.NEAR:
-            return base64.b64encode(bytes.fromhex(sig_hex)).decode("ascii")
-        elif vm_type == VMType.COSMOS:
-            return base64.b64encode(bytes.fromhex(sig_hex)).decode("ascii")
-        else:
-            return f"0x{sig_hex}"
-
-    @staticmethod
-    def _format_hash(hash_hex: str, vm_type: VMType) -> str:
-        """Apply VM-specific hash formatting."""
-        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
-            return f"0x{hash_hex}"
-        elif vm_type == VMType.SVM:
-            return _base58_encode(bytes.fromhex(hash_hex))
-        elif vm_type == VMType.BITCOIN:
-            return hash_hex
-        elif vm_type == VMType.NEAR:
-            return base64.b64encode(bytes.fromhex(hash_hex)).decode("ascii")
-        elif vm_type == VMType.COSMOS:
-            return hash_hex
-        else:
-            return f"0x{hash_hex}"
-
-    @staticmethod
-    def _strip_hash_prefix(formatted_hash: str, vm_type: VMType) -> str:
-        """Strip VM-specific formatting from a hash to get raw hex."""
-        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
-            return formatted_hash.removeprefix("0x")
-        elif vm_type == VMType.SVM:
-            # Decode base58 back to hex
-            return formatted_hash  # simplified; in production decode base58
-        elif vm_type == VMType.BITCOIN:
-            return formatted_hash
-        elif vm_type == VMType.NEAR:
-            return base64.b64decode(formatted_hash).hex()
-        elif vm_type == VMType.COSMOS:
-            return formatted_hash
-        else:
-            return formatted_hash.removeprefix("0x")
-
-    @staticmethod
-    def _strip_signature_prefix(formatted_sig: str, vm_type: VMType) -> str:
-        """Strip VM-specific formatting from a signature to get raw hex."""
-        if vm_type in (VMType.EVM, VMType.TVM, VMType.MOVEVM):
-            return formatted_sig.removeprefix("0x")
-        elif vm_type == VMType.SVM:
-            return formatted_sig  # simplified; in production decode base58
-        elif vm_type == VMType.BITCOIN:
-            return formatted_sig
-        elif vm_type == VMType.NEAR:
-            return base64.b64decode(formatted_sig).hex()
-        elif vm_type == VMType.COSMOS:
-            return base64.b64decode(formatted_sig).hex()
-        else:
-            return formatted_sig.removeprefix("0x")
-
     # -- chain-specific normalization helpers -------------------------------
 
     @staticmethod
@@ -1031,19 +883,15 @@ class MultiChainSigner:
         Normalize a Solana public key to 32 bytes.
 
         Accepts hex-encoded (with or without 0x prefix) or base58-encoded
-        public keys. For the demo, we hash the input to get a deterministic
-        32-byte value.
+        public keys.
         """
-        # If it looks like hex, decode directly
         clean = address.removeprefix("0x")
         try:
             raw = bytes.fromhex(clean)
             if len(raw) == 32:
                 return raw
-            # Pad or truncate to 32 bytes
             return hashlib.sha256(raw).digest()
         except ValueError:
-            # Assume base58 or other format; hash it for deterministic 32 bytes
             return hashlib.sha256(address.encode("utf-8")).digest()
 
     @staticmethod
@@ -1051,28 +899,18 @@ class MultiChainSigner:
         """
         Normalize a TRON address to a 40-char hex string.
 
-        TRON addresses can be:
-            - 0x-prefixed hex (internal)
-            - 41-prefixed hex (TRON convention: 41 + 20-byte address)
-            - T-prefixed Base58Check (wire format)
-
-        For the demo, we strip known prefixes and ensure 40 hex chars.
+        Handles 0x-prefixed hex, 41-prefixed hex (TRON convention), and
+        T-prefixed Base58Check (wire format).
         """
         clean = address.strip()
 
-        # Handle 0x prefix
         if clean.startswith("0x") or clean.startswith("0X"):
             return clean[2:].lower()
-
-        # Handle 41-prefix (TRON hex format)
         if clean.startswith("41") and len(clean) == 42:
             return clean[2:].lower()
-
-        # Handle T-prefix (Base58Check); hash for demo
         if clean.startswith("T"):
             return hashlib.sha256(clean.encode("utf-8")).hexdigest()[:40]
 
-        # Fallback: treat as raw hex
         return clean.lower()
 
     @staticmethod

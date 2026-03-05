@@ -42,6 +42,7 @@ import { setRemoteData as setProtocolRemoteData } from './web3/defi/protocol-reg
 import { setRemoteData as setLabelRemoteData } from './web3/wallet/wallet-labels';
 import { setRemoteData as setClassifierRemoteData } from './web3/wallet/wallet-classifier';
 import { generateId, now, getPageContext, getDeviceContext, getCampaignContext } from './utils';
+import { createModuleProxy } from './utils/module-proxy';
 
 const SDK_VERSION = '5.0.0';
 const DEFAULT_ENDPOINT = 'https://api.aether.network';
@@ -95,253 +96,19 @@ class AetherSDK implements AetherSDKInterface {
     this.debug = config.debug ?? false;
     this.log('info', 'Initializing Aether SDK v' + SDK_VERSION);
 
-    // Core managers
-    this.identityManager = new IdentityManager();
-    this.sessionManager = new SessionManager(
-      config.advanced?.heartbeatInterval ?? 30000,
-      (session) => this.enqueueEvent('heartbeat', { sessionDuration: session.lastActivityAt })
-    );
-
-    const endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
-    this.eventQueue = new EventQueue({
-      endpoint,
-      apiKey: config.apiKey,
-      batchSize: config.advanced?.batchSize ?? 10,
-      flushInterval: config.advanced?.flushInterval ?? 5000,
-      maxQueueSize: config.advanced?.maxQueueSize ?? 100,
-      retry: config.advanced?.retry,
-      headers: config.advanced?.customHeaders ?? {},
-      onError: (err) => this.log('error', 'Event send failed:', err.message),
-    });
-
-    // Consent module
-    this.consentModule = new ConsentModule({
-      purposes: ['analytics', 'marketing', 'web3'],
-      policyUrl: '/privacy',
-    });
-
-    this.eventQueue.setConsent(this.consentModule.getState());
-    this.consentModule.onUpdate((state) => {
-      this.eventQueue?.setConsent(state);
-      this.enqueueEvent('consent', { consent: state });
-    });
-
-    if (config.privacy?.gdprMode && !this.consentModule.hasRecordedConsent()) {
-      this.consentModule.showBanner();
-    }
-
-    // Semantic context — tiered enrichment for all events
-    this.semanticContext = new SemanticContextCollector(SDK_VERSION, {
-      maxTier: config.privacy?.vectorizeData ? 1 : 3,
-    });
-
-    // Traffic source tracking — zero-config, auto-detect all sources
-    this.trafficTracker = new TrafficSourceTracker();
-    const detectedSource = this.trafficTracker.detect();
-    this.log('debug', 'Traffic source detected:', detectedSource.source, '/', detectedSource.medium);
-
-    // Start session
-    this.sessionManager.start();
-
-    // Initialize optional modules
     const modules = config.modules ?? {};
 
-    // Auto-discovery
-    if (modules.autoDiscovery !== false) {
-      this.autoDiscovery = new AutoDiscoveryModule(
-        { onTrack: (event, props) => this.track(event, props) },
-        { maskSensitive: config.privacy?.maskSensitiveFields ?? true, piiPatterns: config.privacy?.piiPatterns }
-      );
-      this.autoDiscovery.start({
-        clicks: true,
-        forms: modules.formTracking !== false,
-        scrollDepth: modules.scrollDepth !== false,
-        rageClicks: modules.rageClickDetection !== false,
-        deadClicks: modules.deadClickDetection !== false,
-      });
-    }
-
-    // Performance tracking
-    if (modules.performanceTracking) {
-      this.performanceModule = new PerformanceModule({
-        onPerformance: (metrics) => this.enqueueEvent('performance', metrics),
-        onError: (error) => this.enqueueEvent('error', error),
-      });
-      this.performanceModule.start({ webVitals: true, errors: modules.errorTracking !== false });
-    } else if (modules.errorTracking) {
-      this.performanceModule = new PerformanceModule({
-        onPerformance: () => {},
-        onError: (error) => this.enqueueEvent('error', error),
-      });
-      this.performanceModule.start({ webVitals: false, errors: true });
-    }
-
-    // Experiments
-    if (modules.experiments !== false) {
-      this.experimentsModule = new ExperimentsModule(
-        this.identityManager.getAnonymousId(),
-        { onExposure: (expId, variant) => this.track('experiment_exposure', { experimentId: expId, variantId: variant }) }
-      );
-    }
-
-    // Web3 — Multi-VM initialization
-    if (modules.walletTracking || modules.svmTracking || modules.bitcoinTracking ||
-        modules.moveTracking || modules.nearTracking || modules.tronTracking || modules.cosmosTracking) {
-      this.web3Module = new Web3Module(
-        {
-          onWalletEvent: (action, data) => this.enqueueEvent('wallet', { action, ...data }),
-          onTransaction: (txHash, data) => this.enqueueEvent('transaction', { txHash, ...data }),
-          onTokenBalance: (balance) => this.enqueueEvent('token_balance', { ...balance }),
-          onNFTDetected: (nft) => this.enqueueEvent('nft_detection', { ...nft }),
-          onGasAnalytics: (gas) => this.enqueueEvent('track', { event: 'gas_analytics', ...gas }),
-          onWhaleAlert: (alert) => this.enqueueEvent('whale_alert', { ...alert }),
-          onDeFiInteraction: (data) => this.enqueueEvent('defi_interaction', data),
-          onPortfolioUpdate: (snapshot) => this.enqueueEvent('portfolio_update', { ...snapshot }),
-        },
-        {
-          walletTracking: modules.walletTracking,
-          svmTracking: modules.svmTracking,
-          bitcoinTracking: modules.bitcoinTracking,
-          moveTracking: modules.moveTracking,
-          nearTracking: modules.nearTracking,
-          tronTracking: modules.tronTracking,
-          cosmosTracking: modules.cosmosTracking,
-          tokenTracking: modules.tokenTracking,
-          nftDetection: modules.nftDetection,
-          gasTracking: modules.gasTracking,
-          whaleAlerts: modules.whaleAlerts,
-          defiTracking: modules.defiTracking,
-          portfolioTracking: modules.portfolioTracking,
-          walletClassification: modules.walletClassification,
-          perpetualsTracking: modules.perpetualsTracking,
-          bridgeTracking: modules.bridgeTracking,
-          cexTracking: modules.cexTracking,
-        }
-      );
-      this.web3Module.init();
-    }
-
-    // Edge ML
-    if (modules.intentPrediction || modules.predictiveAnalytics) {
-      this.edgeML = new EdgeMLModule({
-        onIntentPrediction: (intent) => {
-          this.semanticContext?.setIntent(intent);
-          this.intentCallbacks.forEach((cb) => { try { cb(intent); } catch { /* */ } });
-          if (modules.predictiveAnalytics) {
-            this.enqueueEvent('track', { event: 'intent_prediction', ...intent });
-          }
-        },
-        onBotDetection: (score) => {
-          this.botCallbacks.forEach((cb) => { try { cb(score); } catch { /* */ } });
-        },
-        onSessionScore: (score) => {
-          this.semanticContext?.setSessionScore(score);
-          this.sessionScoreCallbacks.forEach((cb) => { try { cb(score); } catch { /* */ } });
-        },
-      });
-      this.edgeML.start(5000);
-    }
+    this.initCore(config);
+    this.initWeb3(config, modules);
+    this.initWeb2(config, modules);
+    this.initAnalytics(config, modules);
+    this.initAutoUpdate(config);
 
     this.pageView();
     this.setupSPATracking();
 
     if (config.privacy?.respectDNT && navigator.doNotTrack === '1') {
       this.log('info', 'DNT detected — limiting data collection');
-    }
-
-    // Auto-update — OTA data module sync (non-blocking, fire-and-forget)
-    const autoUpdate = config.autoUpdate ?? {};
-    if (autoUpdate.enabled !== false) {
-      const cdnEndpoint = config.endpoint?.replace('/api.', '/cdn.') ?? 'https://cdn.aether.network';
-      this.updateManager = new UpdateManager(
-        cdnEndpoint,
-        SDK_VERSION,
-        {
-          enabled: true,
-          checkIntervalMs: autoUpdate.checkIntervalMs,
-          onUpdateAvailable: autoUpdate.onUpdateAvailable,
-        },
-        this.debug,
-      );
-
-      // Register data module injectors
-      this.updateManager.registerInjector('chainRegistry', (data) => setChainRemoteData(data as any));
-      this.updateManager.registerInjector('protocolRegistry', (data) => setProtocolRemoteData(data as any));
-      this.updateManager.registerInjector('walletLabels', (data) => setLabelRemoteData(data as any));
-      this.updateManager.registerInjector('walletClassification', (data) => setClassifierRemoteData(data as any));
-
-      // Load cached data modules first (sync, instant)
-      this.updateManager.loadCachedModules();
-
-      // Start background update check (async, non-blocking)
-      this.updateManager.start();
-    }
-
-    // Reward automation client — connects to backend fraud + oracle + on-chain pipeline
-    this.rewardClient = createRewardClient({
-      endpoint,
-      apiKey: config.apiKey,
-      autoCheck: false, // Manual — triggered via aether.rewards.checkEligibility()
-    });
-
-    // ── Web2 Modules ─────────────────────────────────────────────────
-    const trackFn = (event: string, props?: Record<string, unknown>) => this.track(event, props);
-
-    // E-commerce tracking (cart state, checkout funnel, order lifecycle)
-    if (modules.ecommerce !== false) {
-      this.ecommerceModule = new EcommerceModule({
-        onTrack: trackFn,
-        currency: (config as any).ecommerce?.currency ?? 'USD',
-        cartPersistence: (config as any).ecommerce?.cartPersistence ?? true,
-      });
-    }
-
-    // Form analytics (field-level interaction tracking, abandonment detection)
-    if (modules.formAnalytics !== false) {
-      this.formAnalytics = new FormAnalyticsModule({
-        onTrack: trackFn,
-        autoDiscover: (config as any).formAnalytics?.autoDiscover ?? true,
-        sensitiveFields: config.privacy?.piiPatterns ?? [],
-      });
-    }
-
-    // Feature flags (remote config with stale-while-revalidate caching)
-    if (modules.featureFlags) {
-      this.featureFlags = new FeatureFlagModule({
-        endpoint,
-        apiKey: config.apiKey,
-        onTrack: trackFn,
-        refreshIntervalMs: (config as any).featureFlags?.refreshIntervalMs ?? 300000,
-        defaults: (config as any).featureFlags?.defaults ?? {},
-      });
-    }
-
-    // Feedback surveys (NPS, CSAT, CES with trigger rules + DOM rendering)
-    if (modules.feedback) {
-      this.feedbackModule = new FeedbackModule({
-        endpoint,
-        apiKey: config.apiKey,
-        onTrack: trackFn,
-        userId: this.identityManager.getIdentity().anonymousId,
-      });
-    }
-
-    // Heatmaps (click, movement, scroll, attention tracking)
-    if (modules.heatmaps) {
-      this.heatmapModule = new HeatmapModule({
-        onTrack: trackFn,
-        sampleRate: (config as any).heatmaps?.sampleRate ?? 1.0,
-        flushIntervalMs: (config as any).heatmaps?.flushIntervalMs ?? 30000,
-      });
-      this.heatmapModule.start();
-    }
-
-    // Funnel tracking (multi-step conversion funnels with drop-off analysis)
-    if (modules.funnels) {
-      this.funnelModule = new FunnelModule({
-        onTrack: trackFn,
-        definitions: (config as any).funnels?.definitions ?? [],
-      });
     }
 
     this.initialized = true;
@@ -472,7 +239,7 @@ class AetherSDK implements AetherSDKInterface {
   }
 
   // =========================================================================
-  // SUB-INTERFACES
+  // SUB-INTERFACES — Explicit (complex return types, async, error-throwing)
   // =========================================================================
 
   wallet: WalletInterface = {
@@ -546,7 +313,7 @@ class AetherSDK implements AetherSDKInterface {
   };
 
   // =========================================================================
-  // REWARDS — Web2 + Web3 Automated Reward Pipeline
+  // REWARDS — Web2 + Web3 Automated Reward Pipeline (explicit — async + throws)
   // =========================================================================
 
   rewards = {
@@ -554,7 +321,7 @@ class AetherSDK implements AetherSDKInterface {
     setUserAddress: (address: string): void => {
       this.rewardClient?.setUserAddress(address);
     },
-    /** Check if an event qualifies for a reward (fraud → attribution → eligibility → oracle proof) */
+    /** Check if an event qualifies for a reward (fraud -> attribution -> eligibility -> oracle proof) */
     checkEligibility: async (eventType: string, properties?: Record<string, unknown>): Promise<UserReward | null> => {
       return this.rewardClient?.checkEligibility(eventType, properties) ?? null;
     },
@@ -582,118 +349,15 @@ class AetherSDK implements AetherSDKInterface {
   };
 
   // =========================================================================
-  // ECOMMERCE — Product, Cart, Checkout, Order Tracking
+  // SUB-INTERFACES — Proxied (simple delegation to module instances)
   // =========================================================================
 
-  ecommerce = {
-    /** Track a product view */
-    viewProduct: (product: Product): void => { this.ecommerceModule?.viewProduct(product); },
-    /** Track a product list/category view */
-    viewProductList: (category: string, products: Product[]): void => { this.ecommerceModule?.viewProductList(category, products); },
-    /** Add item to cart */
-    addToCart: (item: CartItem): void => { this.ecommerceModule?.addToCart(item); },
-    /** Remove item from cart */
-    removeFromCart: (productId: string, quantity?: number): void => { this.ecommerceModule?.removeFromCart(productId, quantity); },
-    /** Get current cart state */
-    getCart: (): CartItem[] => this.ecommerceModule?.getCart() ?? [],
-    /** Clear the cart */
-    clearCart: (): void => { this.ecommerceModule?.clearCart(); },
-    /** Track checkout initiation */
-    beginCheckout: (options?: { coupon?: string; step?: number }): void => { this.ecommerceModule?.beginCheckout(options); },
-    /** Track a completed order */
-    purchase: (order: Order): void => { this.ecommerceModule?.purchase(order); },
-    /** Track a refund */
-    refund: (orderId: string, amount?: number, items?: CartItem[]): void => { this.ecommerceModule?.refund(orderId, amount, items); },
-    /** Apply a coupon/promo code */
-    applyCoupon: (code: string): void => { this.ecommerceModule?.applyCoupon(code); },
-  };
-
-  // =========================================================================
-  // FEATURE FLAGS — Remote Config + Overrides
-  // =========================================================================
-
-  featureFlag = {
-    /** Check if a feature flag is enabled */
-    isEnabled: (key: string): boolean => this.featureFlags?.isEnabled(key) ?? false,
-    /** Get a typed feature flag value */
-    getValue: <T = unknown>(key: string, fallback?: T): T => this.featureFlags?.getValue<T>(key, fallback as T) ?? fallback as T,
-    /** Get all feature flags */
-    getAll: (): Record<string, FeatureFlag> => this.featureFlags?.getAll() ?? {},
-    /** Set local overrides (for testing/debugging) */
-    setOverrides: (overrides: Record<string, unknown>): void => { this.featureFlags?.setOverrides(overrides); },
-    /** Clear all overrides */
-    clearOverrides: (): void => { this.featureFlags?.clearOverrides(); },
-    /** Force refresh flags from the server */
-    refresh: async (): Promise<void> => { await this.featureFlags?.refresh(); },
-  };
-
-  // =========================================================================
-  // FEEDBACK — NPS, CSAT, CES Surveys
-  // =========================================================================
-
-  feedback = {
-    /** Show a survey by ID */
-    showSurvey: (surveyId: string): void => { this.feedbackModule?.showSurvey(surveyId); },
-    /** Create and register a custom NPS survey */
-    nps: (config: Partial<Survey>): void => { this.feedbackModule?.registerNPS(config); },
-    /** Create and register a custom CSAT survey */
-    csat: (config: Partial<Survey>): void => { this.feedbackModule?.registerCSAT(config); },
-    /** Create and register a custom CES survey */
-    ces: (config: Partial<Survey>): void => { this.feedbackModule?.registerCES(config); },
-    /** Dismiss any currently visible survey */
-    dismiss: (): void => { this.feedbackModule?.dismiss(); },
-    /** Check a trigger event (fires matching surveys) */
-    trigger: (eventName: string, properties?: Record<string, unknown>): void => {
-      this.feedbackModule?.checkTrigger(eventName, properties);
-    },
-  };
-
-  // =========================================================================
-  // HEATMAPS — Click, Movement, Scroll, Attention
-  // =========================================================================
-
-  heatmap = {
-    /** Start heatmap tracking (auto-started if module enabled) */
-    start: (): void => { this.heatmapModule?.start(); },
-    /** Stop heatmap tracking */
-    stop: (): void => { this.heatmapModule?.stop(); },
-    /** Flush current heatmap data */
-    flush: (): void => { this.heatmapModule?.flush(); },
-    /** Get aggregated heatmap data for the current page */
-    getData: (): unknown => this.heatmapModule?.getData() ?? null,
-  };
-
-  // =========================================================================
-  // FUNNELS — Multi-Step Conversion Tracking
-  // =========================================================================
-
-  funnel = {
-    /** Register a funnel definition */
-    define: (definition: FunnelDefinition): void => { this.funnelModule?.define(definition); },
-    /** Record a funnel step event */
-    step: (funnelId: string, stepId: string, properties?: Record<string, unknown>): void => {
-      this.funnelModule?.recordStep(funnelId, stepId, properties);
-    },
-    /** Get current funnel progress */
-    getProgress: (funnelId: string): FunnelProgress | null => this.funnelModule?.getProgress(funnelId) ?? null,
-    /** Get all active funnels */
-    getActiveFunnels: (): FunnelProgress[] => this.funnelModule?.getActiveFunnels() ?? [],
-    /** Reset a funnel */
-    reset: (funnelId: string): void => { this.funnelModule?.reset(funnelId); },
-  };
-
-  // =========================================================================
-  // FORM ANALYTICS — Field-Level Tracking
-  // =========================================================================
-
-  forms = {
-    /** Manually track a form (if auto-discover is off) */
-    trackForm: (formId: string, element?: HTMLFormElement): void => { this.formAnalytics?.trackForm(formId, element); },
-    /** Stop tracking a specific form */
-    untrackForm: (formId: string): void => { this.formAnalytics?.untrackForm(formId); },
-    /** Get analytics for a tracked form */
-    getFormAnalytics: (formId: string): unknown => this.formAnalytics?.getFormAnalytics(formId) ?? null,
-  };
+  ecommerce = createModuleProxy<EcommerceModule>(() => this.ecommerceModule);
+  featureFlag = createModuleProxy<FeatureFlagModule>(() => this.featureFlags);
+  feedback = createModuleProxy<FeedbackModule>(() => this.feedbackModule);
+  heatmap = createModuleProxy<HeatmapModule>(() => this.heatmapModule);
+  funnel = createModuleProxy<FunnelModule>(() => this.funnelModule);
+  forms = createModuleProxy<FormAnalyticsModule>(() => this.formAnalytics);
 
   // =========================================================================
   // EVENT LISTENERS
@@ -717,6 +381,273 @@ class AetherSDK implements AetherSDKInterface {
   use(plugin: AetherPlugin): void {
     this.plugins.push(plugin);
     if (this.initialized) plugin.init(this);
+  }
+
+  // =========================================================================
+  // INIT HELPERS — Split from init() for readability (~40-60 lines each)
+  // =========================================================================
+
+  /**
+   * Initialize core managers: identity, session, event queue, consent,
+   * semantic context, and traffic source tracking.
+   */
+  private initCore(config: AetherConfig): void {
+    this.identityManager = new IdentityManager();
+    this.sessionManager = new SessionManager(
+      config.advanced?.heartbeatInterval ?? 30000,
+      (session) => this.enqueueEvent('heartbeat', { sessionDuration: session.lastActivityAt })
+    );
+
+    const endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
+    this.eventQueue = new EventQueue({
+      endpoint,
+      apiKey: config.apiKey,
+      batchSize: config.advanced?.batchSize ?? 10,
+      flushInterval: config.advanced?.flushInterval ?? 5000,
+      maxQueueSize: config.advanced?.maxQueueSize ?? 100,
+      retry: config.advanced?.retry,
+      headers: config.advanced?.customHeaders ?? {},
+      onError: (err) => this.log('error', 'Event send failed:', err.message),
+    });
+
+    // Consent module
+    this.consentModule = new ConsentModule({
+      purposes: ['analytics', 'marketing', 'web3'],
+      policyUrl: '/privacy',
+    });
+
+    this.eventQueue.setConsent(this.consentModule.getState());
+    this.consentModule.onUpdate((state) => {
+      this.eventQueue?.setConsent(state);
+      this.enqueueEvent('consent', { consent: state });
+    });
+
+    if (config.privacy?.gdprMode && !this.consentModule.hasRecordedConsent()) {
+      this.consentModule.showBanner();
+    }
+
+    // Semantic context — tiered enrichment for all events
+    this.semanticContext = new SemanticContextCollector(SDK_VERSION, {
+      maxTier: config.privacy?.vectorizeData ? 1 : 3,
+    });
+
+    // Traffic source tracking — zero-config, auto-detect all sources
+    this.trafficTracker = new TrafficSourceTracker();
+    const detectedSource = this.trafficTracker.detect();
+    this.log('debug', 'Traffic source detected:', detectedSource.source, '/', detectedSource.medium);
+
+    // Start session
+    this.sessionManager.start();
+
+    // Reward automation client — connects to backend fraud + oracle + on-chain pipeline
+    this.rewardClient = createRewardClient({
+      endpoint,
+      apiKey: config.apiKey,
+      autoCheck: false, // Manual — triggered via aether.rewards.checkEligibility()
+    });
+  }
+
+  /**
+   * Initialize Web3 module: multi-VM wallet tracking (EVM, Solana, Bitcoin, SUI, NEAR, TRON, Cosmos).
+   */
+  private initWeb3(config: AetherConfig, modules: NonNullable<AetherConfig['modules']>): void {
+    if (modules.walletTracking || modules.svmTracking || modules.bitcoinTracking ||
+        modules.moveTracking || modules.nearTracking || modules.tronTracking || modules.cosmosTracking) {
+      this.web3Module = new Web3Module(
+        {
+          onWalletEvent: (action, data) => this.enqueueEvent('wallet', { action, ...data }),
+          onTransaction: (txHash, data) => this.enqueueEvent('transaction', { txHash, ...data }),
+          onTokenBalance: (balance) => this.enqueueEvent('token_balance', { ...balance }),
+          onNFTDetected: (nft) => this.enqueueEvent('nft_detection', { ...nft }),
+          onGasAnalytics: (gas) => this.enqueueEvent('track', { event: 'gas_analytics', ...gas }),
+          onWhaleAlert: (alert) => this.enqueueEvent('whale_alert', { ...alert }),
+          onDeFiInteraction: (data) => this.enqueueEvent('defi_interaction', data),
+          onPortfolioUpdate: (snapshot) => this.enqueueEvent('portfolio_update', { ...snapshot }),
+        },
+        {
+          walletTracking: modules.walletTracking,
+          svmTracking: modules.svmTracking,
+          bitcoinTracking: modules.bitcoinTracking,
+          moveTracking: modules.moveTracking,
+          nearTracking: modules.nearTracking,
+          tronTracking: modules.tronTracking,
+          cosmosTracking: modules.cosmosTracking,
+          tokenTracking: modules.tokenTracking,
+          nftDetection: modules.nftDetection,
+          gasTracking: modules.gasTracking,
+          whaleAlerts: modules.whaleAlerts,
+          defiTracking: modules.defiTracking,
+          portfolioTracking: modules.portfolioTracking,
+          walletClassification: modules.walletClassification,
+          perpetualsTracking: modules.perpetualsTracking,
+          bridgeTracking: modules.bridgeTracking,
+          cexTracking: modules.cexTracking,
+        }
+      );
+      this.web3Module.init();
+    }
+  }
+
+  /**
+   * Initialize Web2 modules: ecommerce, form analytics, feature flags,
+   * feedback surveys, heatmaps, and funnel tracking.
+   */
+  private initWeb2(config: AetherConfig, modules: NonNullable<AetherConfig['modules']>): void {
+    const endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
+    const trackFn = (event: string, props?: Record<string, unknown>) => this.track(event, props);
+
+    // E-commerce tracking (cart state, checkout funnel, order lifecycle)
+    if (modules.ecommerce !== false) {
+      this.ecommerceModule = new EcommerceModule({
+        onTrack: trackFn,
+        currency: (config as any).ecommerce?.currency ?? 'USD',
+        cartPersistence: (config as any).ecommerce?.cartPersistence ?? true,
+      });
+    }
+
+    // Form analytics (field-level interaction tracking, abandonment detection)
+    if (modules.formAnalytics !== false) {
+      this.formAnalytics = new FormAnalyticsModule({
+        onTrack: trackFn,
+        autoDiscover: (config as any).formAnalytics?.autoDiscover ?? true,
+        sensitiveFields: config.privacy?.piiPatterns ?? [],
+      });
+    }
+
+    // Feature flags (remote config with stale-while-revalidate caching)
+    if (modules.featureFlags) {
+      this.featureFlags = new FeatureFlagModule({
+        endpoint,
+        apiKey: config.apiKey,
+        onTrack: trackFn,
+        refreshIntervalMs: (config as any).featureFlags?.refreshIntervalMs ?? 300000,
+        defaults: (config as any).featureFlags?.defaults ?? {},
+      });
+    }
+
+    // Feedback surveys (NPS, CSAT, CES with trigger rules + DOM rendering)
+    if (modules.feedback) {
+      this.feedbackModule = new FeedbackModule({
+        endpoint,
+        apiKey: config.apiKey,
+        onTrack: trackFn,
+        userId: this.identityManager!.getIdentity().anonymousId,
+      });
+    }
+
+    // Heatmaps (click, movement, scroll, attention tracking)
+    if (modules.heatmaps) {
+      this.heatmapModule = new HeatmapModule({
+        onTrack: trackFn,
+        sampleRate: (config as any).heatmaps?.sampleRate ?? 1.0,
+        flushIntervalMs: (config as any).heatmaps?.flushIntervalMs ?? 30000,
+      });
+      this.heatmapModule.start();
+    }
+
+    // Funnel tracking (multi-step conversion funnels with drop-off analysis)
+    if (modules.funnels) {
+      this.funnelModule = new FunnelModule({
+        onTrack: trackFn,
+        definitions: (config as any).funnels?.definitions ?? [],
+      });
+    }
+  }
+
+  /**
+   * Initialize analytics modules: auto-discovery, performance, experiments, and edge ML.
+   */
+  private initAnalytics(config: AetherConfig, modules: NonNullable<AetherConfig['modules']>): void {
+    // Auto-discovery
+    if (modules.autoDiscovery !== false) {
+      this.autoDiscovery = new AutoDiscoveryModule(
+        { onTrack: (event, props) => this.track(event, props) },
+        { maskSensitive: config.privacy?.maskSensitiveFields ?? true, piiPatterns: config.privacy?.piiPatterns }
+      );
+      this.autoDiscovery.start({
+        clicks: true,
+        forms: modules.formTracking !== false,
+        scrollDepth: modules.scrollDepth !== false,
+        rageClicks: modules.rageClickDetection !== false,
+        deadClicks: modules.deadClickDetection !== false,
+      });
+    }
+
+    // Performance tracking
+    if (modules.performanceTracking) {
+      this.performanceModule = new PerformanceModule({
+        onPerformance: (metrics) => this.enqueueEvent('performance', metrics),
+        onError: (error) => this.enqueueEvent('error', error),
+      });
+      this.performanceModule.start({ webVitals: true, errors: modules.errorTracking !== false });
+    } else if (modules.errorTracking) {
+      this.performanceModule = new PerformanceModule({
+        onPerformance: () => {},
+        onError: (error) => this.enqueueEvent('error', error),
+      });
+      this.performanceModule.start({ webVitals: false, errors: true });
+    }
+
+    // Experiments
+    if (modules.experiments !== false) {
+      this.experimentsModule = new ExperimentsModule(
+        this.identityManager!.getAnonymousId(),
+        { onExposure: (expId, variant) => this.track('experiment_exposure', { experimentId: expId, variantId: variant }) }
+      );
+    }
+
+    // Edge ML
+    if (modules.intentPrediction || modules.predictiveAnalytics) {
+      this.edgeML = new EdgeMLModule({
+        onIntentPrediction: (intent) => {
+          this.semanticContext?.setIntent(intent);
+          this.intentCallbacks.forEach((cb) => { try { cb(intent); } catch { /* */ } });
+          if (modules.predictiveAnalytics) {
+            this.enqueueEvent('track', { event: 'intent_prediction', ...intent });
+          }
+        },
+        onBotDetection: (score) => {
+          this.botCallbacks.forEach((cb) => { try { cb(score); } catch { /* */ } });
+        },
+        onSessionScore: (score) => {
+          this.semanticContext?.setSessionScore(score);
+          this.sessionScoreCallbacks.forEach((cb) => { try { cb(score); } catch { /* */ } });
+        },
+      });
+      this.edgeML.start(5000);
+    }
+  }
+
+  /**
+   * Initialize auto-update system: OTA data module sync via CDN manifest.
+   */
+  private initAutoUpdate(config: AetherConfig): void {
+    const autoUpdate = (config as any).autoUpdate ?? {};
+    if (autoUpdate.enabled === false) return;
+
+    const cdnEndpoint = config.endpoint?.replace('/api.', '/cdn.') ?? 'https://cdn.aether.network';
+    this.updateManager = new UpdateManager(
+      cdnEndpoint,
+      SDK_VERSION,
+      {
+        enabled: true,
+        checkIntervalMs: autoUpdate.checkIntervalMs,
+        onUpdateAvailable: autoUpdate.onUpdateAvailable,
+      },
+      this.debug,
+    );
+
+    // Register data module injectors
+    this.updateManager.registerInjector('chainRegistry', (data) => setChainRemoteData(data as any));
+    this.updateManager.registerInjector('protocolRegistry', (data) => setProtocolRemoteData(data as any));
+    this.updateManager.registerInjector('walletLabels', (data) => setLabelRemoteData(data as any));
+    this.updateManager.registerInjector('walletClassification', (data) => setClassifierRemoteData(data as any));
+
+    // Load cached data modules first (sync, instant)
+    this.updateManager.loadCachedModules();
+
+    // Start background update check (async, non-blocking)
+    this.updateManager.start();
   }
 
   // =========================================================================

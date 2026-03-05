@@ -26,7 +26,7 @@ from services.attribution.resolver import (
     AttributionResolver,
     JourneyStore,
 )
-from shared.common.common import APIResponse
+from shared.decorators import api_response
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.service.attribution")
@@ -105,6 +105,7 @@ class ResolveResponse(BaseModel):
 # ========================================================================
 
 @router.post("/resolve", response_model=None)
+@api_response
 async def resolve_attribution(body: ResolveRequest):
     """
     Resolve attribution for a user event.
@@ -132,10 +133,11 @@ async def resolve_attribution(body: ResolveRequest):
 
     metrics.increment("attribution_resolve_requests", labels={"model": result.model_used})
 
-    return APIResponse(data=result.to_dict()).to_dict()
+    return result.to_dict()
 
 
 @router.post("/touchpoints", response_model=None)
+@api_response
 async def record_touchpoint(body: TouchpointRequest):
     """Record a touchpoint in a user's journey."""
     ts = body.timestamp or datetime.now(timezone.utc).isoformat()
@@ -156,46 +158,41 @@ async def record_touchpoint(body: TouchpointRequest):
     )
     metrics.increment("attribution_touchpoints_recorded")
 
-    return APIResponse(
-        data={
-            "user_id": body.user_id,
-            "touchpoint_count": _journey_store.count(body.user_id),
-            "recorded": True,
-        },
-    ).to_dict()
+    return {
+        "user_id": body.user_id,
+        "touchpoint_count": _journey_store.count(body.user_id),
+        "recorded": True,
+    }
 
 
 @router.get("/journey/{user_id}", response_model=None)
+@api_response
 async def get_journey(user_id: str):
     """Return all stored touchpoints for a user journey."""
     touchpoints = _journey_store.get(user_id)
-    return APIResponse(
-        data={
-            "user_id": user_id,
-            "touchpoint_count": len(touchpoints),
-            "touchpoints": touchpoints,
-        },
-    ).to_dict()
+    return {
+        "user_id": user_id,
+        "touchpoint_count": len(touchpoints),
+        "touchpoints": touchpoints,
+    }
 
 
 @router.delete("/journey/{user_id}", response_model=None)
+@api_response
 async def clear_journey(user_id: str):
     """Clear all stored touchpoints for a user."""
     removed = _journey_store.clear(user_id)
-    return APIResponse(
-        data={
-            "user_id": user_id,
-            "removed": removed,
-        },
-    ).to_dict()
+    return {
+        "user_id": user_id,
+        "removed": removed,
+    }
 
 
 @router.get("/models", response_model=None)
+@api_response
 async def list_models():
     """List all available attribution models."""
-    return APIResponse(
-        data={
-            "default_model": _config.default_model,
-            "available_models": _resolver.list_models(),
-        },
-    ).to_dict()
+    return {
+        "default_model": _config.default_model,
+        "available_models": _resolver.list_models(),
+    }

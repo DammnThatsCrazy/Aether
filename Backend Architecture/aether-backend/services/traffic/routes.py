@@ -20,8 +20,10 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
+from shared.decorators import require_api_key_raw
 
 logger = logging.getLogger("aether.traffic")
 
@@ -191,23 +193,13 @@ _store = TrafficStore()
 
 
 # =============================================================================
-# DEPENDENCIES
-# =============================================================================
-
-async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="Missing API key")
-    return x_api_key
-
-
-# =============================================================================
 # ROUTES
 # =============================================================================
 
 @router.post("/track/traffic-source")
 async def report_traffic_source(
     body: TrafficSourceRequest,
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> dict[str, Any]:
     """
     Called by the client SDK on every new session to report the detected source.
@@ -239,7 +231,7 @@ async def report_traffic_source(
 @router.post("/track/events")
 async def track_event(
     body: TrafficEventRequest,
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> dict[str, Any]:
     """Track page views, conversions, and custom events with source attribution."""
     event_id = str(uuid4())
@@ -255,7 +247,7 @@ async def track_event(
 
 @router.get("/analytics/sources")
 async def get_traffic_sources(
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> dict[str, Any]:
     """Get all traffic sources with aggregated stats."""
     sources = _store.get_sources(api_key)
@@ -291,7 +283,7 @@ async def get_traffic_sources(
 @router.get("/analytics/sources/{source_id}")
 async def get_traffic_source_detail(
     source_id: str,
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> dict[str, Any]:
     """Get detailed info for a single traffic source."""
     source = _store.get_source_by_id(source_id, api_key)
@@ -305,7 +297,7 @@ async def get_traffic_source_detail(
 
 @router.get("/analytics/channels")
 async def get_channel_breakdown(
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> dict[str, Any]:
     """Get traffic data aggregated by channel (traffic_type)."""
     sources = _store.get_sources(api_key)

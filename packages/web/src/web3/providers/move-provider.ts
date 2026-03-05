@@ -3,12 +3,7 @@
 // SUI Wallet, Ethos, Martian, Surf detection
 // =============================================================================
 
-import type { WalletInfo } from '../../types';
-
-export interface MoveProviderCallbacks {
-  onWalletEvent: (action: string, data: Record<string, unknown>) => void;
-  onTransaction: (digest: string, data: Record<string, unknown>) => void;
-}
+import { BaseVMProvider, type VMType, type ProviderCallbacks } from './base-provider';
 
 interface SuiWalletProvider {
   hasPermissions?(): Promise<boolean>;
@@ -31,15 +26,15 @@ declare global {
   }
 }
 
-export class MoveProvider {
-  private callbacks: MoveProviderCallbacks;
-  private provider: SuiWalletProvider | null = null;
-  private wallet: WalletInfo | null = null;
-  private network: string = 'sui:mainnet';
-  private walletType: string = 'unknown';
+export class MoveProvider extends BaseVMProvider {
+  readonly vm: VMType = 'movevm';
+  readonly defaultChainId: string = 'sui:mainnet';
 
-  constructor(callbacks: MoveProviderCallbacks) {
-    this.callbacks = callbacks;
+  private provider: SuiWalletProvider | null = null;
+  private network: string = 'sui:mainnet';
+
+  constructor(callbacks: ProviderCallbacks) {
+    super(callbacks);
   }
 
   init(): void {
@@ -48,57 +43,20 @@ export class MoveProvider {
     if (provider) this.setupProvider(provider);
   }
 
-  connect(address: string, options?: Partial<WalletInfo>): void {
-    this.wallet = {
-      address: address.toLowerCase(), chainId: this.network,
-      type: options?.type ?? this.walletType, vm: 'movevm',
-      classification: 'hot', isConnected: true,
-      connectedAt: new Date().toISOString(),
-    };
-    this.callbacks.onWalletEvent('connect', {
-      address: this.wallet.address, chainId: this.network,
-      walletType: this.wallet.type, vm: 'movevm', classification: 'hot',
-    });
-  }
-
-  disconnect(): void {
-    if (!this.wallet) return;
-    this.callbacks.onWalletEvent('disconnect', {
-      address: this.wallet.address, chainId: this.network,
-      walletType: this.wallet.type, vm: 'movevm',
-    });
-    this.wallet = { ...this.wallet, isConnected: false };
-  }
-
-  getWallet(): WalletInfo | null {
-    return this.wallet ? { ...this.wallet } : null;
-  }
-
-  transaction(digest: string, data: Record<string, unknown>): void {
-    this.callbacks.onTransaction(digest, {
-      txHash: digest, chainId: this.network, vm: 'movevm',
-      status: 'pending', ...data,
-    });
-    this.monitorTransaction(digest);
-  }
-
   destroy(): void {
-    this.wallet = null;
     this.provider = null;
+    super.destroy();
   }
 
-  private async setupProvider(provider: SuiWalletProvider): Promise<void> {
-    this.provider = provider;
-    this.walletType = provider.name ?? 'sui_wallet';
-    try {
-      const accounts = await provider.getAccounts?.();
-      if (accounts && accounts.length > 0) {
-        this.connect(accounts[0].address, { type: this.walletType });
-      }
-    } catch { /* not connected */ }
+  // ---------------------------------------------------------------------------
+  // Protected — abstract implementations
+  // ---------------------------------------------------------------------------
+
+  protected detectWalletType(): string {
+    return this.provider?.name ?? 'sui_wallet';
   }
 
-  private async monitorTransaction(digest: string): Promise<void> {
+  protected async monitorTransaction(digest: string): Promise<void> {
     let attempts = 0;
     const check = async (): Promise<void> => {
       try {
@@ -122,5 +80,20 @@ export class MoveProvider {
       } catch { /* RPC error */ }
     };
     setTimeout(check, 2000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private — VM-specific helpers
+  // ---------------------------------------------------------------------------
+
+  private async setupProvider(provider: SuiWalletProvider): Promise<void> {
+    this.provider = provider;
+    this.walletType = this.detectWalletType();
+    try {
+      const accounts = await provider.getAccounts?.();
+      if (accounts && accounts.length > 0) {
+        this.connect(accounts[0].address, { type: this.walletType });
+      }
+    } catch { /* not connected */ }
   }
 }

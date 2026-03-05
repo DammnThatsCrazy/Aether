@@ -4,40 +4,8 @@
 // =============================================================================
 
 import { storage, now } from '../utils';
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface Product {
-  id: string;
-  name: string;
-  category?: string;
-  brand?: string;
-  variant?: string;
-  price: number;
-  quantity?: number;
-  currency?: string;
-  position?: number;
-  coupon?: string;
-  [key: string]: unknown;
-}
-
-export interface CartItem extends Product {
-  quantity: number;
-}
-
-export interface Order {
-  orderId: string;
-  revenue: number;
-  tax?: number;
-  shipping?: number;
-  discount?: number;
-  coupon?: string;
-  currency?: string;
-  products: Product[];
-  [key: string]: unknown;
-}
+import type { Product, CartItem, Order } from '../../../shared/ecommerce-types';
+export type { Product, CartItem, Order };
 
 export interface EcommerceCallbacks {
   onTrack: (event: string, properties: Record<string, unknown>) => void;

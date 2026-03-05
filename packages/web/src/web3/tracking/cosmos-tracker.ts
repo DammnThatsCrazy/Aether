@@ -3,14 +3,13 @@
 // IBC transfers, staking, governance tracking
 // =============================================================================
 
-import type { TokenBalance, GasAnalytics, DeFiCategory } from '../../types';
+import type { TokenBalance, DeFiCategory } from '../../types';
+import type { VMType } from '../providers/base-provider';
+import { BaseVMTracker, type TrackerCallbacks } from './base-tracker';
 
-export interface CosmosTrackerCallbacks {
-  onTokenBalance: (balance: TokenBalance) => void;
-  onGasAnalytics: (gas: GasAnalytics) => void;
-  onDeFiInteraction: (data: Record<string, unknown>) => void;
-  onIBCTransfer: (data: Record<string, unknown>) => void;
-  onGovernanceAction: (data: Record<string, unknown>) => void;
+export interface CosmosTrackerCallbacks extends TrackerCallbacks {
+  onIBCTransfer?: (data: Record<string, unknown>) => void;
+  onGovernanceAction?: (data: Record<string, unknown>) => void;
 }
 
 type CosmosMsgType =
@@ -33,12 +32,15 @@ const MSG_CATEGORIES: Partial<Record<CosmosMsgType, { action: string; category?:
   '/ibc.applications.transfer.v1.MsgTransfer': { action: 'ibc_transfer', category: 'bridge' },
 };
 
-export class CosmosTracker {
-  private callbacks: CosmosTrackerCallbacks;
+export class CosmosTracker extends BaseVMTracker {
+  readonly vm: VMType = 'cosmos';
+
   private chainId: string = 'sei-pacific-1';
+  private extCallbacks: CosmosTrackerCallbacks;
 
   constructor(callbacks: CosmosTrackerCallbacks, chainId?: string) {
-    this.callbacks = callbacks;
+    super(callbacks);
+    this.extCallbacks = callbacks;
     if (chainId) this.chainId = chainId;
   }
 
@@ -52,9 +54,9 @@ export class CosmosTracker {
   }): void {
     // Gas analytics
     if (tx.fee?.amount?.[0]) {
-      this.callbacks.onGasAnalytics({
+      this.emitGasAnalytics({
         gasCostNative: (Number(tx.fee.amount[0].amount) / 1e6).toFixed(6),
-        chainId: this.chainId, vm: 'cosmos',
+        chainId: this.chainId,
         gasUsed: tx.gasUsed, gasPrice: tx.gasWanted,
       });
     }
@@ -65,16 +67,16 @@ export class CosmosTracker {
       const info = MSG_CATEGORIES[msgType];
 
       if (info?.category) {
-        this.callbacks.onDeFiInteraction({
+        this.emitDeFiInteraction({
           txHash: tx.txhash, action: info.action,
-          category: info.category, vm: 'cosmos', chainId: this.chainId,
+          category: info.category, chainId: this.chainId,
           msgType, ...msg,
         });
       }
 
       // IBC transfer detection
       if (msgType === '/ibc.applications.transfer.v1.MsgTransfer') {
-        this.callbacks.onIBCTransfer({
+        this.extCallbacks.onIBCTransfer?.({
           txHash: tx.txhash, sourceChannel: msg.sourceChannel,
           sourcePort: msg.sourcePort, token: msg.token,
           sender: msg.sender, receiver: msg.receiver,
@@ -84,7 +86,7 @@ export class CosmosTracker {
 
       // Governance
       if (msgType.includes('MsgVote')) {
-        this.callbacks.onGovernanceAction({
+        this.extCallbacks.onGovernanceAction?.({
           txHash: tx.txhash, action: 'vote',
           proposalId: msg.proposalId ?? msg.proposal_id,
           option: msg.option, voter: msg.voter,
@@ -107,7 +109,7 @@ export class CosmosTracker {
         balance: coin?.amount ?? '0', decimals: 6,
         vm: 'cosmos', chainId: this.chainId, standard: 'native',
       };
-      this.callbacks.onTokenBalance(balance);
+      this.callbacks.onTokenBalance?.(balance);
       return balance;
     } catch { return null; }
   }
@@ -131,6 +133,4 @@ export class CosmosTracker {
     };
     return map[this.chainId] ?? map['cosmoshub-4'];
   }
-
-  destroy(): void { /* no timers */ }
 }

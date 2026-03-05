@@ -18,11 +18,11 @@ from collections import defaultdict
 from typing import Any, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from services.fraud.engine import FraudConfig, FraudEngine, FraudResult
-from shared.common.common import APIResponse
+from shared.decorators import api_response
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.service.fraud")
@@ -162,15 +162,17 @@ def _to_response(result: FraudResult) -> FraudEvaluationResponse:
 # ========================================================================
 
 @router.post("/evaluate", response_model=None)
+@api_response
 async def evaluate_event(body: FraudEvaluationRequest):
     """Evaluate a single event for fraud and return a scored verdict."""
     result = await _engine.evaluate(body.event, body.context)
     _stats.record(result)
     metrics.increment("fraud_evaluate_requests", labels={"verdict": result.verdict})
-    return APIResponse(data=_to_response(result).model_dump()).to_dict()
+    return _to_response(result).model_dump()
 
 
 @router.post("/evaluate/batch", response_model=None)
+@api_response
 async def evaluate_batch(body: BatchFraudRequest):
     """Evaluate a batch of events. Returns individual results plus summary counts."""
     responses: list[FraudEvaluationResponse] = []
@@ -183,32 +185,30 @@ async def evaluate_batch(body: BatchFraudRequest):
         responses.append(_to_response(result))
 
     metrics.increment("fraud_batch_requests")
-    return APIResponse(
-        data=BatchFraudResponse(
-            results=responses,
-            total=len(responses),
-            blocked=counts.get("block", 0),
-            flagged=counts.get("flag", 0),
-            passed=counts.get("pass", 0),
-        ).model_dump(),
-    ).to_dict()
+    return BatchFraudResponse(
+        results=responses,
+        total=len(responses),
+        blocked=counts.get("block", 0),
+        flagged=counts.get("flag", 0),
+        passed=counts.get("pass", 0),
+    ).model_dump()
 
 
 @router.get("/config", response_model=None)
+@api_response
 async def get_config():
     """Return the current fraud engine configuration."""
-    return APIResponse(
-        data=FraudConfigResponse(
-            block_threshold=_config.block_threshold,
-            flag_threshold=_config.flag_threshold,
-            enable_audit_trail=_config.enable_audit_trail,
-            max_evaluation_ms=_config.max_evaluation_ms,
-            signals=_engine.list_signals(),
-        ).model_dump(),
-    ).to_dict()
+    return FraudConfigResponse(
+        block_threshold=_config.block_threshold,
+        flag_threshold=_config.flag_threshold,
+        enable_audit_trail=_config.enable_audit_trail,
+        max_evaluation_ms=_config.max_evaluation_ms,
+        signals=_engine.list_signals(),
+    ).model_dump()
 
 
 @router.put("/config", response_model=None)
+@api_response
 async def update_config(body: FraudConfigUpdate):
     """Update fraud engine configuration (partial update)."""
     global _config, _engine
@@ -228,10 +228,11 @@ async def update_config(body: FraudConfigUpdate):
 
     logger.info("Fraud config updated: block=%.1f flag=%.1f", _config.block_threshold, _config.flag_threshold)
     metrics.increment("fraud_config_updates")
-    return APIResponse(data={"updated": True}).to_dict()
+    return {"updated": True}
 
 
 @router.get("/stats", response_model=None)
+@api_response
 async def get_stats():
     """Return aggregated fraud detection statistics."""
-    return APIResponse(data=_stats.snapshot()).to_dict()
+    return _stats.snapshot()

@@ -3,12 +3,7 @@
 // Keplr, Leap wallet detection
 // =============================================================================
 
-import type { WalletInfo } from '../../types';
-
-export interface CosmosProviderCallbacks {
-  onWalletEvent: (action: string, data: Record<string, unknown>) => void;
-  onTransaction: (txHash: string, data: Record<string, unknown>) => void;
-}
+import { BaseVMProvider, type VMType, type ProviderCallbacks } from './base-provider';
 
 interface KeplrProvider {
   enable(chainId: string): Promise<void>;
@@ -25,15 +20,15 @@ declare global {
   }
 }
 
-export class CosmosProvider {
-  private callbacks: CosmosProviderCallbacks;
-  private provider: KeplrProvider | null = null;
-  private wallet: WalletInfo | null = null;
-  private chainId: string = 'sei-pacific-1';
-  private walletType: string = 'unknown';
+export class CosmosProvider extends BaseVMProvider {
+  readonly vm: VMType = 'cosmos';
+  readonly defaultChainId: string = 'sei-pacific-1';
 
-  constructor(callbacks: CosmosProviderCallbacks) {
-    this.callbacks = callbacks;
+  private provider: KeplrProvider | null = null;
+  private chainId: string = 'sei-pacific-1';
+
+  constructor(callbacks: ProviderCallbacks) {
+    super(callbacks);
   }
 
   init(): void {
@@ -42,65 +37,23 @@ export class CosmosProvider {
     if (provider) this.setupProvider(provider);
   }
 
-  connect(address: string, options?: Partial<WalletInfo>): void {
-    this.wallet = {
-      address: address.toLowerCase(), chainId: this.chainId,
-      type: options?.type ?? this.walletType, vm: 'cosmos',
-      classification: 'hot', isConnected: true,
-      connectedAt: new Date().toISOString(),
-    };
-    this.callbacks.onWalletEvent('connect', {
-      address: this.wallet.address, chainId: this.chainId,
-      walletType: this.wallet.type, vm: 'cosmos', classification: 'hot',
-    });
-  }
-
-  disconnect(): void {
-    if (!this.wallet) return;
-    this.callbacks.onWalletEvent('disconnect', {
-      address: this.wallet.address, chainId: this.chainId,
-      walletType: this.wallet.type, vm: 'cosmos',
-    });
-    this.wallet = { ...this.wallet, isConnected: false };
-  }
-
-  getWallet(): WalletInfo | null {
-    return this.wallet ? { ...this.wallet } : null;
-  }
-
-  transaction(txHash: string, data: Record<string, unknown>): void {
-    this.callbacks.onTransaction(txHash, {
-      txHash, chainId: this.chainId, vm: 'cosmos',
-      status: 'pending', ...data,
-    });
-    this.monitorTransaction(txHash);
-  }
-
   destroy(): void {
-    this.wallet = null;
     this.provider = null;
+    super.destroy();
   }
 
-  private async setupProvider(provider: KeplrProvider): Promise<void> {
-    this.provider = provider;
-    this.walletType = window.keplr === provider ? 'keplr' : 'leap';
-    try {
-      await provider.enable(this.chainId);
-      const key = await provider.getKey(this.chainId);
-      this.connect(key.bech32Address, { type: this.walletType });
-    } catch { /* not authorized */ }
+  // ---------------------------------------------------------------------------
+  // Protected — abstract implementations
+  // ---------------------------------------------------------------------------
 
-    // Keplr account change
-    window.addEventListener('keplr_keystorechange', async () => {
-      if (!this.provider) return;
-      try {
-        const key = await this.provider.getKey(this.chainId);
-        this.connect(key.bech32Address, { type: this.walletType });
-      } catch { /* error */ }
-    });
+  protected detectWalletType(): string {
+    if (typeof window === 'undefined') return 'unknown';
+    if (window.keplr) return 'keplr';
+    if (window.leap) return 'leap';
+    return 'cosmos';
   }
 
-  private async monitorTransaction(txHash: string): Promise<void> {
+  protected async monitorTransaction(txHash: string): Promise<void> {
     let attempts = 0;
     const rpc = this.chainId === 'sei-pacific-1'
       ? 'https://sei-rpc.polkachu.com'
@@ -122,5 +75,28 @@ export class CosmosProvider {
       } catch { /* RPC error */ }
     };
     setTimeout(check, 3000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private — VM-specific helpers
+  // ---------------------------------------------------------------------------
+
+  private async setupProvider(provider: KeplrProvider): Promise<void> {
+    this.provider = provider;
+    this.walletType = this.detectWalletType();
+    try {
+      await provider.enable(this.chainId);
+      const key = await provider.getKey(this.chainId);
+      this.connect(key.bech32Address, { type: this.walletType });
+    } catch { /* not authorized */ }
+
+    // Keplr account change
+    window.addEventListener('keplr_keystorechange', async () => {
+      if (!this.provider) return;
+      try {
+        const key = await this.provider.getKey(this.chainId);
+        this.connect(key.bech32Address, { type: this.walletType });
+      } catch { /* error */ }
+    });
   }
 }

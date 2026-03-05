@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from services.oracle.signer import OracleSigner, ProofConfig, RewardProof
 from services.oracle.verifier import is_proof_expired, verify_reward_proof
-from shared.common.common import APIResponse
+from shared.decorators import api_response
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.service.oracle")
@@ -117,6 +117,7 @@ class OracleConfigResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 
 @router.post("/proof/generate", response_model=None)
+@api_response
 async def generate_proof(
     body: GenerateProofRequest,
     x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
@@ -137,10 +138,11 @@ async def generate_proof(
     )
 
     metrics.increment("oracle_route_generate")
-    return APIResponse(data=proof.to_dict()).to_dict()
+    return proof.to_dict()
 
 
 @router.post("/proof/verify", response_model=None)
+@api_response
 async def verify_proof(body: VerifyProofRequest):
     """
     Verify a proof off-chain.
@@ -165,34 +167,36 @@ async def verify_proof(body: VerifyProofRequest):
 
     metrics.increment("oracle_route_verify", labels={"valid": str(valid)})
 
-    return APIResponse(data=VerifyProofResponse(
+    return VerifyProofResponse(
         valid=valid,
         expired=expired,
         signer_match=valid and not expired,
         expected_signer=_signer.signer_address,
-    ).model_dump()).to_dict()
+    ).model_dump()
 
 
 @router.get("/signer", response_model=None)
+@api_response
 async def get_signer_info():
     """Return the oracle signer's public address and target chain."""
-    return APIResponse(data=SignerInfoResponse(
+    return SignerInfoResponse(
         address=_signer.signer_address,
         chain_id=_config.chain_id,
         contract_address=_config.contract_address,
-    ).model_dump()).to_dict()
+    ).model_dump()
 
 
 @router.get("/config", response_model=None)
+@api_response
 async def get_oracle_config():
     """
     Return non-sensitive oracle configuration.
 
     The private key is **never** exposed.
     """
-    return APIResponse(data=OracleConfigResponse(
+    return OracleConfigResponse(
         chain_id=_config.chain_id,
         contract_address=_config.contract_address,
         proof_expiry_seconds=_config.proof_expiry_seconds,
         signer_address=_signer.signer_address,
-    ).model_dump()).to_dict()
+    ).model_dump()

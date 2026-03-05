@@ -3,13 +3,12 @@
 // Object/coin tracking, Move call detection, gas analytics
 // =============================================================================
 
-import type { TokenBalance, GasAnalytics, DeFiCategory } from '../../types';
+import type { TokenBalance, DeFiCategory } from '../../types';
+import type { VMType } from '../providers/base-provider';
+import { BaseVMTracker, type TrackerCallbacks } from './base-tracker';
 
-export interface MoveTrackerCallbacks {
-  onTokenBalance: (balance: TokenBalance) => void;
-  onGasAnalytics: (gas: GasAnalytics) => void;
-  onDeFiInteraction: (data: Record<string, unknown>) => void;
-  onMoveCall: (data: Record<string, unknown>) => void;
+export interface MoveTrackerCallbacks extends TrackerCallbacks {
+  onMoveCall?: (data: Record<string, unknown>) => void;
 }
 
 const KNOWN_SUI_PROTOCOLS: Record<string, { name: string; category?: DeFiCategory }> = {
@@ -21,12 +20,15 @@ const KNOWN_SUI_PROTOCOLS: Record<string, { name: string; category?: DeFiCategor
   '0xefe8b36d5b2e43728cc323298626b83177803521d195cfb11e15b910e892fddf': { name: 'Turbos', category: 'dex' },
 };
 
-export class MoveTracker {
-  private callbacks: MoveTrackerCallbacks;
+export class MoveTracker extends BaseVMTracker {
+  readonly vm: VMType = 'movevm';
+
   private network: string = 'sui:mainnet';
+  private extCallbacks: MoveTrackerCallbacks;
 
   constructor(callbacks: MoveTrackerCallbacks, network?: string) {
-    this.callbacks = callbacks;
+    super(callbacks);
+    this.extCallbacks = callbacks;
     if (network) this.network = network;
   }
 
@@ -40,9 +42,9 @@ export class MoveTracker {
     if (tx.effects?.gasUsed) {
       const gas = tx.effects.gasUsed;
       const totalCost = BigInt(gas.computationCost) + BigInt(gas.storageCost) - BigInt(gas.storageRebate);
-      this.callbacks.onGasAnalytics({
+      this.emitGasAnalytics({
         gasCostNative: (Number(totalCost) / 1e9).toFixed(9),
-        chainId: this.network, vm: 'movevm',
+        chainId: this.network,
         gasUsed: gas.computationCost,
       });
     }
@@ -53,16 +55,16 @@ export class MoveTracker {
       if (cmd.MoveCall) {
         const { package: pkg, module, function: fn } = cmd.MoveCall;
         const protocol = this.identifyProtocol(pkg);
-        this.callbacks.onMoveCall({
+        this.extCallbacks.onMoveCall?.({
           digest: tx.digest, package: pkg, module, function: fn,
           protocolName: protocol.name, category: protocol.category,
           vm: 'movevm', chainId: this.network,
         });
         if (protocol.category) {
-          this.callbacks.onDeFiInteraction({
+          this.emitDeFiInteraction({
             txHash: tx.digest, protocol: protocol.name,
             category: protocol.category, action: `${module}::${fn}`,
-            vm: 'movevm', chainId: this.network,
+            chainId: this.network,
           });
         }
       }
@@ -85,7 +87,7 @@ export class MoveTracker {
         balance: result?.result?.totalBalance ?? '0', decimals: 9,
         vm: 'movevm', chainId: this.network, standard: 'sui_coin',
       };
-      this.callbacks.onTokenBalance(balance);
+      this.callbacks.onTokenBalance?.(balance);
       return balance;
     } catch { return null; }
   }
@@ -105,7 +107,7 @@ export class MoveTracker {
         contractAddress: b.coinType, balance: b.totalBalance, decimals: 9,
         vm: 'movevm' as const, chainId: this.network, standard: 'sui_coin' as const,
       }));
-      balances.forEach((b) => this.callbacks.onTokenBalance(b));
+      balances.forEach((b) => this.callbacks.onTokenBalance?.(b));
       return balances;
     } catch { return []; }
   }
@@ -120,6 +122,4 @@ export class MoveTracker {
     if (this.network.includes('devnet')) return 'https://fullnode.devnet.sui.io';
     return 'https://fullnode.mainnet.sui.io';
   }
-
-  destroy(): void { /* no timers */ }
 }

@@ -18,10 +18,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from services.analytics_automation.pipeline import AnalyticsPipeline
+from shared.decorators import require_api_key_raw
 
 logger = logging.getLogger("aether.analytics_automation.routes")
 
@@ -113,18 +114,6 @@ class InsightResponse(BaseModel):
 
 
 # =============================================================================
-# DEPENDENCIES
-# =============================================================================
-
-
-async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
-    """Validate and extract the API key from the request headers."""
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="Missing API key")
-    return x_api_key
-
-
-# =============================================================================
 # ROUTES
 # =============================================================================
 
@@ -132,7 +121,7 @@ async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> st
 @router.post("/ingest", response_model=IngestEventResponse)
 async def ingest_event(
     body: IngestEventRequest,
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> IngestEventResponse:
     """Process an event through the full automation pipeline.
 
@@ -172,7 +161,7 @@ async def ingest_event(
 async def get_campaign_metrics(
     campaign_id: str,
     hours: int = Query(default=24, ge=1, le=720, description="Lookback period in hours"),
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> CampaignMetricsResponse:
     """Retrieve aggregated metrics for a specific campaign."""
     metrics = await _pipeline.get_campaign_metrics(campaign_id, hours=hours)
@@ -192,7 +181,7 @@ async def get_campaign_metrics(
 @router.get("/overview", response_model=PlatformOverviewResponse)
 async def get_platform_overview(
     hours: int = Query(default=24, ge=1, le=720, description="Lookback period in hours"),
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> PlatformOverviewResponse:
     """Retrieve a cross-platform analytics overview combining Web2 and Web3 data."""
     overview = await _pipeline.get_platform_overview(hours=hours)
@@ -202,7 +191,7 @@ async def get_platform_overview(
 
 @router.get("/insights", response_model=list[InsightResponse])
 async def get_insights(
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> list[InsightResponse]:
     """Retrieve automated insights including anomaly detection results.
 
@@ -230,7 +219,7 @@ async def get_insights(
 @router.post("/report/{campaign_id}")
 async def generate_campaign_report(
     campaign_id: str,
-    api_key: str = Depends(require_api_key),
+    api_key: str = Depends(require_api_key_raw),
 ) -> dict[str, Any]:
     """Generate a comprehensive campaign performance report.
 

@@ -27,15 +27,20 @@ const DEFAULT_RETRY: Required<RetryConfig> = {
   backoffMultiplier: 2,
 };
 
-// All Web3-related event types that require web3 consent
-const WEB3_EVENT_TYPES = new Set([
-  'wallet', 'transaction', 'token_balance', 'nft_detection',
-  'whale_alert', 'portfolio_update', 'defi_interaction',
-  'bridge_transfer', 'cex_transfer', 'perpetual_trade',
-  'options_trade', 'governance_vote', 'yield_harvest',
-  'nft_trade', 'staking_action', 'insurance_action',
-  'launchpad_action', 'payment_stream',
-]);
+// Maps every event type to its required consent purpose.
+// Events not listed here (or mapped to 'none') are always allowed through.
+const CONSENT_MAP: Record<string, string> = {
+  track: 'analytics', page: 'analytics', screen: 'analytics',
+  performance: 'analytics', heartbeat: 'analytics', error: 'analytics',
+  identify: 'analytics',
+  conversion: 'marketing', experiment: 'marketing',
+  wallet: 'web3', transaction: 'web3', token_balance: 'web3',
+  nft_detection: 'web3', whale_alert: 'web3', portfolio_update: 'web3',
+  defi_interaction: 'web3', bridge_transfer: 'web3', cex_transfer: 'web3',
+  perpetual_trade: 'web3', options_trade: 'web3', governance_vote: 'web3',
+  yield_harvest: 'web3', nft_trade: 'web3', staking_action: 'web3',
+  insurance_action: 'web3', launchpad_action: 'web3', payment_stream: 'web3',
+};
 
 export class EventQueue {
   private queue: AetherEvent[] = [];
@@ -114,31 +119,13 @@ export class EventQueue {
 
   private filterByConsent(events: AetherEvent[]): AetherEvent[] {
     if (!this.consent) return events;
+    const consent = this.consent;
 
     return events.filter((event) => {
       if ((event.type as string) === 'consent') return true;
-
-      // Analytics consent covers behavioral tracking
-      if (['track', 'page', 'screen', 'performance', 'heartbeat', 'error'].includes(event.type)) {
-        return this.consent!.analytics;
-      }
-
-      // Marketing consent covers campaign/conversion
-      if (['conversion', 'experiment'].includes(event.type)) {
-        return this.consent!.marketing;
-      }
-
-      // Web3 consent covers ALL blockchain/wallet/DeFi events
-      if (WEB3_EVENT_TYPES.has(event.type)) {
-        return this.consent!.web3;
-      }
-
-      // Identity events require analytics consent
-      if (event.type === 'identify') {
-        return this.consent!.analytics;
-      }
-
-      return true;
+      const purpose = CONSENT_MAP[event.type];
+      if (!purpose) return true; // Unknown event types are allowed through
+      return (consent as unknown as Record<string, boolean>)[purpose] === true;
     });
   }
 
