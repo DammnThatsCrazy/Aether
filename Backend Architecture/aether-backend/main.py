@@ -1,6 +1,6 @@
 """
 Aether Backend — Main Application
-Mounts all 10 services, applies middleware, and serves the unified API.
+Mounts all 15 services, applies middleware, and serves the unified API.
 
 Run:
     uvicorn main:app --reload --port 8000
@@ -53,6 +53,32 @@ Routes:
     GET  /v1/admin/tenants/{id}/api-keys  List API keys
     DELETE /v1/admin/api-keys/{id}      Revoke API key
     GET  /v1/admin/tenants/{id}/billing Billing
+    POST /v1/fraud/evaluate             Evaluate fraud
+    POST /v1/fraud/evaluate/batch       Batch fraud evaluation
+    GET  /v1/fraud/config               Fraud configuration
+    PUT  /v1/fraud/config               Update fraud config
+    GET  /v1/fraud/stats                Fraud statistics
+    POST /v1/attribution/resolve        Resolve attribution
+    POST /v1/attribution/touchpoints    Record touchpoint
+    GET  /v1/attribution/journey/{id}   User journey
+    GET  /v1/attribution/models         List attribution models
+    POST /v1/rewards/evaluate           Evaluate reward eligibility
+    POST /v1/rewards/campaigns          Create reward campaign
+    GET  /v1/rewards/campaigns          List reward campaigns
+    GET  /v1/rewards/campaigns/{id}     Get campaign details
+    GET  /v1/rewards/queue/stats        Reward queue stats
+    GET  /v1/rewards/user/{address}     User reward history
+    POST /v1/rewards/process            Process reward queue
+    GET  /v1/rewards/proof/{id}         Get reward proof
+    POST /v1/oracle/proof/generate      Generate proof (internal)
+    POST /v1/oracle/proof/verify        Verify proof
+    GET  /v1/oracle/signer              Oracle signer info
+    GET  /v1/oracle/config              Oracle configuration
+    POST /v1/automation/ingest          Automation pipeline ingest
+    GET  /v1/automation/metrics/{id}    Campaign metrics
+    GET  /v1/automation/overview        Platform overview
+    GET  /v1/automation/insights        Automated insights
+    POST /v1/automation/report/{id}     Campaign report
 """
 
 from __future__ import annotations
@@ -87,6 +113,11 @@ from services.consent.routes import router as consent_router
 from services.notification.routes import router as notification_router
 from services.admin.routes import router as admin_router
 from services.traffic.routes import router as traffic_router
+from services.fraud.routes import router as fraud_router
+from services.attribution.routes import router as attribution_router
+from services.rewards.routes import router as rewards_router
+from services.oracle.routes import router as oracle_router
+from services.analytics_automation.routes import router as automation_router
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -144,7 +175,7 @@ def create_app() -> FastAPI:
     # ── Auth / Logging / Rate Limit / Error Handling Middleware ────
     register_middleware(app)
 
-    # ── Mount all 11 service routers ──────────────────────────────
+    # ── Mount all 15 service routers ──────────────────────────────
     app.include_router(gateway_router)
     app.include_router(ingestion_router)
     app.include_router(identity_router)
@@ -156,6 +187,11 @@ def create_app() -> FastAPI:
     app.include_router(notification_router)
     app.include_router(admin_router)
     app.include_router(traffic_router)
+    app.include_router(fraud_router)
+    app.include_router(attribution_router)
+    app.include_router(rewards_router)
+    app.include_router(oracle_router)
+    app.include_router(automation_router)
 
     return app
 

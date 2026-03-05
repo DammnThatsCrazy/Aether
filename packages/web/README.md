@@ -29,6 +29,7 @@
 - **Event batching** -- configurable batch size, flush intervals, retry with exponential backoff, and offline queue persistence
 - **Tiered semantic context** -- 3-tier consent-driven context enrichment (Essential → Functional → Rich) with journey stage inference, sentiment signals (frustration, engagement, urgency, confusion), interaction heatmaps, and inferred intent -- automatically attached to every event
 - **Automatic traffic source tracking** -- zero-config detection of all traffic sources (UTM params, ad click IDs across 12 platforms, organic/social/email/referral classification), localStorage-persisted attribution with configurable window, and dynamic virtual link creation on the backend
+- **Automated reward pipeline** -- SDK-side reward client with eligibility checking, oracle-signed proof retrieval, and on-chain ERC20/NFT reward claiming via connected wallet (fraud → attribution → eligibility → oracle → smart contract)
 - **Privacy controls** -- data minimization, PII masking, Do Not Track support, consent-gated collection
 
 ---
@@ -455,6 +456,7 @@ aether.use(myPlugin);
 | `src/web3/portfolio/` | `portfolio-tracker.ts` | Cross-chain portfolio aggregation, token balances, and DeFi position monitoring |
 | `src/context/` | `semantic-context.ts` | 3-tier semantic context collector: Tier 1 (timestamp, event ID, basic device info), Tier 2 (journey stage, screen path, session duration, app state), Tier 3 (inferred intent, sentiment signals, interaction heatmaps, error logs) |
 | `src/tracking/` | `traffic-source-tracker.ts` | Zero-config traffic source auto-detection with UTM params, 12 ad click IDs (gclid, fbclid, msclkid, ttclid, twclid, etc.), referrer classification, 27 social platforms, 15 search engines, localStorage-persisted attribution |
+| `src/rewards/` | `reward-client.ts` | SDK reward client: eligibility checking, oracle proof retrieval, ABI-encoded on-chain claiming via `claimReward()`, campaign discovery, reward history, localStorage proof caching |
 | `src/utils/` | `index.ts` | ID generation, timestamps, localStorage/cookie helpers, device/page/campaign context extraction |
 | `src/` | `types.ts` | Full TypeScript interface definitions for config, events, identity, session, ML, Web3, and consent |
 
@@ -505,6 +507,8 @@ packages/web/
       semantic-context.ts # 3-tier semantic context collector
     tracking/
       traffic-source-tracker.ts # Zero-config traffic source auto-detection
+    rewards/
+      reward-client.ts    # Automated reward pipeline client
     consent/
       index.ts            # GDPR consent module
     modules/

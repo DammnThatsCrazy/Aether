@@ -25,6 +25,8 @@ import { EdgeMLModule } from './ml/edge-ml';
 import { UpdateManager } from './core/update-manager';
 import { SemanticContextCollector } from './context/semantic-context';
 import { TrafficSourceTracker } from './tracking/traffic-source-tracker';
+import { RewardClient, createRewardClient } from './rewards/reward-client';
+import type { RewardProof, UserReward, RewardCampaign, RewardCallback } from './rewards/reward-client';
 import { setRemoteData as setChainRemoteData } from './web3/chains/chain-registry';
 import { setRemoteData as setProtocolRemoteData } from './web3/defi/protocol-registry';
 import { setRemoteData as setLabelRemoteData } from './web3/wallet/wallet-labels';
@@ -48,6 +50,7 @@ class AetherSDK implements AetherSDKInterface {
   private updateManager: UpdateManager | null = null;
   private semanticContext: SemanticContextCollector | null = null;
   private trafficTracker: TrafficSourceTracker | null = null;
+  private rewardClient: RewardClient | null = null;
   private plugins: AetherPlugin[] = [];
   private initialized = false;
   private debug = false;
@@ -258,8 +261,15 @@ class AetherSDK implements AetherSDKInterface {
       this.updateManager.start();
     }
 
+    // Reward automation client — connects to backend fraud + oracle + on-chain pipeline
+    this.rewardClient = createRewardClient({
+      endpoint,
+      apiKey: config.apiKey,
+      autoCheck: false, // Manual — triggered via aether.rewards.checkEligibility()
+    });
+
     this.initialized = true;
-    this.log('info', 'Aether SDK v5.0.0 initialized — Multi-VM Web3 + auto-update enabled');
+    this.log('info', 'Aether SDK v5.0.0 initialized — Multi-VM Web3 + auto-update + rewards enabled');
   }
 
   track(event: string, properties?: Record<string, unknown>): void {
@@ -350,6 +360,7 @@ class AetherSDK implements AetherSDKInterface {
     this.plugins.forEach((p) => { try { p.destroy(); } catch { /* */ } });
 
     this.semanticContext?.destroy();
+    this.rewardClient?.destroy();
     this.autoDiscovery = null;
     this.performanceModule = null;
     this.experimentsModule = null;
@@ -359,6 +370,7 @@ class AetherSDK implements AetherSDKInterface {
     this.updateManager = null;
     this.semanticContext = null;
     this.trafficTracker = null;
+    this.rewardClient = null;
     this.sessionManager = null;
     this.identityManager = null;
     this.eventQueue = null;
@@ -442,6 +454,42 @@ class AetherSDK implements AetherSDKInterface {
     hideBanner: () => { this.consentModule?.hideBanner(); },
     onUpdate: (callback: ConsentCallback): (() => void) => {
       return this.consentModule?.onUpdate(callback) ?? (() => {});
+    },
+  };
+
+  // =========================================================================
+  // REWARDS — Web2 + Web3 Automated Reward Pipeline
+  // =========================================================================
+
+  rewards = {
+    /** Set the connected wallet address for reward claims */
+    setUserAddress: (address: string): void => {
+      this.rewardClient?.setUserAddress(address);
+    },
+    /** Check if an event qualifies for a reward (fraud → attribution → eligibility → oracle proof) */
+    checkEligibility: async (eventType: string, properties?: Record<string, unknown>): Promise<UserReward | null> => {
+      return this.rewardClient?.checkEligibility(eventType, properties) ?? null;
+    },
+    /** Get the oracle-signed proof for on-chain claiming */
+    getProof: async (rewardId: string): Promise<RewardProof | null> => {
+      return this.rewardClient?.getProof(rewardId) ?? null;
+    },
+    /** Claim a reward on-chain via the connected wallet */
+    claimOnChain: async (rewardId: string, signer?: unknown): Promise<string> => {
+      if (!this.rewardClient) throw new Error('Aether SDK: reward client not initialized');
+      return this.rewardClient.claimOnChain(rewardId, signer);
+    },
+    /** Get all rewards for the current user */
+    getRewards: async (): Promise<UserReward[]> => {
+      return this.rewardClient?.getRewards() ?? [];
+    },
+    /** Get active reward campaigns */
+    getCampaigns: async (): Promise<RewardCampaign[]> => {
+      return this.rewardClient?.getCampaigns() ?? [];
+    },
+    /** Subscribe to new reward events */
+    onReward: (callback: RewardCallback): (() => void) => {
+      return this.rewardClient?.onReward(callback) ?? (() => {});
     },
   };
 

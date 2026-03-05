@@ -2,7 +2,7 @@
 
 **FastAPI microservices backend for the Aether platform.**
 
-Aether Backend is a unified API gateway that mounts 11 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, and multi-tenant administration -- all behind a single versioned API surface with 55+ endpoints.
+Aether Backend is a unified API gateway that mounts 15 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, automated analytics, and multi-tenant administration -- all behind a single versioned API surface with 75+ endpoints.
 
 ---
 
@@ -104,6 +104,10 @@ Aether Backend is a unified API gateway that mounts 11 domain-specific microserv
 | 9  | **Notification** | `/v1/notifications`     | Webhook management, alert creation and listing               | `POST /v1/notifications/webhooks`, `POST /v1/notifications/alerts` |
 | 10 | **Admin**        | `/v1/admin`             | Tenant management, API key provisioning, billing             | `POST /v1/admin/tenants`, `POST /v1/admin/tenants/{id}/api-keys` |
 | 11 | **Traffic**      | `/v1/traffic`           | Automatic traffic source tracking, channel attribution       | `POST /v1/traffic/sources`, `GET /v1/traffic/channels` |
+| 12 | **Fraud**        | `/v1/fraud`             | 8-signal fraud detection engine, configurable thresholds     | `POST /v1/fraud/evaluate`, `GET /v1/fraud/stats` |
+| 13 | **Attribution**  | `/v1/attribution`       | 6-model multi-touch attribution, journey tracking            | `POST /v1/attribution/resolve`, `GET /v1/attribution/models` |
+| 14 | **Rewards**      | `/v1/rewards`           | Automated reward eligibility, campaign management, queue     | `POST /v1/rewards/evaluate`, `GET /v1/rewards/proof/{id}` |
+| 15 | **Oracle**       | `/v1/oracle`            | EVM-compatible cryptographic proof generation/verification   | `POST /v1/oracle/proof/generate`, `POST /v1/oracle/proof/verify` |
 
 ---
 
@@ -512,7 +516,26 @@ aether-backend/
 |   |-- consent/routes.py       # Consent records, DSR
 |   |-- notification/routes.py  # Webhooks, alerts
 |   |-- admin/routes.py         # Tenants, API keys, billing
-|   +-- traffic/routes.py       # Automatic traffic source tracking and attribution
+|   |-- traffic/routes.py       # Automatic traffic source tracking and attribution
+|   |-- fraud/
+|   |   |-- engine.py           # Composable weighted fraud scoring
+|   |   |-- signals.py          # 8 fraud signal detectors
+|   |   +-- routes.py           # Fraud API endpoints
+|   |-- attribution/
+|   |   |-- models.py           # 6 attribution models (first/last touch, linear, time-decay, position, data-driven)
+|   |   |-- resolver.py         # Attribution resolver with journey store
+|   |   +-- routes.py           # Attribution API endpoints
+|   |-- rewards/
+|   |   |-- eligibility.py      # Rule-based reward eligibility engine
+|   |   |-- queue.py            # Async reward queue processor
+|   |   +-- routes.py           # Rewards API endpoints
+|   |-- oracle/
+|   |   |-- signer.py           # EVM-compatible proof signer
+|   |   |-- verifier.py         # Off-chain proof verification
+|   |   +-- routes.py           # Oracle API endpoints
+|   +-- analytics_automation/
+|       |-- pipeline.py         # Automated analytics + reward pipeline
+|       +-- routes.py           # Automation API endpoints
 +-- shared/
     |-- common/common.py        # Error classes, response formatters, validation
     |-- auth/auth.py            # JWT, API key validation, roles, permissions

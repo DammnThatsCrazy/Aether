@@ -6,6 +6,80 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
+## [6.0.0] — 2026-03-04
+
+### Smart Contract Analytics Integration — Automated Reward Pipeline
+
+Major release adding a complete Web2 + Web3 automated analytics and reward architecture: fraud detection, multi-touch attribution, reward eligibility, oracle-signed proofs, on-chain smart contract reward distribution, and an automated analytics pipeline that ties it all together.
+
+### Added
+
+#### Fraud Detection Engine (`Backend Architecture/aether-backend/services/fraud/`)
+
+- **8 composable fraud signals** (`signals.py`) — BotDetection, SybilDetection, Velocity, WalletAge, Geographic, Behavioral, DeviceFingerprint, TransactionPattern. Each implements `FraudSignal` ABC with configurable thresholds and 0-100 scoring.
+- **Weighted fraud engine** (`engine.py`) — `FraudEngine` with `FraudConfig` (block at 70, flag at 40), runs all signals concurrently via `asyncio.gather`, produces weighted composite score with full audit trail.
+- **5 API endpoints** (`routes.py`) — `POST /evaluate`, `POST /evaluate/batch`, `GET /config`, `PUT /config`, `GET /stats`.
+
+#### Attribution Service (`Backend Architecture/aether-backend/services/attribution/`)
+
+- **6 attribution models** (`models.py`) — FirstTouch, LastTouch, Linear, TimeDecay (configurable half-life), PositionBased (U-shaped), DataDriven (Shapley value approximation). All weights normalize to 1.0.
+- **Attribution resolver** (`resolver.py`) — `AttributionResolver` with in-memory `JourneyStore`, touchpoint collection, lookback window filtering, and model selection.
+- **5 API endpoints** (`routes.py`) — `POST /resolve`, `POST /touchpoints`, `GET /journey/{user_id}`, `DELETE /journey/{user_id}`, `GET /models`.
+
+#### Reward Automation (`Backend Architecture/aether-backend/services/rewards/`)
+
+- **Eligibility engine** (`eligibility.py`) — Rule-based reward eligibility with campaigns, tiered rewards, cooldown periods, per-user claim caps, fraud score gates, attribution weight gates, budget tracking, and time window enforcement.
+- **Async reward queue** (`queue.py`) — `RewardQueue` with FIFO deque, exponential backoff retries, dead-letter handling, status lifecycle (pending → processing → proved → claimed), and oracle integration.
+- **8 API endpoints** (`routes.py`) — `POST /evaluate` (full pipeline: fraud → attribution → eligibility → enqueue), `POST /campaigns`, `GET /campaigns`, `GET /campaigns/{id}`, `GET /queue/stats`, `GET /user/{address}`, `POST /process`, `GET /proof/{id}`.
+
+#### Oracle Bridge (`Backend Architecture/aether-backend/services/oracle/`)
+
+- **EVM-compatible proof signer** (`signer.py`) — `OracleSigner` generating `RewardProof` with random nonce, expiry timestamp, `abi.encodePacked`-style message hashing, and cryptographic signing (simulated HMAC-SHA256, production comments for `eth_account`/secp256k1).
+- **Off-chain verifier** (`verifier.py`) — `verify_reward_proof()`, `is_proof_expired()`, `compute_message_hash()` for independent proof validation.
+- **4 API endpoints** (`routes.py`) — `POST /proof/generate` (internal), `POST /proof/verify`, `GET /signer`, `GET /config`.
+
+#### Smart Contracts (`Smart Contracts/`)
+
+- **`AnalyticsRewards.sol`** — Main reward distribution contract with OpenZeppelin AccessControl + Pausable + ReentrancyGuard, ORACLE_ROLE/CAMPAIGN_MANAGER_ROLE access control, EIP-191 signature recovery with EIP-2 `s` malleability protection, campaign budget management, per-user claim caps, nonce replay protection, emergency withdrawal functions. Full NatSpec documentation.
+- **`RewardRegistry.sol`** — On-chain action type and campaign registry with admin functions for registering actions/campaigns, reward tier management, and comprehensive view functions.
+- **`IAnalyticsRewards.sol`** — Interface defining the external API with 6 events, core claim function, campaign management, and view functions.
+- **Deployment script** (`deploy/deployer.py`) — Multi-chain deployer supporting Ethereum, Polygon, Arbitrum, Base, Optimism with CLI, deployment manifests, and verification.
+- **Hardhat config** (`hardhat.config.js`) — Solidity 0.8.20, optimizer, viaIR, multi-chain network configs, Etherscan verification.
+
+#### Automated Analytics Pipeline (`Backend Architecture/aether-backend/services/analytics_automation/`)
+
+- **`AnalyticsPipeline`** (`pipeline.py`) — Real-time event ingestion that classifies platform (Web2/Web3), classifies intent (acquisition/engagement/conversion/retention), aggregates time-windowed metrics, triggers automated reward pipeline for eligible events, and generates automated insights.
+- **`EventClassifier`** — Static utility for platform/intent classification and reward eligibility pre-filtering.
+- **Anomaly detection** — Event volume spikes (>3x), fraud rate spikes (>2x), conversion drops (>50%), budget depletion warnings (>80%).
+- **5 API endpoints** (`routes.py`) — `POST /ingest`, `GET /metrics/{campaign_id}`, `GET /overview`, `GET /insights`, `POST /report/{campaign_id}`.
+
+#### SDK Reward Client (`packages/web/src/rewards/reward-client.ts`)
+
+- **`RewardClient`** class with full lifecycle: `setUserAddress()`, `checkEligibility()`, `getProof()`, `claimOnChain()`, `getRewards()`, `getCampaigns()`, `onReward()` callback subscription.
+- **On-chain claiming** — Manual ABI encoding of `claimReward()` function call, optional ethers.js signer integration, localStorage proof caching.
+- **Auto-polling** — Configurable interval for automatic eligibility checking.
+
+### Changed
+
+- **Web SDK** (`packages/web/src/index.ts`) — Added `RewardClient` initialization in `init()`, new `rewards` public interface with 7 methods (setUserAddress, checkEligibility, getProof, claimOnChain, getRewards, getCampaigns, onReward), cleanup in `destroy()`.
+- **Backend** (`Backend Architecture/aether-backend/main.py`) — Expanded from 11 to 15 service routers: added fraud, attribution, rewards, oracle, analytics_automation. Updated docstring with all new route listings (75+ total endpoints).
+
+### Architecture
+
+```
+Frontend SDK → Analytics Backend → Fraud Engine → Attribution → Eligibility → Oracle Signer → Smart Contract → On-chain Reward
+     ↓                                    ↓              ↓             ↓                              ↓
+  RewardClient                     8 Fraud Signals   6 Models    Rule Engine                   EIP-191 Proofs
+     ↓                                    ↓              ↓             ↓                              ↓
+  claimOnChain()                   Composite Score   Touchpoints   Campaigns                   AnalyticsRewards.sol
+```
+
+### Stats
+
+- **25+ files changed** — 20+ added, 5 modified
+
+---
+
 ## [5.2.0] — 2026-03-04
 
 ### Semantic Context, Traffic Source Tracking, and ML Optimization
@@ -363,6 +437,7 @@ Initial release of the Aether platform with the Web SDK, React Native bridge, na
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [6.0.0](#600--2026-03-04) | 2026-03-04 | Smart contract analytics integration, fraud engine, attribution, oracle bridge, automated rewards, on-chain claiming |
 | [5.2.0](#520--2026-03-04) | 2026-03-04 | Tiered semantic context, automatic traffic source tracking, ML optimization (quantization, distillation, pruning) |
 | [5.1.0](#510--2026-03-04) | 2026-03-04 | SDK auto-update system, CDN auto-loader, OTA data modules |
 | [5.0.0](#500--2026-03-04) | 2026-03-04 | Multi-VM Web3 (7 VMs, 150+ DeFi protocols), demo environment |
