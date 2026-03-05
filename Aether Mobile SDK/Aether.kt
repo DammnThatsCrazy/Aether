@@ -130,8 +130,26 @@ object Aether : DefaultLifecycleObserver {
         SemanticContextCollector.initialize(application.applicationContext)
         SemanticContextCollector.resetSession()
 
+        // Initialize Web2 modules
+        AetherEcommerce.initialize(
+            context = application.applicationContext,
+            apiKey = config.apiKey,
+            endpoint = config.endpoint
+        )
+        AetherFeatureFlags.initialize(
+            context = application.applicationContext,
+            apiKey = config.apiKey,
+            endpoint = config.endpoint
+        )
+        AetherFeedback.initialize(
+            context = application.applicationContext,
+            apiKey = config.apiKey,
+            endpoint = config.endpoint,
+            userId = anonymousId
+        )
+
         isInitialized = true
-        log("Aether Android SDK initialized (v$VERSION)")
+        log("Aether Android SDK initialized (v$VERSION) — Web2 + Web3 modules enabled")
 
         // Start OTA data module update manager (non-blocking, background)
         AetherUpdateManager.start(

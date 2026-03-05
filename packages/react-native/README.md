@@ -1,7 +1,7 @@
 # @aether/react-native
 
 <!-- Badges -->
-![Version](https://img.shields.io/badge/version-5.0.0-blue)
+![Version](https://img.shields.io/badge/version-6.1.0-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey)
@@ -25,6 +25,10 @@
 - **Native performance** -- all heavy lifting runs in native Swift (iOS) and Kotlin (Android) for minimal JS thread overhead
 - **Tiered semantic context** -- 3-tier consent-driven context enrichment (Essential → Functional → Rich) with journey stage inference, session duration, app state tracking, and error logging -- automatically attached to every event sent through native modules
 - **OTA data updates** -- automatic over-the-air updates for chain registry, DeFi protocol definitions, and wallet classification rules without app store releases (JSON data modules via AsyncStorage)
+- **E-commerce tracking** -- product views, cart state management (AsyncStorage), checkout funnel, order lifecycle, and refund tracking
+- **Feature flags** -- remote feature flag management with stale-while-revalidate caching, typed access, and background refresh
+- **Feedback surveys** -- NPS, CSAT, CES survey collection with configurable trigger rules and response submission
+- **Multi-chain reward claiming** -- check eligibility, retrieve oracle proofs, and claim rewards on EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, and Cosmos chains
 
 ---
 
@@ -129,6 +133,18 @@ function HomeScreen() {
     // ...
   );
 }
+
+// 5. E-commerce tracking
+Aether.ecommerce.viewProduct({ id: 'SKU-123', name: 'Mouse', price: 29.99 });
+Aether.ecommerce.addToCart({ productId: 'SKU-123', quantity: 1, price: 29.99 });
+Aether.ecommerce.purchase({ orderId: 'ORD-456', total: 29.99, items: [] });
+
+// 6. Feature flags
+const showNewUI = Aether.featureFlag.isEnabled('new_checkout');
+const bannerText = Aether.featureFlag.getValue('banner_text', 'Welcome');
+
+// 7. Feedback surveys
+Aether.feedback.showNPS('post_purchase');
 ```
 
 ---
@@ -224,6 +240,32 @@ Aether.init({
 | `consent.getState` | `() => Promise<{ analytics: boolean; marketing: boolean; web3: boolean }>` | Get the current consent state from the native layer. |
 | `consent.grant` | `(purposes: string[]) => void` | Grant consent for the specified purposes (e.g., `['analytics', 'marketing']`). |
 | `consent.revoke` | `(purposes: string[]) => void` | Revoke consent for the specified purposes. |
+
+### E-commerce Methods
+
+| Method | Signature | Description |
+|---|---|---|
+| `ecommerce.viewProduct` | `(product: Product) => void` | Track a product view. |
+| `ecommerce.addToCart` | `(item: CartItem) => void` | Add an item to the cart. |
+| `ecommerce.removeFromCart` | `(productId: string, qty?: number) => void` | Remove from cart. |
+| `ecommerce.getCart` | `() => CartItem[]` | Get current cart. |
+| `ecommerce.purchase` | `(order: Order) => void` | Track a completed order. |
+
+### Feature Flag Methods
+
+| Method | Signature | Description |
+|---|---|---|
+| `featureFlag.isEnabled` | `(key: string) => boolean` | Check if flag is on. |
+| `featureFlag.getValue` | `(key: string, fallback?: T) => T` | Get typed flag value. |
+| `featureFlag.refresh` | `() => Promise<void>` | Force refresh from server. |
+
+### Feedback Methods
+
+| Method | Signature | Description |
+|---|---|---|
+| `feedback.showNPS` | `(trigger?: string) => void` | Show NPS survey. |
+| `feedback.showCSAT` | `(trigger?: string) => void` | Show CSAT survey. |
+| `feedback.dismiss` | `() => void` | Dismiss active survey. |
 
 ---
 
@@ -405,6 +447,10 @@ packages/react-native/
       SemanticContext.ts       # 3-tier semantic context collector for React Native
     ota/
       OTAUpdateManager.ts     # Over-the-air data module update manager
+    modules/
+      Ecommerce.ts              # E-commerce tracking module
+      FeatureFlags.ts           # Remote feature flag management
+      Feedback.ts               # NPS/CSAT/CES survey module
   ios/
     AetherNativeModule.swift   # Swift bridge to AetherSDK (iOS)
     AetherNativeModule.m       # Objective-C extern declarations for React Native

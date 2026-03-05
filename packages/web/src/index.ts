@@ -27,6 +27,16 @@ import { SemanticContextCollector } from './context/semantic-context';
 import { TrafficSourceTracker } from './tracking/traffic-source-tracker';
 import { RewardClient, createRewardClient } from './rewards/reward-client';
 import type { RewardProof, UserReward, RewardCampaign, RewardCallback } from './rewards/reward-client';
+import { EcommerceModule } from './modules/ecommerce';
+import type { Product, CartItem, Order } from './modules/ecommerce';
+import { FormAnalyticsModule } from './modules/form-analytics';
+import { FeatureFlagModule } from './modules/feature-flags';
+import type { FeatureFlag } from './modules/feature-flags';
+import { FeedbackModule } from './modules/feedback';
+import type { Survey, SurveyResponse } from './modules/feedback';
+import { HeatmapModule } from './modules/heatmaps';
+import { FunnelModule } from './modules/funnels';
+import type { FunnelDefinition, FunnelProgress } from './modules/funnels';
 import { setRemoteData as setChainRemoteData } from './web3/chains/chain-registry';
 import { setRemoteData as setProtocolRemoteData } from './web3/defi/protocol-registry';
 import { setRemoteData as setLabelRemoteData } from './web3/wallet/wallet-labels';
@@ -51,6 +61,12 @@ class AetherSDK implements AetherSDKInterface {
   private semanticContext: SemanticContextCollector | null = null;
   private trafficTracker: TrafficSourceTracker | null = null;
   private rewardClient: RewardClient | null = null;
+  private ecommerceModule: EcommerceModule | null = null;
+  private formAnalytics: FormAnalyticsModule | null = null;
+  private featureFlags: FeatureFlagModule | null = null;
+  private feedbackModule: FeedbackModule | null = null;
+  private heatmapModule: HeatmapModule | null = null;
+  private funnelModule: FunnelModule | null = null;
   private plugins: AetherPlugin[] = [];
   private initialized = false;
   private debug = false;
@@ -268,8 +284,68 @@ class AetherSDK implements AetherSDKInterface {
       autoCheck: false, // Manual — triggered via aether.rewards.checkEligibility()
     });
 
+    // ── Web2 Modules ─────────────────────────────────────────────────
+    const trackFn = (event: string, props?: Record<string, unknown>) => this.track(event, props);
+
+    // E-commerce tracking (cart state, checkout funnel, order lifecycle)
+    if (modules.ecommerce !== false) {
+      this.ecommerceModule = new EcommerceModule({
+        onTrack: trackFn,
+        currency: (config as any).ecommerce?.currency ?? 'USD',
+        cartPersistence: (config as any).ecommerce?.cartPersistence ?? true,
+      });
+    }
+
+    // Form analytics (field-level interaction tracking, abandonment detection)
+    if (modules.formAnalytics !== false) {
+      this.formAnalytics = new FormAnalyticsModule({
+        onTrack: trackFn,
+        autoDiscover: (config as any).formAnalytics?.autoDiscover ?? true,
+        sensitiveFields: config.privacy?.piiPatterns ?? [],
+      });
+    }
+
+    // Feature flags (remote config with stale-while-revalidate caching)
+    if (modules.featureFlags) {
+      this.featureFlags = new FeatureFlagModule({
+        endpoint,
+        apiKey: config.apiKey,
+        onTrack: trackFn,
+        refreshIntervalMs: (config as any).featureFlags?.refreshIntervalMs ?? 300000,
+        defaults: (config as any).featureFlags?.defaults ?? {},
+      });
+    }
+
+    // Feedback surveys (NPS, CSAT, CES with trigger rules + DOM rendering)
+    if (modules.feedback) {
+      this.feedbackModule = new FeedbackModule({
+        endpoint,
+        apiKey: config.apiKey,
+        onTrack: trackFn,
+        userId: this.identityManager.getIdentity().anonymousId,
+      });
+    }
+
+    // Heatmaps (click, movement, scroll, attention tracking)
+    if (modules.heatmaps) {
+      this.heatmapModule = new HeatmapModule({
+        onTrack: trackFn,
+        sampleRate: (config as any).heatmaps?.sampleRate ?? 1.0,
+        flushIntervalMs: (config as any).heatmaps?.flushIntervalMs ?? 30000,
+      });
+      this.heatmapModule.start();
+    }
+
+    // Funnel tracking (multi-step conversion funnels with drop-off analysis)
+    if (modules.funnels) {
+      this.funnelModule = new FunnelModule({
+        onTrack: trackFn,
+        definitions: (config as any).funnels?.definitions ?? [],
+      });
+    }
+
     this.initialized = true;
-    this.log('info', 'Aether SDK v5.0.0 initialized — Multi-VM Web3 + auto-update + rewards enabled');
+    this.log('info', 'Aether SDK v5.0.0 initialized — Web2 + Web3 + auto-update + rewards enabled');
   }
 
   track(event: string, properties?: Record<string, unknown>): void {
@@ -361,6 +437,12 @@ class AetherSDK implements AetherSDKInterface {
 
     this.semanticContext?.destroy();
     this.rewardClient?.destroy();
+    this.ecommerceModule?.destroy();
+    this.formAnalytics?.destroy();
+    this.featureFlags?.destroy();
+    this.feedbackModule?.destroy();
+    this.heatmapModule?.destroy();
+    this.funnelModule?.destroy();
     this.autoDiscovery = null;
     this.performanceModule = null;
     this.experimentsModule = null;
@@ -371,6 +453,12 @@ class AetherSDK implements AetherSDKInterface {
     this.semanticContext = null;
     this.trafficTracker = null;
     this.rewardClient = null;
+    this.ecommerceModule = null;
+    this.formAnalytics = null;
+    this.featureFlags = null;
+    this.feedbackModule = null;
+    this.heatmapModule = null;
+    this.funnelModule = null;
     this.sessionManager = null;
     this.identityManager = null;
     this.eventQueue = null;
@@ -491,6 +579,120 @@ class AetherSDK implements AetherSDKInterface {
     onReward: (callback: RewardCallback): (() => void) => {
       return this.rewardClient?.onReward(callback) ?? (() => {});
     },
+  };
+
+  // =========================================================================
+  // ECOMMERCE — Product, Cart, Checkout, Order Tracking
+  // =========================================================================
+
+  ecommerce = {
+    /** Track a product view */
+    viewProduct: (product: Product): void => { this.ecommerceModule?.viewProduct(product); },
+    /** Track a product list/category view */
+    viewProductList: (category: string, products: Product[]): void => { this.ecommerceModule?.viewProductList(category, products); },
+    /** Add item to cart */
+    addToCart: (item: CartItem): void => { this.ecommerceModule?.addToCart(item); },
+    /** Remove item from cart */
+    removeFromCart: (productId: string, quantity?: number): void => { this.ecommerceModule?.removeFromCart(productId, quantity); },
+    /** Get current cart state */
+    getCart: (): CartItem[] => this.ecommerceModule?.getCart() ?? [],
+    /** Clear the cart */
+    clearCart: (): void => { this.ecommerceModule?.clearCart(); },
+    /** Track checkout initiation */
+    beginCheckout: (options?: { coupon?: string; step?: number }): void => { this.ecommerceModule?.beginCheckout(options); },
+    /** Track a completed order */
+    purchase: (order: Order): void => { this.ecommerceModule?.purchase(order); },
+    /** Track a refund */
+    refund: (orderId: string, amount?: number, items?: CartItem[]): void => { this.ecommerceModule?.refund(orderId, amount, items); },
+    /** Apply a coupon/promo code */
+    applyCoupon: (code: string): void => { this.ecommerceModule?.applyCoupon(code); },
+  };
+
+  // =========================================================================
+  // FEATURE FLAGS — Remote Config + Overrides
+  // =========================================================================
+
+  featureFlag = {
+    /** Check if a feature flag is enabled */
+    isEnabled: (key: string): boolean => this.featureFlags?.isEnabled(key) ?? false,
+    /** Get a typed feature flag value */
+    getValue: <T = unknown>(key: string, fallback?: T): T => this.featureFlags?.getValue<T>(key, fallback as T) ?? fallback as T,
+    /** Get all feature flags */
+    getAll: (): Record<string, FeatureFlag> => this.featureFlags?.getAll() ?? {},
+    /** Set local overrides (for testing/debugging) */
+    setOverrides: (overrides: Record<string, unknown>): void => { this.featureFlags?.setOverrides(overrides); },
+    /** Clear all overrides */
+    clearOverrides: (): void => { this.featureFlags?.clearOverrides(); },
+    /** Force refresh flags from the server */
+    refresh: async (): Promise<void> => { await this.featureFlags?.refresh(); },
+  };
+
+  // =========================================================================
+  // FEEDBACK — NPS, CSAT, CES Surveys
+  // =========================================================================
+
+  feedback = {
+    /** Show a survey by ID */
+    showSurvey: (surveyId: string): void => { this.feedbackModule?.showSurvey(surveyId); },
+    /** Create and register a custom NPS survey */
+    nps: (config: Partial<Survey>): void => { this.feedbackModule?.registerNPS(config); },
+    /** Create and register a custom CSAT survey */
+    csat: (config: Partial<Survey>): void => { this.feedbackModule?.registerCSAT(config); },
+    /** Create and register a custom CES survey */
+    ces: (config: Partial<Survey>): void => { this.feedbackModule?.registerCES(config); },
+    /** Dismiss any currently visible survey */
+    dismiss: (): void => { this.feedbackModule?.dismiss(); },
+    /** Check a trigger event (fires matching surveys) */
+    trigger: (eventName: string, properties?: Record<string, unknown>): void => {
+      this.feedbackModule?.checkTrigger(eventName, properties);
+    },
+  };
+
+  // =========================================================================
+  // HEATMAPS — Click, Movement, Scroll, Attention
+  // =========================================================================
+
+  heatmap = {
+    /** Start heatmap tracking (auto-started if module enabled) */
+    start: (): void => { this.heatmapModule?.start(); },
+    /** Stop heatmap tracking */
+    stop: (): void => { this.heatmapModule?.stop(); },
+    /** Flush current heatmap data */
+    flush: (): void => { this.heatmapModule?.flush(); },
+    /** Get aggregated heatmap data for the current page */
+    getData: (): unknown => this.heatmapModule?.getData() ?? null,
+  };
+
+  // =========================================================================
+  // FUNNELS — Multi-Step Conversion Tracking
+  // =========================================================================
+
+  funnel = {
+    /** Register a funnel definition */
+    define: (definition: FunnelDefinition): void => { this.funnelModule?.define(definition); },
+    /** Record a funnel step event */
+    step: (funnelId: string, stepId: string, properties?: Record<string, unknown>): void => {
+      this.funnelModule?.recordStep(funnelId, stepId, properties);
+    },
+    /** Get current funnel progress */
+    getProgress: (funnelId: string): FunnelProgress | null => this.funnelModule?.getProgress(funnelId) ?? null,
+    /** Get all active funnels */
+    getActiveFunnels: (): FunnelProgress[] => this.funnelModule?.getActiveFunnels() ?? [],
+    /** Reset a funnel */
+    reset: (funnelId: string): void => { this.funnelModule?.reset(funnelId); },
+  };
+
+  // =========================================================================
+  // FORM ANALYTICS — Field-Level Tracking
+  // =========================================================================
+
+  forms = {
+    /** Manually track a form (if auto-discover is off) */
+    trackForm: (formId: string, element?: HTMLFormElement): void => { this.formAnalytics?.trackForm(formId, element); },
+    /** Stop tracking a specific form */
+    untrackForm: (formId: string): void => { this.formAnalytics?.untrackForm(formId); },
+    /** Get analytics for a tracked form */
+    getFormAnalytics: (formId: string): unknown => this.formAnalytics?.getFormAnalytics(formId) ?? null,
   };
 
   // =========================================================================

@@ -1,0 +1,130 @@
+%% Aether Platform v6.1.0 - CI/CD Pipeline
+%% Shows the full CI (8 stages), CD (6 stages), SDK Release, Data Module Release,
+%% and Multi-Chain Deploy pipelines with quality gates between stages
+
+graph TD
+    %% ===== CI Pipeline =====
+    subgraph CIPipeline["CI Pipeline (8 Stages)"]
+        direction TB
+
+        subgraph CIParallel1["Stage 1-2 (Parallel)"]
+            direction LR
+            Lint["1. Lint<br/>(ESLint, SwiftLint,<br/>ktlint)"]
+            SecurityScan["5. Security Scan<br/>(SAST, dependency audit,<br/>secret detection)"]
+        end
+
+        TypeCheck["2. Type Check<br/>(tsc, mypy)"]
+
+        UnitTest["3. Unit Test<br/>(Jest, pytest, XCTest)"]
+
+        IntegrationTest["4. Integration Test<br/>(API contracts,<br/>service integration)"]
+
+        Build["6. Build<br/>(Rollup, Xcode,<br/>Gradle)"]
+
+        E2ETest["7. E2E Test<br/>(Playwright, Detox,<br/>Espresso)"]
+
+        PerfTest["8. Performance Test<br/>(Lighthouse, load test,<br/>bundle size)"]
+
+        %% CI Flow
+        CIParallel1 --> QG1{"Quality<br/>Gate"}
+        QG1 --> TypeCheck --> QG2{"Quality<br/>Gate"}
+        QG2 --> UnitTest --> QG3{"Quality<br/>Gate"}
+        QG3 --> IntegrationTest --> QG4{"Quality<br/>Gate"}
+        QG4 --> Build --> QG5{"Quality<br/>Gate"}
+        QG5 --> E2ETest --> QG6{"Quality<br/>Gate"}
+        QG6 --> PerfTest
+    end
+
+    %% ===== CD Pipeline =====
+    subgraph CDPipeline["CD Pipeline (6 Stages)"]
+        direction TB
+
+        StagingDeploy["1. Staging Deploy<br/>(full environment)"]
+
+        StagingSmoke["2. Staging Smoke<br/>(health checks,<br/>critical paths)"]
+
+        CanaryDeploy["3. Canary Deploy<br/>(5% traffic)"]
+
+        CanaryValidation["4. Canary Validation<br/>(error rates, latency,<br/>business metrics)"]
+
+        ProgressiveRollout["5. Progressive Rollout<br/>(5% → 25% → 50% → 100%)"]
+
+        PostDeployVerify["6. Post-Deploy Verify<br/>(full regression,<br/>monitoring alerts)"]
+
+        %% CD Flow
+        StagingDeploy --> QG7{"Quality<br/>Gate"}
+        QG7 --> StagingSmoke --> QG8{"Quality<br/>Gate"}
+        QG8 --> CanaryDeploy --> QG9{"Quality<br/>Gate"}
+        QG9 --> CanaryValidation --> QG10{"Quality<br/>Gate"}
+        QG10 --> ProgressiveRollout --> QG11{"Quality<br/>Gate"}
+        QG11 --> PostDeployVerify
+    end
+
+    %% ===== SDK Release =====
+    subgraph SDKRelease["SDK Release Pipeline"]
+        direction TB
+        subgraph SDKTargets["Package Registries"]
+            direction LR
+            NPM["npm<br/>(Web + RN)"]
+            CocoaPods["CocoaPods<br/>(iOS)"]
+            SPM["Swift Package<br/>Manager (iOS)"]
+            Maven["Maven Central<br/>(Android)"]
+        end
+        SDKBuild["Build SDK<br/>Packages"] --> SDKTargets
+    end
+
+    %% ===== Data Module Release =====
+    subgraph DataModRelease["Data Module Release Pipeline"]
+        direction TB
+        Extract["Extract<br/>(TS → JSON)"]
+        Publish["Publish<br/>(to CDN)"]
+        VerifyDM["Verify<br/>(checksums + manifest)"]
+        Extract --> Publish --> VerifyDM
+    end
+
+    %% ===== Multi-Chain Deploy =====
+    subgraph MultiChainDeploy["Multi-Chain Contract Deploy"]
+        direction TB
+        EVMDeploy["EVM Deploy<br/>(7 chains)"]
+        SolanaDeploy["Solana Deploy"]
+        SUIDeploy["SUI Deploy"]
+        NEARDeploy["NEAR Deploy"]
+        CosmosDeploy["Cosmos Deploy"]
+
+        EVMDeploy --> SolanaDeploy --> SUIDeploy --> NEARDeploy --> CosmosDeploy
+    end
+
+    %% ===== Pipeline Connections =====
+    PerfTest --> QG_CICD{"CI/CD<br/>Gate"}
+    QG_CICD --> StagingDeploy
+
+    PostDeployVerify --> SDKRelease
+    PostDeployVerify --> DataModRelease
+    PostDeployVerify --> MultiChainDeploy
+
+    %% ===== Rollback =====
+    CanaryValidation -.->|"metrics breach<br/>threshold"| Rollback["Automatic<br/>Rollback"]
+    PostDeployVerify -.->|"regression<br/>detected"| Rollback
+
+    %% ===== Notifications =====
+    PostDeployVerify --> Notify["Notifications<br/>(Slack, PagerDuty)"]
+    Rollback --> Notify
+
+    %% ===== Styles =====
+    classDef ciStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef cdStyle fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef gateStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef sdkStyle fill:#8E44AD,stroke:#6C3483,color:#FFFFFF
+    classDef dataStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+    classDef chainStyle fill:#9B59B6,stroke:#7D3F9B,color:#FFFFFF
+    classDef rollbackStyle fill:#E74C3C,stroke:#C0392B,color:#FFFFFF
+    classDef notifyStyle fill:#95A5A6,stroke:#7F8C8D,color:#FFFFFF
+
+    class Lint,SecurityScan,TypeCheck,UnitTest,IntegrationTest,Build,E2ETest,PerfTest ciStyle
+    class StagingDeploy,StagingSmoke,CanaryDeploy,CanaryValidation,ProgressiveRollout,PostDeployVerify cdStyle
+    class QG1,QG2,QG3,QG4,QG5,QG6,QG7,QG8,QG9,QG10,QG11,QG_CICD gateStyle
+    class SDKBuild,NPM,CocoaPods,SPM,Maven sdkStyle
+    class Extract,Publish,VerifyDM dataStyle
+    class EVMDeploy,SolanaDeploy,SUIDeploy,NEARDeploy,CosmosDeploy chainStyle
+    class Rollback rollbackStyle
+    class Notify notifyStyle

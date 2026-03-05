@@ -1,6 +1,6 @@
 # Aether SDK Playground
 
-An interactive **multi-VM Web3 wallet simulation** environment for the [Aether Web SDK](../packages/web) (`@aether/web` v5.0). Simulate wallet connections across EVM, Solana, and Bitcoin chains, trigger DeFi protocol interactions (Uniswap, AAVE, Jupiter, Marinade, Wormhole), view cross-chain portfolios, and inspect SDK event capture -- all from a single-page demo interface served by Vite.
+An interactive **multi-VM Web3 wallet simulation** environment for the [Aether Web SDK](../packages/web) (`@aether/web` v6.1). Simulate wallet connections across all 7 VM families (EVM, Solana, Bitcoin, SUI, NEAR, TRON, Cosmos), trigger DeFi protocol interactions (Uniswap, AAVE, Jupiter, Marinade, Wormhole, Ref Finance, and more), view cross-chain portfolios, and inspect SDK event capture -- all from a single-page demo interface served by Vite.
 
 ## Tech Stack
 
@@ -42,30 +42,35 @@ Vite will start on **http://localhost:5173**. Open the URL in your browser to lo
 The playground presents a dark-themed single-page UI organized into action groups by VM family:
 
 ```
-+--------------------------------------------------------------------------+
-|  Aether SDK Playground  v5.0.0                                           |
-|  Multi-VM Web3 Wallet Tracking — EVM • Solana • Bitcoin • SUI • NEAR ... |
-|                                                                          |
-|  SDK [Init SDK] [Reset]                                                  |
-|  EVM [Connect MetaMask] [Connect Ledger] [Uniswap Swap] [AAVE Supply]   |
-|  SVM [Connect Phantom] [Jupiter Swap] [Marinade Stake]                   |
-|  Multi [Connect BTC] [Bridge ETH→SOL] [Portfolio] [Disconnect All]       |
-|                                                                          |
-|  ● SDK initialized  [EVM] [SVM] [BTC] [3 wallets]                       |
-+------------------------------------+-------------------------------------+
-|  Event Log           (12 events)   |  Connected Wallets    (3 wallets)   |
-|  ───────────────────────────────── |  ──────────────────────────────── |
-|  [12:00:01] WALLET MetaMask...     |  ┌─────────────────────────────┐  |
-|  [12:00:03] TX Uniswap swap...     |  │ EVM 0xd8dA...6045  hot     │  |
-|  [12:00:05] DEFI AAVE supply...    |  │ SVM 7xKX...9mP1   hot     │  |
-|  [12:00:07] PORTFOLIO update...    |  │ BTC bc1q...w508d   cold    │  |
-|                                    |  └─────────────────────────────┘  |
-+--------------------------------------------------------------------------+
-|  [Portfolio]  [Tokens]  [DeFi Positions]  [Identity]  [Consent]          |
-|  ─────────────────────────────────────────────────────────────           |
-|  Total Value     Wallets      Chains        24h Change                  |
-|  $156,847.32     3            3 (EVM/SVM/BTC)  +2.4%                    |
-+--------------------------------------------------------------------------+
++------------------------------------------------------------------------------+
+|  Aether SDK Playground  v6.1.0                                               |
+|  Multi-VM Web3 Wallet Tracking                                               |
+|  EVM • Solana • Bitcoin • SUI • NEAR • TRON • Cosmos                         |
+|                                                                              |
+|  SDK   [Init SDK] [Reset]                                                    |
+|  EVM   [Connect MetaMask] [Connect Ledger] [Uniswap Swap] [AAVE Supply]     |
+|  SVM   [Connect Phantom] [Jupiter Swap] [Marinade Stake]                     |
+|  SUI   [Connect SUI Wallet] [SUI DeFi]                                      |
+|  NEAR  [Connect NEAR Wallet] [Ref Finance]                                  |
+|  Multi [Connect BTC] [Bridge ETH→SOL] [Portfolio] [Disconnect All]           |
+|                                                                              |
+|  ● SDK initialized  [EVM] [SVM] [BTC] [SUI] [NEAR] [5 wallets]             |
++--------------------------------------+---------------------------------------+
+|  Event Log           (18 events)     |  Connected Wallets    (5 wallets)     |
+|  ──────────────────────────────────  |  ───────────────────────────────────  |
+|  [12:00:01] WALLET MetaMask...       |  ┌──────────────────────────────────┐ |
+|  [12:00:03] TX Uniswap swap...       |  │ EVM  0xd8dA...6045  hot         │ |
+|  [12:00:05] DEFI AAVE supply...      |  │ SVM  7xKX...9mP1   hot         │ |
+|  [12:00:07] WALLET SUI connected...  |  │ BTC  bc1q...w508d   cold        │ |
+|  [12:00:09] PORTFOLIO update...      |  │ SUI  0x2a9...f812   hot         │ |
+|                                      |  │ NEAR acct.near      hot         │ |
+|                                      |  └──────────────────────────────────┘ |
++------------------------------------------------------------------------------+
+|  [Portfolio]  [Tokens]  [DeFi Positions]  [Identity]  [Consent]              |
+|  ──────────────────────────────────────────────────────────────              |
+|  Total Value     Wallets      Chains              24h Change                |
+|  $256,847.32     5            5 (EVM/SVM/BTC/SUI/NEAR)  +2.4%              |
++------------------------------------------------------------------------------+
 ```
 
 ## Available Demo Actions

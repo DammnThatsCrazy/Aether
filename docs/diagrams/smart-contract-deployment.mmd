@@ -1,0 +1,112 @@
+%% Aether Platform v6.1.0 - Multi-Chain Smart Contract Architecture
+%% Shows contract deployment across EVM, Solana, SUI, NEAR, and Cosmos chains
+%% with the MultiChainDeployer CLI orchestrating all deployments
+
+graph TD
+    %% ===== MultiChainDeployer =====
+    Deployer["MultiChainDeployer<br/>(CLI Tool)<br/>Deploys to all chains"]
+
+    %% ===== EVM Contracts =====
+    subgraph EVMContracts["EVM: AnalyticsRewards.sol"]
+        direction TB
+        EVMSpec["Solidity 0.8.20<br/>OpenZeppelin<br/>EIP-191 Signatures"]
+        subgraph EVMChains["EVM Chains"]
+            direction LR
+            Ethereum["Ethereum<br/>Mainnet"]
+            Polygon["Polygon<br/>PoS"]
+            Arbitrum["Arbitrum<br/>One"]
+            Base["Base"]
+            Optimism["Optimism"]
+            Avalanche["Avalanche<br/>C-Chain"]
+            BSC["BNB Smart<br/>Chain"]
+        end
+        EVMSpec --> EVMChains
+    end
+
+    %% ===== Solana Contract =====
+    subgraph SolanaContract["Solana: aether_rewards.rs"]
+        direction TB
+        SolanaSpec["Anchor Framework<br/>Ed25519 Signatures<br/>Program Derived Addresses"]
+        SolanaMainnet["Solana<br/>Mainnet"]
+        SolanaSpec --> SolanaMainnet
+    end
+
+    %% ===== SUI Contract =====
+    subgraph SUIContract["SUI: aether_rewards.move"]
+        direction TB
+        SUISpec["Move Language<br/>Shared Objects<br/>Object-Centric Model"]
+        SUIMainnet["SUI<br/>Mainnet"]
+        SUISpec --> SUIMainnet
+    end
+
+    %% ===== NEAR Contract =====
+    subgraph NEARContract["NEAR: aether_rewards.rs"]
+        direction TB
+        NEARSpec["near-sdk (Rust)<br/>NEP-297 Events<br/>Cross-Contract Calls"]
+        NEARMainnet["NEAR<br/>Mainnet"]
+        NEARSpec --> NEARMainnet
+    end
+
+    %% ===== Cosmos Contract =====
+    subgraph CosmosContract["Cosmos: aether_rewards.rs"]
+        direction TB
+        CosmosSpec["CosmWasm<br/>BankMsg::Send<br/>IBC Compatible"]
+        CosmosMainnet["Cosmos Hub<br/>(Neutron, Osmosis)"]
+        CosmosSpec --> CosmosMainnet
+    end
+
+    %% ===== Deployer Connections =====
+    Deployer -->|"forge script<br/>+ Hardhat"| EVMContracts
+    Deployer -->|"anchor deploy"| SolanaContract
+    Deployer -->|"sui client<br/>publish"| SUIContract
+    Deployer -->|"near deploy"| NEARContract
+    Deployer -->|"wasmd tx<br/>wasm store"| CosmosContract
+
+    %% ===== Shared Contract Features =====
+    subgraph SharedFeatures["Shared Contract Features"]
+        direction LR
+        SigVerify["Signature<br/>Verification"]
+        NonceCheck["Nonce<br/>Tracking"]
+        RewardDist["Reward<br/>Distribution"]
+        EventEmit["Event<br/>Emission"]
+        AdminCtrl["Admin<br/>Controls"]
+        Pausable["Emergency<br/>Pause"]
+    end
+
+    EVMContracts -.-> SharedFeatures
+    SolanaContract -.-> SharedFeatures
+    SUIContract -.-> SharedFeatures
+    NEARContract -.-> SharedFeatures
+    CosmosContract -.-> SharedFeatures
+
+    %% ===== Deployment Config =====
+    subgraph DeployConfig["Deployment Configuration"]
+        direction LR
+        EnvConfig["Environment<br/>(testnet / mainnet)"]
+        SignerConfig["Signer<br/>Addresses"]
+        ThresholdConfig["Reward<br/>Thresholds"]
+        GasConfig["Gas<br/>Strategies"]
+    end
+
+    DeployConfig --> Deployer
+
+    %% ===== Styles =====
+    classDef deployerStyle fill:#2C3E50,stroke:#1A252F,color:#FFFFFF
+    classDef evmStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef evmChainStyle fill:#5DADE2,stroke:#3498DB,color:#FFFFFF
+    classDef solanaStyle fill:#9B59B6,stroke:#7D3F9B,color:#FFFFFF
+    classDef suiStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+    classDef nearStyle fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef cosmosStyle fill:#E67E22,stroke:#C0651B,color:#FFFFFF
+    classDef sharedStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef configStyle fill:#95A5A6,stroke:#7F8C8D,color:#FFFFFF
+
+    class Deployer deployerStyle
+    class EVMSpec evmStyle
+    class Ethereum,Polygon,Arbitrum,Base,Optimism,Avalanche,BSC evmChainStyle
+    class SolanaSpec,SolanaMainnet solanaStyle
+    class SUISpec,SUIMainnet suiStyle
+    class NEARSpec,NEARMainnet nearStyle
+    class CosmosSpec,CosmosMainnet cosmosStyle
+    class SigVerify,NonceCheck,RewardDist,EventEmit,AdminCtrl,Pausable sharedStyle
+    class EnvConfig,SignerConfig,ThresholdConfig,GasConfig configStyle

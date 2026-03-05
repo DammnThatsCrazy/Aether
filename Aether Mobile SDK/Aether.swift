@@ -156,8 +156,23 @@ public final class Aether {
         // Start semantic context collector
         SemanticContextCollector.shared.resetSession()
 
+        // Initialize Web2 modules
+        AetherEcommerce.shared.initialize(
+            apiKey: config.apiKey,
+            endpoint: config.endpoint
+        )
+        AetherFeatureFlags.shared.initialize(
+            apiKey: config.apiKey,
+            endpoint: config.endpoint
+        )
+        AetherFeedback.shared.initialize(
+            apiKey: config.apiKey,
+            endpoint: config.endpoint,
+            userId: anonymousId
+        )
+
         isInitialized = true
-        log("Aether iOS SDK initialized (v5.0.0)")
+        log("Aether iOS SDK initialized (v5.0.0) — Web2 + Web3 modules enabled")
 
         // Start OTA data module update manager (non-blocking, background)
         AetherUpdateManager.shared.start(

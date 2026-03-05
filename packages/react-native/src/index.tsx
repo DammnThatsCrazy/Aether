@@ -8,6 +8,9 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import React from 'react';
 import { OTAUpdateManager } from './ota/OTAUpdateManager';
 import { semanticContext } from './context/SemanticContext';
+import { RNEcommerce } from './modules/Ecommerce';
+import { RNFeatureFlags } from './modules/FeatureFlags';
+import { RNFeedback } from './modules/Feedback';
 
 const { AetherNative } = NativeModules;
 const emitter = AetherNative ? new NativeEventEmitter(AetherNative) : null;
@@ -133,6 +136,15 @@ const Aether = {
       AetherNative?.revokeConsent(purposes);
     },
   },
+
+  // E-commerce
+  ecommerce: RNEcommerce,
+
+  // Feature Flags
+  featureFlag: RNFeatureFlags,
+
+  // Feedback Surveys
+  feedback: RNFeedback,
 };
 
 // =============================================================================
@@ -200,18 +212,28 @@ export function AetherProvider({
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    const endpoint = config.endpoint ?? 'https://api.aether.network';
+
     Aether.init(config);
     semanticContext.resetSession();
+
+    // Initialize Web2 modules
+    RNEcommerce.initialize(config.apiKey, endpoint);
+    RNFeatureFlags.initialize(config.apiKey, endpoint);
+    RNFeedback.initialize(config.apiKey, endpoint);
+
     setIsInitialized(true);
 
     // Start OTA data module sync (non-blocking, fire-and-forget)
-    const endpoint = config.endpoint ?? 'https://api.aether.network';
     OTAUpdateManager.syncDataModules(config.apiKey, endpoint, '5.0.0').catch(() => {
       // OTA sync failures are silent — SDK works with bundled defaults
     });
 
     return () => {
       semanticContext.destroy();
+      RNEcommerce.destroy();
+      RNFeatureFlags.destroy();
+      RNFeedback.destroy();
     };
   }, [config.apiKey]);
 

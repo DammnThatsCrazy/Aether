@@ -7,30 +7,45 @@ Aether is a modular analytics platform that captures user behavior across web, m
 ## Architecture Overview
 
 ```
-                     SDK Layer                          Backend Layer
-              +-------------------+               +---------------------+
-              | Web SDK (TS)      |               | API Gateway         |
-              | React Native SDK  |  ── HTTPS ──> | Ingestion Service   |
-              | iOS SDK (Swift)   |               | Identity Service    |
-              | Android SDK (Kt)  |               | Analytics Service   |
-              +-------------------+               | ML Serving          |
-                                                  | Agent Service       |
-              +-------------------+               | Campaign Service    |
-              | Data Ingestion    |               | Consent Service     |
-              | (Node.js pipeline)|               | Notification Svc    |
-              +-------------------+               | Admin Service       |
-                       |                          +---------------------+
-                       v                                    |
-              +-------------------+               +---------------------+
-              | Data Lake         |               | Agent Layer         |
-              | (S3 + TimescaleDB |               | (10 Celery Workers) |
-              |  + Neptune Graph) |               +---------------------+
+                     SDK Layer                          Backend Layer (16 services, 85+ endpoints)
+              +-------------------+               +-------------------------------+
+              | Web SDK (TS)      |               | API Gateway    | Ingestion    |
+              | React Native SDK  |  ── HTTPS ──> | Identity       | Analytics    |
+              | iOS SDK (Swift)   |               | ML Serving     | Agent        |
+              | Android SDK (Kt)  |               | Campaign       | Consent      |
+              +-------------------+               | Notification   | Admin        |
+                                                  | Traffic        | Fraud        |
+              +-------------------+               | Attribution    | Rewards      |
+              | Web2 Analytics    |               | Oracle         | Automation   |
+              | Modules           |               +-------------------------------+
+              | (Ecommerce, Forms,|                         |
+              |  Feature Flags,   |               +-------------------------------+
+              |  Feedback, Heatmaps|              | Multi-chain Oracle Bridge     |
+              |  Funnels)         |               | (7 VMs: EVM, SVM, Bitcoin,    |
+              +-------------------+               |  MoveVM, NEAR, TVM, Cosmos)   |
+                                                  +-------------------------------+
               +-------------------+                         |
-                       |                          +---------------------+
-              +-------------------+               | ML Models           |
-              | AWS Infrastructure|               | (9 models: edge +   |
-              | (Multi-AZ, DR)    |               |  server-side)       |
-              +-------------------+               +---------------------+
+              | Data Ingestion    |               +-------------------------------+
+              | (Node.js pipeline)|               | Multi-chain Smart Contracts   |
+              +-------------------+               | (EVM, Solana, SUI, NEAR,      |
+                       |                          |  Cosmos) + Reward Pipeline    |
+                       |                          +-------------------------------+
+                       v                                    |
+              +-------------------+               +-------------------------------+
+              | Data Lake         |               | Agent Layer                   |
+              | (S3 + TimescaleDB |               | (10 Celery Workers)           |
+              |  + Neptune Graph) |               +-------------------------------+
+              +-------------------+                         |
+                       |                          +-------------------------------+
+              +-------------------+               | ML Models                     |
+              | OTA Update System |               | (9 models: edge + server-side)|
+              | (CDN Data Modules)|               +-------------------------------+
+              +-------------------+                         |
+                       |                          +-------------------------------+
+              +-------------------+               | 150+ DeFi Protocols           |
+              | AWS Infrastructure|               | (DEX, lending, perpetuals,    |
+              | (Multi-AZ, DR)    |               |  staking, bridges, NFTs, ...) |
+              +-------------------+               +-------------------------------+
                        |
               +-------------------+
               | GDPR & SOC 2      |
@@ -49,11 +64,12 @@ Aether is a modular analytics platform that captures user behavior across web, m
 | [Data Ingestion](Data%20Ingestion%20Layer/) | TypeScript | Event ingestion, validation, enrichment pipeline | `Data Ingestion Layer/` |
 | [Data Lake](Data%20Lake%20Architecture/) | Python / TS | Distributed data warehouse with 13+ services | `Data Lake Architecture/` |
 | [Agent Layer](Agent%20Layer/) | Python | 10 autonomous discovery & enrichment workers | `Agent Layer/` |
-| [Backend](Backend%20Architecture/) | Python | FastAPI microservices (10 services, 50+ endpoints) | `Backend Architecture/` |
+| [Backend](Backend%20Architecture/) | Python | FastAPI microservices (16 services, 85+ endpoints) | `Backend Architecture/` |
 | [ML Models](ML%20Models/) | Python | 9 production ML models (edge + server) | `ML Models/` |
 | [CI/CD Pipeline](cicd/) | Python | Deployment automation (8 CI + 6 CD + demo pipeline) | `cicd/` |
 | [AWS Deployment](AWS%20Deployment/) | Python / HCL | Multi-account AWS infrastructure with Terraform (4 envs) | `AWS Deployment/` |
 | [GDPR & SOC 2](GDPR%20%26%20SOC2/) | Python | GDPR compliance & SOC 2 Type II readiness | `GDPR & SOC2/` |
+| [Smart Contracts](Smart%20Contracts/) | Solidity / Rust / Move | Multi-chain reward contracts (EVM, Solana, SUI, NEAR, Cosmos) | Smart Contracts/ |
 
 ## Technology Stack
 
@@ -63,6 +79,7 @@ Aether is a modular analytics platform that captures user behavior across web, m
 - **ML:** PyTorch, TensorFlow, XGBoost, scikit-learn, SageMaker, ONNX
 - **Infrastructure:** AWS (ECS Fargate, ALB, CloudFront, WAF), Terraform
 - **Web3:** EVM, SVM (Solana), Bitcoin, MoveVM (SUI), NEAR, TVM (TRON), Cosmos
+- **Smart Contracts:** Solidity (EVM/TRON), Anchor/Rust (Solana), Move (SUI), Rust (NEAR/CosmWasm)
 - **CI/CD:** GitHub Actions, Docker, canary deployments, demo environment
 - **Compliance:** GDPR (Articles 15-21, 25, 28, 30, 33-35), SOC 2 Type II
 
@@ -105,6 +122,21 @@ cd "GDPR & SOC2/aether-compliance" && python3 main.py
 - GDPR: 7 data protection controls, 6 data subject rights, consent management, breach notification
 - SOC 2: 5 trust criteria, 34 controls, gap analysis, continuous compliance monitoring
 - Record of Processing Activities (ROPA), cross-border transfer tracking
+
+### Web2 Analytics Modules
+- E-commerce tracking (product views, cart state, checkout funnel, orders, refunds)
+- Form analytics (field-level interaction tracking, abandonment detection, drop-off analysis)
+- Feature flags (remote config with stale-while-revalidate caching)
+- Feedback surveys (NPS, CSAT, CES with trigger rules, sampling, and DOM rendering)
+- Heatmaps (click, movement, scroll depth, attention tracking)
+- Funnel tracking (multi-step conversion funnels with drop-off identification)
+
+### Automated Reward Pipeline
+- Multi-chain reward distribution across 7 VM families (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos)
+- 8-signal fraud detection engine with composable scoring
+- 6-model multi-touch attribution (first/last touch, linear, time-decay, position-based, data-driven)
+- Oracle-signed cryptographic proofs for on-chain verification
+- Smart contracts on Ethereum, Solana, SUI, NEAR, and Cosmos
 
 ### Infrastructure
 - Multi-account AWS (dev, staging, production, demo, data, security)

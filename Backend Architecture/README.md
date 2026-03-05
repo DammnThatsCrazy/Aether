@@ -2,7 +2,7 @@
 
 **FastAPI microservices backend for the Aether platform.**
 
-Aether Backend is a unified API gateway that mounts 15 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, automated analytics, and multi-tenant administration -- all behind a single versioned API surface with 75+ endpoints.
+Aether Backend is a unified API gateway that mounts 16 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, multi-chain automation, and multi-tenant administration -- all behind a single versioned API surface with 85+ endpoints.
 
 ---
 
@@ -44,45 +44,52 @@ Aether Backend is a unified API gateway that mounts 15 domain-specific microserv
 ## Architecture
 
 ```
-                         +---------------------------+
-                         |       Load Balancer       |
-                         +-------------+-------------+
-                                       |
-                         +-------------v-------------+
-                         |     FastAPI Application    |
-                         |  (main.py / create_app)    |
-                         +-------------+-------------+
-                                       |
-              +------------------------+------------------------+
-              |           Middleware Stack (global)              |
-              |  CORS -> Auth -> Rate Limit -> Body Size -> Log |
-              +------------------------+------------------------+
-                                       |
-       +-------+-------+-------+------+------+-------+-------+-------+-------+
-       |       |       |       |      |      |       |       |       |       |
-  +----v-+ +--v---+ +-v----+ +v---+ +v--+ +-v---+ +-v----+ +v----+ +v----+ +v----+
-  |Gate- | |Inges-| |Iden- | |Ana-| |ML | |Age-| |Camp-| |Con- | |Noti-| |Admin|
-  |way   | |tion  | |tity  | |lyt-| |Ser| |nt  | |aign | |sent | |fica-| |     |
-  |      | |      | |      | |ics | |ve | |    | |     | |     | |tion | |     |
-  +--+---+ +--+---+ +--+---+ ++--++ ++--+ ++---+ ++----+ ++----+ ++----+ ++----+
-     |        |        |       |      |     |      |       |       |       |
-     +--------+--------+-------+------+-----+------+-------+-------+-------+
-                                       |
-              +------------------------+------------------------+
-              |         Dependency Injection (ResourceRegistry)  |
-              |  Cache | Graph | EventProducer | RateLimiter     |
-              |  JWTHandler | APIKeyValidator                    |
-              +------+------+------+------+------+--------------+
-                     |      |      |      |      |
-               +-----v+ +--v---+ +v----+ +v---+ +v--------+
-               |Redis | |Nept-| |Kafka| |Dyn-| |Timescale|
-               |      | |une  | |/SNS | |amo | |DB       |
-               +------+ +-----+ +-----+ +----+ +---------+
+                            +---------------------------+
+                            |       Load Balancer       |
+                            +-------------+-------------+
+                                          |
+                            +-------------v-------------+
+                            |     FastAPI Application    |
+                            |  (main.py / create_app)    |
+                            +-------------+-------------+
+                                          |
+                 +------------------------+------------------------+
+                 |           Middleware Stack (global)              |
+                 |  CORS -> Auth -> Rate Limit -> Body Size -> Log |
+                 +------------------------+------------------------+
+                                          |
+          16 Service Routers (85+ endpoints)
+    +-----+-----+------+------+-----+------+------+------+
+    |     |     |      |      |     |      |      |      |
+  +-v--+ +v--+ +v---+ +v---+ +v--+ +v---+ +v---+ +v---+ |
+  |Gate| |Ing| |Iden| |Ana | |ML | |Age | |Camp| |Con | |
+  |way | |est| |tity| |lyt | |Srv| |nt  | |aign| |sent| |
+  +----+ +---+ +----+ +----+ +---+ +----+ +----+ +----+ |
+    +-----+-----+------+------+-----+------+------+------+
+    |     |     |      |      |     |      |      |      |
+  +-v--+ +v--+ +v---+ +v---+ +v--+ +v---+ +v---+ +v---+
+  |Noti| |Adm| |Traf| |Frau| |Att| |Rew | |Orac| |Auto|
+  |fic | |in | |fic | |d   | |rib| |ards| |le  | |mat |
+  |    | |   | |    | |    | |   | |    | |7VMs| |ion |
+  +----+ +---+ +----+ +----+ +---+ +----+ +----+ +----+
+    |     |     |      |      |     |      |      |
+    +-----+-----+------+------+-----+------+------+------+
+                                          |
+                 +------------------------+------------------------+
+                 |         Dependency Injection (ResourceRegistry)  |
+                 |  Cache | Graph | EventProducer | RateLimiter     |
+                 |  JWTHandler | APIKeyValidator                    |
+                 +------+------+------+------+------+--------------+
+                        |      |      |      |      |
+                  +-----v+ +--v---+ +v----+ +v---+ +v--------+
+                  |Redis | |Nept-| |Kafka| |Dyn-| |Timescale|
+                  |      | |une  | |/SNS | |amo | |DB       |
+                  +------+ +-----+ +-----+ +----+ +---------+
 ```
 
 **Key architectural decisions:**
 
-- **Single process, multiple routers** -- all 10 services are mounted as FastAPI `APIRouter` instances, sharing a single event loop and connection pool for reduced operational overhead.
+- **Single process, multiple routers** -- all 16 services are mounted as FastAPI `APIRouter` instances, sharing a single event loop and connection pool for reduced operational overhead.
 - **Dependency injection with lifecycle management** -- a `ResourceRegistry` singleton owns all shared resources (cache, graph, event bus, auth handlers). It is initialized at startup and torn down at shutdown via FastAPI's lifespan protocol.
 - **Repository pattern** -- data access is abstracted behind repository classes that separate query logic from business logic, with built-in caching, graph operations, and write-ahead logging hooks.
 - **12-Factor configuration** -- all settings are sourced from environment variables with sensible defaults (`config/settings.py`).
@@ -107,7 +114,8 @@ Aether Backend is a unified API gateway that mounts 15 domain-specific microserv
 | 12 | **Fraud**        | `/v1/fraud`             | 8-signal fraud detection engine, configurable thresholds     | `POST /v1/fraud/evaluate`, `GET /v1/fraud/stats` |
 | 13 | **Attribution**  | `/v1/attribution`       | 6-model multi-touch attribution, journey tracking            | `POST /v1/attribution/resolve`, `GET /v1/attribution/models` |
 | 14 | **Rewards**      | `/v1/rewards`           | Automated reward eligibility, campaign management, queue     | `POST /v1/rewards/evaluate`, `GET /v1/rewards/proof/{id}` |
-| 15 | **Oracle**       | `/v1/oracle`            | EVM-compatible cryptographic proof generation/verification   | `POST /v1/oracle/proof/generate`, `POST /v1/oracle/proof/verify` |
+| 15 | **Oracle**       | `/v1/oracle`            | Multi-chain (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos) cryptographic proof generation/verification   | `POST /v1/oracle/proof/generate`, `POST /v1/oracle/proof/verify` |
+| 16 | **Automation**   | `/v1/automation`        | Automated analytics pipeline, reward trigger, insights      | `POST /v1/automation/ingest`, `GET /v1/automation/insights` |
 
 ---
 
@@ -159,7 +167,7 @@ All endpoints are versioned under `/v1` and return consistent JSON envelopes:
 
 **Interactive docs** are available at `/docs` (Swagger UI) and `/redoc` (ReDoc) when the server is running.
 
-### Full Endpoint Listing (50+)
+### Full Endpoint Listing (85+)
 
 <details>
 <summary>Click to expand all endpoints</summary>
@@ -250,6 +258,28 @@ All endpoints are versioned under `/v1` and return consistent JSON envelopes:
 | `GET` | `/v1/admin/tenants/{id}/api-keys` | List API keys for a tenant |
 | `DELETE` | `/v1/admin/api-keys/{id}` | Revoke an API key |
 | `GET` | `/v1/admin/tenants/{id}/billing` | Get tenant billing data |
+
+**Automation**
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `POST` | `/v1/automation/ingest` | Ingest analytics data into the automation pipeline |
+| `GET` | `/v1/automation/insights` | Get automated analytics insights |
+| `POST` | `/v1/automation/triggers` | Create a reward automation trigger |
+| `GET` | `/v1/automation/triggers` | List reward automation triggers |
+| `DELETE` | `/v1/automation/triggers/{id}` | Delete a reward automation trigger |
+
+**Oracle (Multi-chain)**
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `POST` | `/v1/oracle/proof/generate` | Generate a cryptographic proof (any supported chain) |
+| `POST` | `/v1/oracle/proof/verify` | Verify a cryptographic proof |
+| `POST` | `/v1/oracle/proof/generate/svm` | Generate a Solana/SVM-specific proof |
+| `POST` | `/v1/oracle/proof/generate/bitcoin` | Generate a Bitcoin-specific proof |
+| `POST` | `/v1/oracle/proof/generate/move` | Generate a MoveVM (SUI)-specific proof |
+| `POST` | `/v1/oracle/proof/generate/near` | Generate a NEAR-specific proof |
+| `POST` | `/v1/oracle/proof/generate/tvm` | Generate a TVM (TRON)-specific proof |
+| `POST` | `/v1/oracle/proof/generate/cosmos` | Generate a Cosmos-specific proof |
+| `GET` | `/v1/oracle/chains` | List supported chains and signing algorithms |
 
 </details>
 
@@ -531,6 +561,7 @@ aether-backend/
 |   |   +-- routes.py           # Rewards API endpoints
 |   |-- oracle/
 |   |   |-- signer.py           # EVM-compatible proof signer
+|   |   |-- multichain_signer.py # Multi-chain oracle signer (7 VMs: EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos)
 |   |   |-- verifier.py         # Off-chain proof verification
 |   |   +-- routes.py           # Oracle API endpoints
 |   +-- analytics_automation/

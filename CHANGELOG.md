@@ -6,6 +6,90 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
+## [6.1.0] — 2026-03-04
+
+### Web2 Analytics Modules & Multi-Chain Reward Automation
+
+Two major expansions: a full Web2 analytics module suite (ecommerce, form analytics, feature flags, feedback surveys, heatmaps, conversion funnels) integrated across all 4 SDK platforms, and multi-chain reward automation extending the oracle-signed reward pipeline from EVM-only to 7 VM families with native smart contracts on Solana, SUI, NEAR, and Cosmos.
+
+### Added
+
+#### Web2 Analytics Modules — Web SDK (`packages/web/src/modules/`)
+
+- **Ecommerce Module** (`ecommerce.ts`) — product viewed/added/removed, cart state, checkout funnel, purchase tracking with currency support and localStorage cart persistence
+- **Form Analytics Module** (`form-analytics.ts`) — field-level interaction tracking, hesitation detection, abandonment tracking, error capture, and form completion funnels
+- **Feature Flag Module** (`feature-flags.ts`) — remote feature flag evaluation with caching, default fallbacks, targeting rules, and flag change listeners
+- **Feedback Module** (`feedback.ts`) — in-app survey rendering, NPS/CSAT/CES collection, response submission, and targeting based on user segments
+- **Heatmap Module** (`heatmaps.ts`) — click, move, and scroll heatmap data collection with configurable sampling rates and viewport-relative coordinate capture
+- **Funnel Module** (`funnels.ts`) — conversion funnel definition, step tracking, drop-off analysis, and time-between-steps measurement
+
+#### Web2 Analytics Modules — iOS (`Aether Mobile SDK/`)
+
+- **AetherEcommerce** (`AetherEcommerce.swift`) — native ecommerce event tracking with product, cart, and purchase lifecycle
+- **AetherFeatureFlags** (`AetherFeatureFlags.swift`) — remote flag evaluation with `UserDefaults` caching and TTL-based refresh
+- **AetherFeedback** (`AetherFeedback.swift`) — survey fetching, response submission, and display eligibility checks
+
+#### Web2 Analytics Modules — Android (`Aether Mobile SDK/`)
+
+- **AetherEcommerce** (`AetherEcommerce.kt`) — Kotlin ecommerce tracking with `SharedPreferences`-backed cart state
+- **AetherFeatureFlags** (`AetherFeatureFlags.kt`) — flag evaluation with coroutine-based background refresh on `Dispatchers.IO`
+- **AetherFeedback** (`AetherFeedback.kt`) — survey management with `Gson` serialization and cooldown tracking
+
+#### Web2 Analytics Modules — React Native (`packages/react-native/src/modules/`)
+
+- **RNEcommerce** (`Ecommerce.ts`) — cross-platform ecommerce tracking bridging to native modules
+- **RNFeatureFlags** (`FeatureFlags.ts`) — feature flag evaluation with `AsyncStorage` caching
+- **RNFeedback** (`Feedback.ts`) — survey lifecycle management for React Native
+
+#### Multi-Chain Oracle Signer (`Backend Architecture/aether-backend/services/oracle/`)
+
+- **MultiChainSigner** (`multichain_signer.py`) — `VMType` enum (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos) with 7 VM-specific message hash builders using domain-separated signing:
+  - EVM: `SHA-256(abi.encodePacked(...))`
+  - SVM: `SHA-256(Borsh-serialized instruction data)`
+  - Bitcoin: `SHA-256d(Bitcoin varint message)`
+  - MoveVM: `SHA3-256(BCS-encoded struct)`
+  - NEAR: `SHA-256(Borsh-serialized payload)`
+  - TVM: `SHA-256(TVM cell-encoded message)`
+  - Cosmos: `SHA-256(canonical JSON sign bytes)`
+- **MultiChainProofConfig** — per-chain configuration (chain_id, contract_address, proof_expiry) for all 7 VM families
+- **MultiChainRewardProof** — extended proof structure with `vm_type`, `program_id`, and chain-specific metadata
+
+#### Multi-Chain Smart Contracts (`Smart Contracts/programs/`)
+
+- **Solana/Anchor** (`solana/aether_rewards.rs`) — ProgramState, Vault PDA, NonceTracker, 6 instructions (initialize, create_campaign, claim_reward, pause, unpause, withdraw_unclaimed), Ed25519 signature verification, 7 events, 11 error codes
+- **SUI/Move** (`sui/aether_rewards.move`) — RewardPool shared object, AdminCap capability, ClaimReceipt hot potato pattern, Ed25519 verification, campaign budget tracking
+- **NEAR** (`near/aether_rewards.rs`) — `#[near_bindgen]` contract with Ed25519 verification, NEP-297 events, Promise-based cross-contract calls, 8 unit tests
+- **Cosmos/CosmWasm** (`cosmos/aether_rewards.rs`) — `cw_storage_plus` state management, Ed25519 verification via `cosmwasm_crypto`, `BankMsg::Send` for native token distribution, 13 unit tests
+
+#### Multi-Chain Deployer (`Smart Contracts/deploy/`)
+
+- **MultiChainDeployer** (`multichain_deployer.py`) — `ChainDeployer` ABC with 6 concrete deployers (Solana, SUI, NEAR, Cosmos, TRON, Bitcoin/Ordinals), CLI with argparse, 10 pre-configured chain targets, deployment manifest generation
+
+### Changed
+
+- **Web SDK** (`packages/web/src/index.ts`) — integrated all 6 Web2 modules into `init()` lifecycle with config passthrough, added 6 public sub-interfaces (`ecommerce`, `featureFlag`, `feedback`, `heatmap`, `funnel`, `forms`), added module cleanup in `destroy()`
+- **iOS SDK** (`Aether Mobile SDK/Aether.swift`) — initialized `AetherEcommerce`, `AetherFeatureFlags`, `AetherFeedback` after core SDK init with apiKey/endpoint passthrough
+- **Android SDK** (`Aether Mobile SDK/Aether.kt`) — initialized `AetherEcommerce`, `AetherFeatureFlags`, `AetherFeedback` with application context, apiKey, and endpoint
+- **React Native SDK** (`packages/react-native/src/index.tsx`) — added `ecommerce`, `featureFlag`, `feedback` sub-interfaces to `Aether` object, integrated module initialization in `AetherProvider` with destroy cleanup on unmount
+- **Reward Eligibility** (`services/rewards/eligibility.py`) — added `vm_type` field to `RewardTier` and `Campaign`, added `program_id` to `Campaign` for Solana/SUI program addressing
+- **Reward Routes** (`services/rewards/routes.py`) — multi-chain `MultiChainSigner` initialization with environment-driven config for all 7 VM families, `CampaignCreate` model extended with `vm_type`/`program_id`, `evaluate_event` generates multi-chain proofs via oracle signer
+- **SDK Reward Client** (`packages/web/src/rewards/reward-client.ts`) — added `VMType` type alias, chain-specific claim methods (`_claimEVM`, `_claimSolana`, `_claimSUI`, `_claimNEAR`, `_claimCosmos`, `_claimBitcoin`), chain-specific payload builders, contract address resolution helpers
+
+### Documentation
+
+- Updated root README with v6.1.0 platform overview, 16 services / 85+ endpoints, Smart Contracts row, Web2 Analytics Modules and Automated Reward Pipeline subsections
+- Updated Web SDK README with 7 new feature bullets, module configuration table, API reference for ecommerce/featureFlags/feedback/heatmaps/funnels/forms
+- Updated Backend README with 16 services, multi-chain oracle, new endpoint listings
+- Updated Mobile SDK README with Web2 module features and iOS/Android code examples
+- Updated React Native README with Web2 module API tables and project structure
+- Updated CI/CD README with multi-chain smart contract deployment section
+
+### Stats
+
+- **40+ files changed** — 30+ added, 10+ modified
+
+---
+
 ## [6.0.0] — 2026-03-04
 
 ### Smart Contract Analytics Integration — Automated Reward Pipeline
@@ -437,6 +521,7 @@ Initial release of the Aether platform with the Web SDK, React Native bridge, na
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [6.1.0](#610--2026-03-04) | 2026-03-04 | Web2 analytics modules (ecommerce, forms, feature flags, feedback, heatmaps, funnels), multi-chain reward automation (7 VMs), smart contracts (Solana, SUI, NEAR, Cosmos) |
 | [6.0.0](#600--2026-03-04) | 2026-03-04 | Smart contract analytics integration, fraud engine, attribution, oracle bridge, automated rewards, on-chain claiming |
 | [5.2.0](#520--2026-03-04) | 2026-03-04 | Tiered semantic context, automatic traffic source tracking, ML optimization (quantization, distillation, pruning) |
 | [5.1.0](#510--2026-03-04) | 2026-03-04 | SDK auto-update system, CDN auto-loader, OTA data modules |

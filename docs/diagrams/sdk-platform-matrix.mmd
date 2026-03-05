@@ -1,0 +1,140 @@
+%% Aether Platform v6.1.0 - SDK Feature Matrix Across Platforms
+%% Shows feature availability across Web, iOS, Android, and React Native SDKs
+%% covering Core, Web3, Web2, ML, Auto-Update, Semantic Context, and Traffic Source
+
+graph LR
+    %% ===== Platforms =====
+    subgraph Platforms["SDK Platforms"]
+        direction TB
+        Web["Web SDK<br/>(TypeScript)"]
+        iOS["iOS SDK<br/>(Swift)"]
+        Android["Android SDK<br/>(Kotlin)"]
+        RN["React Native SDK<br/>(TypeScript)"]
+    end
+
+    %% ===== Core Features =====
+    subgraph Core["Core Features (All Platforms)"]
+        direction TB
+        Track["Track Events"]
+        Screen["Screen Views"]
+        Conversion["Conversions"]
+        IdentityCore["Identity Resolution"]
+        Session["Session Management"]
+        ConsentCore["Consent Management"]
+    end
+
+    %% ===== Web3 Features =====
+    subgraph Web3["Web3 Features"]
+        direction TB
+        WalletConnect["Wallet Connect<br/>(7 VMs: EVM, SVM,<br/>Bitcoin, MoveVM,<br/>NEAR, TVM, Cosmos)"]
+        DeFiTracking["DeFi Tracking<br/>(15 categories:<br/>swap, stake, lend,<br/>borrow, bridge, etc.)"]
+        Portfolio["Portfolio<br/>Aggregation"]
+    end
+
+    %% ===== Web2 Features =====
+    subgraph Web2["Web2 Analytics"]
+        direction TB
+        Ecommerce["Ecommerce"]
+        FormAnalytics["Form Analytics"]
+        FeatureFlags["Feature Flags"]
+        Feedback["Feedback / NPS"]
+        Heatmaps["Heatmaps<br/>(Web only)"]
+        Funnels["Funnels<br/>(Web only)"]
+    end
+
+    %% ===== ML Features =====
+    subgraph ML["ML Features"]
+        direction TB
+        EdgeSession["Edge Model:<br/>Session Scoring"]
+        EdgeEngage["Edge Model:<br/>Engagement Prediction"]
+        ClientInference["Client-side<br/>Inference Engine"]
+    end
+
+    %% ===== Auto-Update =====
+    subgraph AutoUpdate["Auto-Update System"]
+        direction TB
+        OTAModules["OTA Data Modules<br/>(chain-registry,<br/>protocol-registry,<br/>wallet-labels,<br/>wallet-classification)"]
+        CDNLoader["CDN Loader<br/>(Web only)"]
+        AsyncStorage["AsyncStorage Cache<br/>(React Native)"]
+        UserDefaults["UserDefaults Cache<br/>(iOS)"]
+        SharedPrefs["SharedPreferences<br/>Cache (Android)"]
+    end
+
+    %% ===== Semantic Context =====
+    subgraph SemanticCtx["Semantic Context"]
+        direction TB
+        Tier1["Tier 1: Basic<br/>(No consent required)"]
+        Tier2["Tier 2: Enhanced<br/>(Analytics consent)"]
+        Tier3["Tier 3: Full<br/>(Full consent)"]
+    end
+
+    %% ===== Traffic Source =====
+    subgraph TrafficSrc["Traffic Source Detection"]
+        direction TB
+        ZeroConfig["Zero-Config Detection<br/>(Web only)"]
+        UTMParsing["UTM Parameter Parsing"]
+        ReferrerDetect["Referrer Classification"]
+    end
+
+    %% ===== Platform to Feature Connections =====
+    Web --> Core
+    iOS --> Core
+    Android --> Core
+    RN --> Core
+
+    Web --> Web3
+    iOS --> Web3
+    Android --> Web3
+    RN --> Web3
+
+    Web --> Web2
+    iOS --> Ecommerce
+    iOS --> FeatureFlags
+    iOS --> Feedback
+    Android --> Ecommerce
+    Android --> FeatureFlags
+    Android --> Feedback
+    RN --> Ecommerce
+    RN --> FeatureFlags
+    RN --> Feedback
+
+    Web --> ML
+    iOS --> ML
+    Android --> ML
+    RN --> ML
+
+    Web --> CDNLoader
+    iOS --> UserDefaults
+    Android --> SharedPrefs
+    RN --> AsyncStorage
+
+    Web --> SemanticCtx
+    iOS --> SemanticCtx
+    Android --> SemanticCtx
+    RN --> SemanticCtx
+
+    Web --> TrafficSrc
+
+    CDNLoader --> OTAModules
+    UserDefaults --> OTAModules
+    SharedPrefs --> OTAModules
+    AsyncStorage --> OTAModules
+
+    %% ===== Styles =====
+    classDef platformStyle fill:#2C3E50,stroke:#1A252F,color:#FFFFFF
+    classDef coreStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef web3Style fill:#8E44AD,stroke:#6C3483,color:#FFFFFF
+    classDef web2Style fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef mlStyle fill:#E67E22,stroke:#C0651B,color:#FFFFFF
+    classDef updateStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+    classDef contextStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef trafficStyle fill:#E74C3C,stroke:#C0392B,color:#FFFFFF
+
+    class Web,iOS,Android,RN platformStyle
+    class Track,Screen,Conversion,IdentityCore,Session,ConsentCore coreStyle
+    class WalletConnect,DeFiTracking,Portfolio web3Style
+    class Ecommerce,FormAnalytics,FeatureFlags,Feedback,Heatmaps,Funnels web2Style
+    class EdgeSession,EdgeEngage,ClientInference mlStyle
+    class OTAModules,CDNLoader,AsyncStorage,UserDefaults,SharedPrefs updateStyle
+    class Tier1,Tier2,Tier3 contextStyle
+    class ZeroConfig,UTMParsing,ReferrerDetect trafficStyle

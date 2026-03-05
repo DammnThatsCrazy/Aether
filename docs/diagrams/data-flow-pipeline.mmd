@@ -1,0 +1,143 @@
+%% Aether Platform v6.1.0 - End-to-End Data Flow Pipeline
+%% Shows the complete data journey from SDK event capture through all processing
+%% stages including analytics, ML, and reward distribution
+
+graph TD
+    %% ===== SDK Sources =====
+    subgraph SDKs["SDK Sources"]
+        direction LR
+        WebSDK["Web SDK"]
+        iOSSDK["iOS SDK"]
+        AndroidSDK["Android SDK"]
+        RNSDK["React Native SDK"]
+    end
+
+    %% ===== Event Queue =====
+    EventQueue["Event Queue<br/>(Batched, Compressed)"]
+
+    %% ===== Backend Ingestion =====
+    IngestionAPI["Backend Ingestion API<br/>(FastAPI)"]
+
+    %% ===== Enrichment =====
+    subgraph Enrichment["Enrichment Pipeline"]
+        direction LR
+        GeoEnrich["Geo Enrichment"]
+        DeviceEnrich["Device Enrichment"]
+        SessionEnrich["Session Enrichment"]
+        IdentityEnrich["Identity Resolution"]
+        ConsentCheck["Consent Filtering"]
+    end
+
+    %% ===== Fan-Out =====
+    FanOut["Fan-Out Router"]
+
+    %% ===== Data Lake Path =====
+    subgraph DataLakePath["Data Lake Pipeline"]
+        direction TB
+        Kafka["Apache Kafka<br/>(Event Streaming)"]
+        subgraph DataLake["Data Lake (S3)"]
+            Bronze["Bronze Layer<br/>(Raw Events)"]
+            Silver["Silver Layer<br/>(Validated, Deduplicated)"]
+            Gold["Gold Layer<br/>(Aggregated, Modeled)"]
+        end
+        Kafka --> Bronze --> Silver --> Gold
+    end
+
+    %% ===== Real-Time Cache =====
+    subgraph RealTimeCache["Real-Time Cache"]
+        Redis["Redis<br/>(Session State,<br/>Rate Limits,<br/>Feature Flags)"]
+    end
+
+    %% ===== Identity Graph =====
+    subgraph IdentityGraph["Identity Graph"]
+        DynamoDB["DynamoDB<br/>(User Profiles,<br/>Cross-Device)"]
+    end
+
+    %% ===== Relationship Graph =====
+    subgraph RelGraph["Relationship Graph"]
+        Neptune["Neptune<br/>(Social Graph,<br/>Referral Chains)"]
+    end
+
+    %% ===== ML Path =====
+    subgraph MLPath["ML Pipeline"]
+        direction TB
+        FeatureStore["ML Feature Store"]
+        subgraph MLModels["ML Models (9)"]
+            direction LR
+            SessionScore["Session<br/>Scoring"]
+            Engagement["Engagement<br/>Prediction"]
+            Churn["Churn<br/>Prediction"]
+            Fraud["Fraud<br/>Detection"]
+            Attribution["Attribution<br/>Model"]
+        end
+        Predictions["Predictions<br/>+ Scores"]
+        FeatureStore --> MLModels --> Predictions
+    end
+
+    %% ===== Analytics Path =====
+    subgraph AnalyticsPath["Analytics Pipeline"]
+        direction TB
+        AnalyticsPipeline["Analytics<br/>Processing"]
+        AnomalyDetection["Anomaly<br/>Detection"]
+        Insights["Insights<br/>+ Alerts"]
+        AnalyticsPipeline --> AnomalyDetection --> Insights
+    end
+
+    %% ===== Reward Path =====
+    subgraph RewardPath["Reward Pipeline (Conversion Events)"]
+        direction TB
+        RewardPipeline["Reward<br/>Pipeline"]
+        OracleSigner["Oracle Signer<br/>(7 VMs)"]
+        SmartContract["Smart Contract<br/>(On-Chain Distribution)"]
+        RewardPipeline --> OracleSigner --> SmartContract
+    end
+
+    %% ===== Main Flow =====
+    WebSDK --> EventQueue
+    iOSSDK --> EventQueue
+    AndroidSDK --> EventQueue
+    RNSDK --> EventQueue
+
+    EventQueue --> IngestionAPI
+    IngestionAPI --> Enrichment
+    Enrichment --> FanOut
+
+    %% ===== Fan-Out Connections =====
+    FanOut --> Kafka
+    FanOut --> Redis
+    FanOut --> DynamoDB
+    FanOut --> Neptune
+    FanOut --> FeatureStore
+    FanOut --> AnalyticsPipeline
+    FanOut -->|"conversion events"| RewardPipeline
+
+    %% ===== Cross-Path Connections =====
+    Gold -.->|"training data"| FeatureStore
+    Predictions -.->|"scores"| AnalyticsPipeline
+    Predictions -.->|"fraud scores"| RewardPipeline
+    Insights -.->|"feedback"| MLModels
+
+    %% ===== Styles =====
+    classDef sdkStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef queueStyle fill:#95A5A6,stroke:#7F8C8D,color:#FFFFFF
+    classDef ingestionStyle fill:#2C3E50,stroke:#1A252F,color:#FFFFFF
+    classDef enrichStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef fanoutStyle fill:#E74C3C,stroke:#C0392B,color:#FFFFFF
+    classDef dataStyle fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef cacheStyle fill:#E67E22,stroke:#C0651B,color:#FFFFFF
+    classDef graphStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+    classDef mlStyle fill:#8E44AD,stroke:#6C3483,color:#FFFFFF
+    classDef analyticsStyle fill:#2980B9,stroke:#1F618D,color:#FFFFFF
+    classDef rewardStyle fill:#9B59B6,stroke:#7D3F9B,color:#FFFFFF
+
+    class WebSDK,iOSSDK,AndroidSDK,RNSDK sdkStyle
+    class EventQueue queueStyle
+    class IngestionAPI ingestionStyle
+    class GeoEnrich,DeviceEnrich,SessionEnrich,IdentityEnrich,ConsentCheck enrichStyle
+    class FanOut fanoutStyle
+    class Kafka,Bronze,Silver,Gold dataStyle
+    class Redis cacheStyle
+    class DynamoDB,Neptune graphStyle
+    class FeatureStore,SessionScore,Engagement,Churn,Fraud,Attribution,Predictions mlStyle
+    class AnalyticsPipeline,AnomalyDetection,Insights analyticsStyle
+    class RewardPipeline,OracleSigner,SmartContract rewardStyle

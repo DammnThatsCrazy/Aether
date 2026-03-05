@@ -29,7 +29,7 @@ The layer ships with **10 workers** split across two categories.
 | **Web Crawler** | `web_crawler` | Targeted crawling of public pages related to tracked entities. Extracts metadata and entity mentions using BeautifulSoup4. |
 | **API Scanner** | `api_scanner` | Discovers and probes public REST / GraphQL / WebSocket endpoints. Extracts OpenAPI schemas and monitors for schema changes between scans. |
 | **Social Listener** | `social_listener` | Monitors Twitter/X, Reddit, and Discord for mentions of tracked entities. Includes per-mention sentiment extraction and spike detection. |
-| **Chain Monitor** | `chain_monitor` | Watches wallet addresses and smart-contract events across Ethereum, Polygon, Arbitrum, and Base. Detects large or unusual transactions and tracks DeFi positions. |
+| **Chain Monitor v2** | `chain_monitor_v2` | Watches wallet addresses and smart-contract events across 7 VM families (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos). Detects large or unusual transactions and tracks DeFi positions across 150+ protocols. |
 | **Competitor Tracker** | `competitor_tracker` | Periodically crawls competitor homepages, pricing pages, and changelogs. Detects text diffs, extracts structured pricing data, and tracks hiring signals from job boards. |
 
 ### Enrichment Workers
@@ -69,12 +69,14 @@ The layer ships with **10 workers** split across two categories.
    | (auto-discover) |
    +-------+--------+
            |
-     +-----+------+------ ... ------+
-     |            |                  |
-  +--v---+   +---v----+       +-----v------+
-  | Web  |   | API    |  ...  | Quality    |
-  |Crawler|  |Scanner |       | Scorer     |
-  +------+   +--------+       +------------+
+     +-----+------+------+------+------ ... ------+
+     |            |       |      |                  |
+  +--v---+  +---v----+ +-v---+ +v---------+  +-----v------+
+  | Web  |  | API    | |Chain| |Social    |  | Quality    |
+  |Crawl-|  |Scanner | |Mon. | |Listener  |  | Scorer     |
+  |er    |  |        | |v2   | |          |  |            |
+  +------+  +--------+ |7 VMs| +----------+  +------------+
+                        +-----+
 ```
 
 ### Task Lifecycle
@@ -278,11 +280,12 @@ Agent Layer/
 └── workers/
     ├── base.py                      # BaseWorker abstract class
     ├── registry.py                  # Auto-discovery and registration
+    ├── chain_monitor_v2.py              # Multi-chain monitor (7 VMs, 150+ DeFi protocols)
     ├── discovery/
     │   ├── web_crawler.py
     │   ├── api_scanner.py
     │   ├── social_listener.py
-    │   ├── chain_monitor.py
+    │   ├── chain_monitor.py             # Legacy EVM-only (superseded by chain_monitor_v2)
     │   └── competitor_tracker.py
     └── enrichment/
         ├── entity_resolver.py

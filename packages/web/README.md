@@ -1,7 +1,7 @@
 # @aether/web
 
 <!-- Badges -->
-![Version](https://img.shields.io/badge/version-5.0.0-blue)
+![Version](https://img.shields.io/badge/version-6.1.0-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![Build](https://img.shields.io/badge/build-Rollup-EC4A3F)
 ![Tests](https://img.shields.io/badge/tests-Vitest-6E9F18)
@@ -30,6 +30,13 @@
 - **Tiered semantic context** -- 3-tier consent-driven context enrichment (Essential → Functional → Rich) with journey stage inference, sentiment signals (frustration, engagement, urgency, confusion), interaction heatmaps, and inferred intent -- automatically attached to every event
 - **Automatic traffic source tracking** -- zero-config detection of all traffic sources (UTM params, ad click IDs across 12 platforms, organic/social/email/referral classification), localStorage-persisted attribution with configurable window, and dynamic virtual link creation on the backend
 - **Automated reward pipeline** -- SDK-side reward client with eligibility checking, oracle-signed proof retrieval, and on-chain ERC20/NFT reward claiming via connected wallet (fraud → attribution → eligibility → oracle → smart contract)
+- **Multi-chain reward claiming** -- claim rewards on any supported chain (EVM, SVM/Solana, Bitcoin, MoveVM/SUI, NEAR, TVM/TRON, Cosmos) with chain-specific transaction builders and wallet adapter support
+- **E-commerce tracking** -- product views, cart state management with localStorage persistence, checkout funnel, order lifecycle, refunds, coupon tracking
+- **Form analytics** -- field-level interaction tracking (focus time, hesitation, corrections), abandonment detection, MutationObserver for dynamic forms
+- **Feature flags** -- remote config with stale-while-revalidate caching, priority chain (overrides > remote > defaults), periodic background refresh
+- **Feedback surveys** -- NPS (0-10), CSAT (1-5), CES (1-7) with configurable trigger rules (event, delay, URL, sample rate), DOM rendering
+- **Heatmaps** -- click, movement, scroll, and attention tracking with IntersectionObserver and grid-based aggregation
+- **Funnel tracking** -- multi-step conversion funnels with sequential/non-sequential support, timeout handling, drop-off analysis
 - **Privacy controls** -- data minimization, PII masking, Do Not Track support, consent-gated collection
 
 ---
@@ -155,6 +162,14 @@ aether.init({
     portfolioTracking: true,       // Cross-chain portfolio aggregation
     walletClassification: true,    // Wallet type classification
     crossChainTracking: true,      // Cross-chain bridge and transfer tracking
+
+    // Web2 Modules (v6.1)
+    ecommerce: true,              // e-commerce product/cart/order tracking
+    formAnalytics: true,          // field-level form interaction tracking
+    featureFlags: true,           // remote feature flag management
+    feedback: true,               // NPS/CSAT/CES survey framework
+    heatmaps: true,               // click/movement/scroll/attention heatmaps
+    funnels: true,                // multi-step conversion funnel tracking
   },
 
   privacy: {
@@ -372,6 +387,97 @@ const assignment = aether.experiments.getAssignment('checkout-flow-v2');
 
 Assignments are deterministic (FNV-1a hash of anonymous ID + experiment ID) and persist across sessions. Exposure events are tracked automatically.
 
+### E-commerce Tracking
+
+```typescript
+// Track a product view
+aether.ecommerce.viewProduct({ id: 'SKU-123', name: 'Widget', price: 29.99, category: 'Tools' });
+
+// Cart operations (persisted to localStorage)
+aether.ecommerce.addToCart({ id: 'SKU-123', quantity: 2, price: 29.99 });
+aether.ecommerce.removeFromCart('SKU-123');
+
+// Checkout funnel
+aether.ecommerce.beginCheckout({ cartValue: 59.98, itemCount: 2 });
+aether.ecommerce.purchase({ orderId: 'ORD-789', total: 59.98, currency: 'USD' });
+
+// Refund and coupon tracking
+aether.ecommerce.refund({ orderId: 'ORD-789', amount: 29.99, reason: 'defective' });
+aether.ecommerce.applyCoupon({ code: 'SAVE20', discount: 11.99 });
+```
+
+### Feature Flags
+
+```typescript
+// Get a typed feature flag value
+const limit = aether.featureFlags.getValue<number>('upload_limit', 10);
+
+// Check a boolean flag
+if (aether.featureFlags.isEnabled('new_checkout')) {
+  showNewCheckout();
+}
+
+// Set local overrides (highest priority)
+aether.featureFlags.setOverride('dark_mode', true);
+```
+
+### Feedback Surveys
+
+```typescript
+// Show an NPS survey (0-10 scale)
+aether.feedback.showSurvey({ type: 'nps', trigger: { event: 'purchase_complete' } });
+
+// Show a CSAT survey (1-5 scale)
+aether.feedback.showSurvey({ type: 'csat', trigger: { delayMs: 30000 }, sampleRate: 0.1 });
+
+// Programmatically submit a response
+aether.feedback.submitResponse({ surveyId: 'srv-1', score: 9, comment: 'Great experience' });
+```
+
+### Heatmaps
+
+```typescript
+// Start heatmap recording (click, movement, scroll, attention)
+aether.heatmaps.start({ types: ['click', 'movement', 'scroll', 'attention'] });
+
+// Stop recording
+aether.heatmaps.stop();
+
+// Get aggregated heatmap data for a page
+const data = aether.heatmaps.getData('/pricing');
+```
+
+### Funnel Tracking
+
+```typescript
+// Define and start tracking a funnel
+aether.funnels.define({
+  id: 'signup-flow',
+  steps: ['visit_landing', 'click_signup', 'fill_form', 'verify_email', 'complete'],
+  sequential: true,
+  timeoutMs: 1800000,
+});
+
+// Record a funnel step
+aether.funnels.step('signup-flow', 'click_signup');
+
+// Get funnel analysis with drop-off rates
+const analysis = aether.funnels.getAnalysis('signup-flow');
+```
+
+### Form Analytics
+
+```typescript
+// Auto-track all forms on the page (uses MutationObserver for dynamic forms)
+aether.formAnalytics.trackAll();
+
+// Track a specific form by selector
+aether.formAnalytics.track('#signup-form');
+
+// Get field-level interaction data (focus time, hesitation, corrections)
+const stats = aether.formAnalytics.getFieldStats('#signup-form');
+```
+
 ### Edge ML Predictions
 
 Register callbacks to receive real-time, in-browser predictions. No data leaves the device for these computations.
@@ -457,6 +563,12 @@ aether.use(myPlugin);
 | `src/context/` | `semantic-context.ts` | 3-tier semantic context collector: Tier 1 (timestamp, event ID, basic device info), Tier 2 (journey stage, screen path, session duration, app state), Tier 3 (inferred intent, sentiment signals, interaction heatmaps, error logs) |
 | `src/tracking/` | `traffic-source-tracker.ts` | Zero-config traffic source auto-detection with UTM params, 12 ad click IDs (gclid, fbclid, msclkid, ttclid, twclid, etc.), referrer classification, 27 social platforms, 15 search engines, localStorage-persisted attribution |
 | `src/rewards/` | `reward-client.ts` | SDK reward client: eligibility checking, oracle proof retrieval, ABI-encoded on-chain claiming via `claimReward()`, campaign discovery, reward history, localStorage proof caching |
+| `src/modules/` | `ecommerce.ts` | Full e-commerce tracking: product views, cart state (Map + localStorage), checkout funnel, purchase, refund, coupon tracking |
+| `src/modules/` | `form-analytics.ts` | Field-level form interaction tracking: focus time, hesitation, corrections, abandonment detection, MutationObserver for dynamic forms |
+| `src/modules/` | `feature-flags.ts` | Remote feature flag management with stale-while-revalidate caching, overrides > remote > defaults, typed getValue<T>() |
+| `src/modules/` | `feedback.ts` | NPS/CSAT/CES survey framework with configurable trigger rules, sample rate, max displays, DOM rendering |
+| `src/modules/` | `heatmaps.ts` | Click, movement, scroll, and attention heatmap tracking with IntersectionObserver and grid-based aggregation |
+| `src/modules/` | `funnels.ts` | Multi-step funnel tracking with sequential/non-sequential support, timeout handling, drop-off analysis |
 | `src/utils/` | `index.ts` | ID generation, timestamps, localStorage/cookie helpers, device/page/campaign context extraction |
 | `src/` | `types.ts` | Full TypeScript interface definitions for config, events, identity, session, ML, Web3, and consent |
 
@@ -515,6 +627,12 @@ packages/web/
       auto-discovery.ts   # Automatic event capture
       performance.ts      # Core Web Vitals
       experiments.ts      # A/B testing
+      ecommerce.ts        # E-commerce product/cart/checkout tracking
+      form-analytics.ts   # Field-level form interaction tracking
+      feature-flags.ts    # Remote feature flag management
+      feedback.ts         # NPS/CSAT/CES survey framework
+      heatmaps.ts         # Click/movement/scroll/attention heatmaps
+      funnels.ts          # Multi-step conversion funnel tracking
     ml/
       edge-ml.ts          # Browser-side ML predictions
     web3/

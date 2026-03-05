@@ -75,6 +75,14 @@ Production-grade machine learning system powering Aether's behavioral analytics,
                     | (Redis + S3)         |      | Model Registry |
                     +----------+-----------+      +-------+--------+
                                |                          |
+                               |                  +-------v--------+
+                               |                  | Optimization   |
+                               |                  | Pipeline       |
+                               |                  | - Quantization |
+                               |                  | - Distillation |
+                               |                  | - Pruning      |
+                               |                  +-------+--------+
+                               |                          |
               +----------------+--------------------------+-------+
               |                |                                   |
               v                v                                   v
@@ -484,6 +492,11 @@ aether-ml/
 ├── monitoring/                    Production monitoring
 │   ├── monitor.py                 DriftDetector, PerformanceMonitor, MonitoringPipeline
 │   └── alerts.py                  CloudWatch metrics, SNS alerting, Slack webhooks
+├── optimization/                  Model optimization pipeline
+│   ├── pipeline.py                Orchestrates quantization, distillation, pruning
+│   ├── quantization.py            Post-training and quantization-aware training
+│   ├── distillation.py            Knowledge distillation (teacher-student)
+│   └── pruning.py                 Structured and unstructured weight pruning
 ├── export/
 │   └── exporter.py                TF.js, ONNX, TFLite, CoreML converters
 ├── tests/

@@ -1,0 +1,163 @@
+%% Aether Platform v6.1.0 - Top-Level Platform Architecture
+%% Shows the layered architecture: SDK, Backend, Data, Intelligence, Blockchain, Compliance, CI/CD
+
+graph TB
+    %% ===== SDK Layer =====
+    subgraph SDK["SDK Layer"]
+        direction LR
+        WebSDK["Web SDK<br/>(TypeScript)"]
+        iOSSDK["iOS SDK<br/>(Swift)"]
+        AndroidSDK["Android SDK<br/>(Kotlin)"]
+        RNSDK["React Native SDK<br/>(TypeScript)"]
+    end
+
+    %% ===== Backend Layer =====
+    subgraph Backend["Backend Layer — 16 FastAPI Microservices"]
+        direction TB
+        subgraph CoreServices["Core Services"]
+            Ingestion["Ingestion Service"]
+            Identity["Identity Service"]
+            Analytics["Analytics Service"]
+            APIGateway["API Gateway"]
+            Admin["Admin Service"]
+        end
+        subgraph IntelligenceServices["Intelligence Services"]
+            MLServing["ML Serving"]
+            Agent["Agent Service"]
+            AnalyticsAuto["Analytics Automation"]
+        end
+        subgraph GrowthServices["Growth Services"]
+            Campaign["Campaign Service"]
+            Notification["Notification Service"]
+            Traffic["Traffic Service"]
+            Attribution["Attribution Service"]
+            Rewards["Rewards Service"]
+        end
+        subgraph TrustServices["Trust & Compliance Services"]
+            Consent["Consent Service"]
+            Fraud["Fraud Engine"]
+            Oracle["Oracle Service"]
+        end
+    end
+
+    %% ===== Data Infrastructure =====
+    subgraph DataInfra["Data Infrastructure"]
+        direction LR
+        subgraph Streaming["Streaming"]
+            Kafka["Apache Kafka<br/>Event Streaming"]
+        end
+        subgraph DataLake["Data Lake (S3)"]
+            Bronze["Bronze Layer<br/>(Raw Events)"]
+            Silver["Silver Layer<br/>(Cleaned)"]
+            Gold["Gold Layer<br/>(Aggregated)"]
+        end
+        subgraph Caches["Caches"]
+            Redis["Redis<br/>(Real-time)"]
+            DynamoDB["DynamoDB<br/>(Identity Graph)"]
+        end
+        Bronze --> Silver --> Gold
+    end
+
+    %% ===== Intelligence Layer =====
+    subgraph Intelligence["Intelligence Layer"]
+        direction LR
+        subgraph MLModels["ML Models (9 Models)"]
+            EdgeModels["Edge Models<br/>(Client-side)"]
+            ServerModels["Server Models<br/>(Cloud)"]
+        end
+        subgraph AgentLayer["Agent Layer (10 Workers)"]
+            AutonomousAgents["Autonomous<br/>Workers"]
+        end
+    end
+
+    %% ===== Blockchain Layer =====
+    subgraph Blockchain["Blockchain Layer"]
+        direction LR
+        subgraph OracleBridge["Oracle Bridge (7 VM Signers)"]
+            OracleSigners["Multi-VM<br/>Signers"]
+        end
+        subgraph SmartContracts["Smart Contracts"]
+            EVM["EVM<br/>(Solidity)"]
+            Solana["Solana<br/>(Anchor/Rust)"]
+            SUI["SUI<br/>(Move)"]
+            NEAR["NEAR<br/>(Rust)"]
+            Cosmos["Cosmos<br/>(CosmWasm)"]
+        end
+    end
+
+    %% ===== Compliance Layer =====
+    subgraph Compliance["Compliance Layer"]
+        direction LR
+        GDPR["GDPR Framework"]
+        SOC2["SOC 2 Framework"]
+    end
+
+    %% ===== CI/CD Layer =====
+    subgraph CICD["CI/CD Layer"]
+        direction LR
+        CI["CI Pipeline<br/>(8 Stages)"]
+        CD["CD Pipeline<br/>(6 Stages)"]
+        SDKRelease["SDK Release"]
+        OTARelease["Data Module OTA"]
+    end
+
+    %% ===== Connections =====
+    WebSDK --> APIGateway
+    iOSSDK --> APIGateway
+    AndroidSDK --> APIGateway
+    RNSDK --> APIGateway
+
+    APIGateway --> Ingestion
+    APIGateway --> Identity
+    APIGateway --> Analytics
+    APIGateway --> Campaign
+    APIGateway --> Consent
+    APIGateway --> Admin
+
+    Ingestion --> Kafka
+    Kafka --> Bronze
+    Identity --> DynamoDB
+    Analytics --> Redis
+    Analytics --> Gold
+
+    MLServing --> ServerModels
+    Agent --> AutonomousAgents
+    AnalyticsAuto --> Gold
+
+    Fraud --> Ingestion
+    Attribution --> Analytics
+    Rewards --> Oracle
+
+    Oracle --> OracleSigners
+    OracleSigners --> EVM
+    OracleSigners --> Solana
+    OracleSigners --> SUI
+    OracleSigners --> NEAR
+    OracleSigners --> Cosmos
+
+    Consent --> GDPR
+    Admin --> SOC2
+
+    CICD --> SDK
+    CICD --> Backend
+
+    EdgeModels -.->|"deployed to"| SDK
+    ServerModels -.->|"serves"| MLServing
+    AutonomousAgents -.->|"processes"| Gold
+
+    %% ===== Styles =====
+    classDef sdkStyle fill:#4A90D9,stroke:#2C5F8A,color:#FFFFFF
+    classDef backendStyle fill:#7B68EE,stroke:#5A4FCF,color:#FFFFFF
+    classDef dataStyle fill:#2ECC71,stroke:#1A9C54,color:#FFFFFF
+    classDef mlStyle fill:#E67E22,stroke:#C0651B,color:#FFFFFF
+    classDef chainStyle fill:#9B59B6,stroke:#7D3F9B,color:#FFFFFF
+    classDef complianceStyle fill:#E74C3C,stroke:#C0392B,color:#FFFFFF
+    classDef cicdStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+
+    class WebSDK,iOSSDK,AndroidSDK,RNSDK sdkStyle
+    class Ingestion,Identity,Analytics,MLServing,Agent,Campaign,Consent,Notification,Admin,APIGateway,Traffic,Fraud,Attribution,Rewards,Oracle,AnalyticsAuto backendStyle
+    class Kafka,Bronze,Silver,Gold,Redis,DynamoDB dataStyle
+    class EdgeModels,ServerModels,AutonomousAgents mlStyle
+    class OracleSigners,EVM,Solana,SUI,NEAR,Cosmos chainStyle
+    class GDPR,SOC2 complianceStyle
+    class CI,CD,SDKRelease,OTARelease cicdStyle

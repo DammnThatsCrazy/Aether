@@ -30,6 +30,9 @@ The Aether Mobile SDK provides native analytics, identity resolution, multi-chai
 - **Lifecycle tracking** -- foreground/background events with automatic flush
 - **Tiered semantic context** -- 3-tier consent-driven context enrichment (Essential → Functional → Rich) automatically attached to every event. Tier 1: timestamp, event ID, basic device info (anonymized). Tier 2: journey stage, screen path, session duration, app state. Tier 3: inferred intent, sentiment signals, error logs
 - **OTA data updates** -- automatic over-the-air updates for chain registry, DeFi protocol definitions, wallet labels, and classification rules without requiring app store updates (JSON data modules only, no executable code)
+- **E-commerce tracking** -- product views, cart state management (UserDefaults/SharedPreferences), checkout funnel, order lifecycle, and refund tracking across iOS and Android
+- **Feature flags** -- remote feature flag management with stale-while-revalidate caching, typed access, and periodic background refresh
+- **Feedback surveys** -- NPS (0-10), CSAT (1-5), CES (1-7) survey collection with configurable trigger rules, sample rates, and response submission
 
 ---
 
@@ -155,6 +158,18 @@ Aether.shared.hydrateIdentity(IdentityData(
     traits: ["plan": AnyCodable("pro"), "signup_date": AnyCodable("2025-01-15")]
 ))
 
+// E-commerce tracking
+AetherEcommerce.shared.viewProduct(id: "SKU-123", name: "Wireless Mouse", price: 29.99)
+AetherEcommerce.shared.addToCart(productId: "SKU-123", quantity: 1, price: 29.99)
+AetherEcommerce.shared.purchase(orderId: "ORD-456", total: 29.99, items: [])
+
+// Feature flags
+let showNewUI = AetherFeatureFlags.shared.isEnabled("new_checkout_ui")
+let bannerText: String = AetherFeatureFlags.shared.getValue("banner_text", default: "Welcome")
+
+// Feedback surveys
+AetherFeedback.shared.showNPS(trigger: "post_purchase")
+
 // 6. Handle deep links
 func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
     Aether.shared.handleDeepLink(url)
@@ -224,6 +239,18 @@ Aether.hydrateIdentity(IdentityData(
     walletAddress = "0xABC...DEF",
     traits = mapOf("plan" to "pro", "signup_date" to "2025-01-15")
 ))
+
+// E-commerce tracking
+AetherEcommerce.viewProduct(id = "SKU-123", name = "Wireless Mouse", price = 29.99)
+AetherEcommerce.addToCart(productId = "SKU-123", quantity = 1, price = 29.99)
+AetherEcommerce.purchase(orderId = "ORD-456", total = 29.99)
+
+// Feature flags
+val showNewUI = AetherFeatureFlags.isEnabled("new_checkout_ui")
+val bannerText = AetherFeatureFlags.getValue("banner_text", default = "Welcome")
+
+// Feedback surveys
+AetherFeedback.showNPS(trigger = "post_purchase")
 
 // 6. Handle deep links
 Aether.handleDeepLink("https://app.example.com/promo?utm_source=email&utm_campaign=summer")
@@ -363,6 +390,9 @@ Aether.reset();
 | `purchaseTracking`      | `boolean` | `true`  | Enable purchase and transaction event tracking.  |
 | `errorTracking`         | `boolean` | `true`  | Capture uncaught exceptions (Android).           |
 | `experiments`           | `boolean` | `true`  | Enable the A/B experiment framework.             |
+| `ecommerceTracking`     | `boolean` | `true`  | Enable e-commerce product/cart/checkout tracking. |
+| `featureFlagTracking`   | `boolean` | `false` | Enable remote feature flag management with background refresh. |
+| `feedbackSurveys`       | `boolean` | `false` | Enable NPS/CSAT/CES survey collection and submission. |
 
 ### Privacy Configuration
 

@@ -1,0 +1,149 @@
+%% Aether Platform v6.1.0 - Multi-Chain Automated Reward Pipeline
+%% Shows the full pipeline from SDK event tracking through on-chain reward distribution
+%% across 7 VM types: EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos
+
+graph TD
+    %% ===== Step 1: SDK Event Tracking =====
+    subgraph Step1["1. SDK Event Tracking"]
+        SDK["SDK tracks event<br/>(conversion, purchase, engagement)"]
+    end
+
+    %% ===== Step 2: Backend Ingestion =====
+    subgraph Step2["2. Backend Ingestion"]
+        Ingestion["Ingestion Service<br/>(FastAPI)"]
+    end
+
+    %% ===== Step 3: Fraud Scoring =====
+    subgraph Step3["3. Fraud Engine"]
+        FraudEngine["Fraud Engine<br/>Scores Event"]
+        subgraph FraudSignals["8 Fraud Signals"]
+            direction LR
+            FS1["IP Reputation"]
+            FS2["Device Fingerprint"]
+            FS3["Behavioral Biometrics"]
+            FS4["Velocity Check"]
+            FS5["Wallet Risk Score"]
+            FS6["Bot Detection"]
+            FS7["Geo Anomaly"]
+            FS8["Session Integrity"]
+        end
+        FraudEngine --> FraudSignals
+    end
+
+    %% ===== Step 4: Attribution =====
+    subgraph Step4["4. Attribution Resolver"]
+        AttribResolver["Attribution Resolver<br/>Resolves Channel"]
+        subgraph AttribModels["6 Attribution Models"]
+            direction LR
+            AM1["First Touch"]
+            AM2["Last Touch"]
+            AM3["Linear"]
+            AM4["Time Decay"]
+            AM5["Position Based"]
+            AM6["Data Driven"]
+        end
+        AttribResolver --> AttribModels
+    end
+
+    %% ===== Step 5: Eligibility Engine =====
+    subgraph Step5["5. Eligibility Engine"]
+        Eligibility["Eligibility Engine<br/>Evaluates Rules"]
+        subgraph EligRules["Evaluation Criteria"]
+            direction LR
+            ER1["Campaign<br/>Rules"]
+            ER2["Tier<br/>Requirements"]
+            ER3["Cooldown<br/>Periods"]
+            ER4["Budget<br/>Limits"]
+        end
+        Eligibility --> EligRules
+    end
+
+    %% ===== Step 6: Oracle Signer =====
+    subgraph Step6["6. MultiChain Oracle Signer"]
+        OracleSigner["Oracle Signer<br/>Generates Chain-Specific Proof"]
+        subgraph VMTypes["7 VM Types"]
+            EVM["EVM<br/>(ECDSA / EIP-191)<br/>Ethereum, Polygon,<br/>Arbitrum, Base"]
+            SVM["SVM<br/>(Ed25519)<br/>Solana"]
+            Bitcoin["Bitcoin<br/>(Schnorr / Taproot)"]
+            MoveVM["MoveVM<br/>(Ed25519)<br/>SUI, Aptos"]
+            NEARvm["NEAR<br/>(Ed25519)<br/>NEP-297 Events"]
+            TVM["TVM<br/>(Ed25519)<br/>TON"]
+            CosmosVM["Cosmos<br/>(Secp256k1)<br/>CosmWasm"]
+        end
+        OracleSigner --> EVM
+        OracleSigner --> SVM
+        OracleSigner --> Bitcoin
+        OracleSigner --> MoveVM
+        OracleSigner --> NEARvm
+        OracleSigner --> TVM
+        OracleSigner --> CosmosVM
+    end
+
+    %% ===== Step 7: Reward Queue =====
+    subgraph Step7["7. Reward Queue"]
+        RewardQueue["Reward Queue<br/>Enqueues for Tracking"]
+    end
+
+    %% ===== Step 8: SDK Claim =====
+    subgraph Step8["8. SDK Reward Client"]
+        RewardClient["SDK Reward Client<br/>Claims On-Chain"]
+    end
+
+    %% ===== Step 9: Smart Contract =====
+    subgraph Step9["9. Smart Contract"]
+        SmartContract["Smart Contract<br/>Verifies Proof +<br/>Distributes Reward"]
+        subgraph OnChainOps["On-Chain Operations"]
+            direction LR
+            Verify["Verify<br/>Signature"]
+            CheckNonce["Check<br/>Nonce"]
+            Transfer["Transfer<br/>Reward"]
+            EmitEvent["Emit<br/>Event"]
+        end
+        SmartContract --> Verify --> CheckNonce --> Transfer --> EmitEvent
+    end
+
+    %% ===== Pipeline Flow =====
+    SDK --> Ingestion
+    Ingestion --> FraudEngine
+    FraudEngine -->|"score >= threshold"| AttribResolver
+    AttribResolver --> Eligibility
+    Eligibility -->|"eligible"| OracleSigner
+    EVM --> RewardQueue
+    SVM --> RewardQueue
+    Bitcoin --> RewardQueue
+    MoveVM --> RewardQueue
+    NEARvm --> RewardQueue
+    TVM --> RewardQueue
+    CosmosVM --> RewardQueue
+    RewardQueue --> RewardClient
+    RewardClient --> SmartContract
+
+    %% ===== Rejection Paths =====
+    FraudEngine -.->|"score < threshold<br/>(rejected)"| Rejected1["Event Rejected<br/>(Fraud)"]
+    Eligibility -.->|"not eligible"| Rejected2["Event Rejected<br/>(Ineligible)"]
+
+    %% ===== Styles =====
+    classDef stepStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef fraudStyle fill:#E74C3C,stroke:#C0392B,color:#FFFFFF
+    classDef attribStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef eligStyle fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef oracleStyle fill:#8E44AD,stroke:#6C3483,color:#FFFFFF
+    classDef vmStyle fill:#A569BD,stroke:#7D3C98,color:#FFFFFF
+    classDef queueStyle fill:#2980B9,stroke:#1F618D,color:#FFFFFF
+    classDef contractStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+    classDef rejectStyle fill:#95A5A6,stroke:#7F8C8D,color:#FFFFFF
+
+    class SDK stepStyle
+    class Ingestion stepStyle
+    class FraudEngine fraudStyle
+    class FS1,FS2,FS3,FS4,FS5,FS6,FS7,FS8 fraudStyle
+    class AttribResolver attribStyle
+    class AM1,AM2,AM3,AM4,AM5,AM6 attribStyle
+    class Eligibility eligStyle
+    class ER1,ER2,ER3,ER4 eligStyle
+    class OracleSigner oracleStyle
+    class EVM,SVM,Bitcoin,MoveVM,NEARvm,TVM,CosmosVM vmStyle
+    class RewardQueue queueStyle
+    class RewardClient stepStyle
+    class SmartContract,Verify,CheckNonce,Transfer,EmitEvent contractStyle
+    class Rejected1,Rejected2 rejectStyle

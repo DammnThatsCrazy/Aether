@@ -1,0 +1,103 @@
+%% Aether Platform v6.1.0 - Web2 Analytics Module Architecture
+%% Shows all analytics modules across Web, iOS, Android, and React Native platforms
+%% including module lifecycle and event tracking pipeline integration
+
+graph TB
+    %% ===== Web Modules =====
+    subgraph WebPlatform["Web Platform (6 Modules)"]
+        direction TB
+        WebEcom["EcommerceModule<br/>(purchase, cart, product)"]
+        WebForm["FormAnalyticsModule<br/>(form interactions)"]
+        WebFF["FeatureFlagModule<br/>(flag evaluations)"]
+        WebFeedback["FeedbackModule<br/>(surveys, NPS)"]
+        WebHeatmap["HeatmapModule<br/>(clicks, scrolls, moves)"]
+        WebFunnel["FunnelModule<br/>(step tracking)"]
+    end
+
+    %% ===== iOS Modules =====
+    subgraph iOSPlatform["iOS Platform (3 Modules)"]
+        direction TB
+        iOSEcom["AetherEcommerce<br/>(purchase, cart, product)"]
+        iOSFF["AetherFeatureFlags<br/>(flag evaluations)"]
+        iOSFeedback["AetherFeedback<br/>(surveys, NPS)"]
+    end
+
+    %% ===== Android Modules =====
+    subgraph AndroidPlatform["Android Platform (3 Modules)"]
+        direction TB
+        AndroidEcom["AetherEcommerce<br/>(purchase, cart, product)"]
+        AndroidFF["AetherFeatureFlags<br/>(flag evaluations)"]
+        AndroidFeedback["AetherFeedback<br/>(surveys, NPS)"]
+    end
+
+    %% ===== React Native Modules =====
+    subgraph RNPlatform["React Native Platform (3 Modules)"]
+        direction TB
+        RNEcom["RNEcommerce<br/>(purchase, cart, product)"]
+        RNFF["RNFeatureFlags<br/>(flag evaluations)"]
+        RNFeedback["RNFeedback<br/>(surveys, NPS)"]
+    end
+
+    %% ===== Module Lifecycle =====
+    subgraph Lifecycle["Module Lifecycle"]
+        direction LR
+        Init["init()<br/>Register module,<br/>load config"]
+        TrackEvents["track()<br/>Capture events,<br/>enrich context"]
+        Destroy["destroy()<br/>Flush queue,<br/>release resources"]
+        Init --> TrackEvents --> Destroy
+    end
+
+    %% ===== Event Tracking Pipeline =====
+    subgraph Pipeline["Event Tracking Pipeline"]
+        direction TB
+        EventQueue["Event Queue<br/>(Batched)"]
+        Enrichment["Event Enrichment<br/>(context, session, identity)"]
+        Transport["Transport Layer<br/>(HTTP / WebSocket)"]
+        BackendIngestion["Backend Ingestion API"]
+    end
+
+    EventQueue --> Enrichment --> Transport --> BackendIngestion
+
+    %% ===== Web Module Connections =====
+    WebEcom --> EventQueue
+    WebForm --> EventQueue
+    WebFF --> EventQueue
+    WebFeedback --> EventQueue
+    WebHeatmap --> EventQueue
+    WebFunnel --> EventQueue
+
+    %% ===== iOS Module Connections =====
+    iOSEcom --> EventQueue
+    iOSFF --> EventQueue
+    iOSFeedback --> EventQueue
+
+    %% ===== Android Module Connections =====
+    AndroidEcom --> EventQueue
+    AndroidFF --> EventQueue
+    AndroidFeedback --> EventQueue
+
+    %% ===== React Native Module Connections =====
+    RNEcom --> EventQueue
+    RNFF --> EventQueue
+    RNFeedback --> EventQueue
+
+    %% ===== Lifecycle Connections =====
+    Init -.->|"registers"| WebPlatform
+    Init -.->|"registers"| iOSPlatform
+    Init -.->|"registers"| AndroidPlatform
+    Init -.->|"registers"| RNPlatform
+
+    %% ===== Styles =====
+    classDef webStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef iosStyle fill:#FF6B6B,stroke:#CC5555,color:#FFFFFF
+    classDef androidStyle fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef rnStyle fill:#61DAFB,stroke:#4DB8D5,color:#000000
+    classDef lifecycleStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef pipelineStyle fill:#8E44AD,stroke:#6C3483,color:#FFFFFF
+
+    class WebEcom,WebForm,WebFF,WebFeedback,WebHeatmap,WebFunnel webStyle
+    class iOSEcom,iOSFF,iOSFeedback iosStyle
+    class AndroidEcom,AndroidFF,AndroidFeedback androidStyle
+    class RNEcom,RNFF,RNFeedback rnStyle
+    class Init,TrackEvents,Destroy lifecycleStyle
+    class EventQueue,Enrichment,Transport,BackendIngestion pipelineStyle

@@ -43,6 +43,7 @@ class RewardTier:
     amount_wei: int
     token_symbol: str = "ETH"
     description: str = ""
+    vm_type: str = "evm"
 
     def to_dict(self) -> dict:
         return {
@@ -50,6 +51,7 @@ class RewardTier:
             "amount_wei": self.amount_wei,
             "token_symbol": self.token_symbol,
             "description": self.description,
+            "vm_type": self.vm_type,
         }
 
 
@@ -106,8 +108,10 @@ class Campaign:
         total_budget_wei:  Total reward budget in wei.
         spent_wei:         Wei already disbursed.
         active:            Administrative toggle.
-        chain_id:          Target EVM chain.
+        chain_id:          Target chain identifier.
         contract_address:  Reward contract address.
+        vm_type:           Target VM family (evm, svm, bitcoin, movevm, near, tvm, cosmos).
+        program_id:        Solana program ID (SVM only); alias for contract_address on Solana.
     """
 
     id: str
@@ -121,6 +125,8 @@ class Campaign:
     active: bool = True
     chain_id: int = 1
     contract_address: Optional[str] = None
+    vm_type: str = "evm"
+    program_id: Optional[str] = None
 
     # -- helpers ---------------------------------------------------------
 
@@ -137,7 +143,7 @@ class Campaign:
         return True
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "id": self.id,
             "name": self.name,
             "description": self.description,
@@ -150,7 +156,11 @@ class Campaign:
             "active": self.active,
             "chain_id": self.chain_id,
             "contract_address": self.contract_address,
+            "vm_type": self.vm_type,
         }
+        if self.program_id is not None:
+            result["program_id"] = self.program_id
+        return result
 
 
 @dataclass

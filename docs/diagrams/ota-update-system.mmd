@@ -1,0 +1,136 @@
+%% Aether Platform v6.1.0 - OTA Auto-Update System
+%% Shows the over-the-air update system for data modules across all platforms
+%% including CDN infrastructure, platform-specific update managers, and CI/CD publishing
+
+graph TD
+    %% ===== CDN Infrastructure =====
+    subgraph CDN["CDN (S3 + CloudFront)"]
+        direction TB
+        LoaderJS["loader.js<br/>(Web auto-loader)"]
+        Manifests["manifests/<br/>(version manifests)"]
+        subgraph DataModules["Data Modules"]
+            direction LR
+            ChainRegistry["chain-registry<br/>(chain configs)"]
+            ProtocolRegistry["protocol-registry<br/>(DeFi protocols)"]
+            WalletLabels["wallet-labels<br/>(known addresses)"]
+            WalletClassification["wallet-classification<br/>(wallet types)"]
+        end
+    end
+
+    %% ===== Web Platform =====
+    subgraph WebPlatform["Web Platform"]
+        direction TB
+        subgraph WebLoader["AetherLoader (Initial Load)"]
+            WL1["Fetch manifest<br/>from CDN"]
+            WL2["Download bundle"]
+            WL3["Cache in<br/>localStorage"]
+            WL4["Evaluate &<br/>initialize SDK"]
+            WL1 --> WL2 --> WL3 --> WL4
+        end
+        subgraph WebUpdater["Web UpdateManager (Runtime)"]
+            WU1["Fetch manifest"]
+            WU2["Compare versions"]
+            WU3["Download data<br/>modules"]
+            WU4["SHA-256 verify"]
+            WU5["Inject via<br/>setRemoteData()"]
+            WU1 --> WU2 --> WU3 --> WU4 --> WU5
+        end
+    end
+
+    %% ===== iOS Platform =====
+    subgraph iOSPlatform["iOS Platform"]
+        direction TB
+        subgraph iOSUpdater["AetherUpdateManager"]
+            iOS1["Fetch manifest"]
+            iOS2["Download JSON<br/>modules"]
+            iOS3["SHA-256 verify"]
+            iOS4["Cache in<br/>UserDefaults"]
+            iOS1 --> iOS2 --> iOS3 --> iOS4
+        end
+    end
+
+    %% ===== Android Platform =====
+    subgraph AndroidPlatform["Android Platform"]
+        direction TB
+        subgraph AndroidUpdater["AetherUpdateManager"]
+            And1["Fetch manifest"]
+            And2["Download JSON<br/>modules"]
+            And3["SHA-256 verify"]
+            And4["Cache in<br/>SharedPreferences"]
+            And1 --> And2 --> And3 --> And4
+        end
+    end
+
+    %% ===== React Native Platform =====
+    subgraph RNPlatform["React Native Platform"]
+        direction TB
+        subgraph RNUpdater["OTAUpdateManager"]
+            RN1["Fetch manifest"]
+            RN2["Download data<br/>modules"]
+            RN3["Cache in<br/>AsyncStorage"]
+            RN1 --> RN2 --> RN3
+        end
+    end
+
+    %% ===== CI/CD Publishing =====
+    subgraph CICD["CI/CD Publishing Pipeline"]
+        direction TB
+        DataModPublisher["data_module_publisher.py<br/>(Extracts TS to JSON)"]
+        ManifestPublisher["manifest_publisher.py<br/>(Generates manifests<br/>with versions + checksums)"]
+        CDNUpload["Upload to CDN<br/>(S3 + CloudFront<br/>invalidation)"]
+        DataModPublisher --> ManifestPublisher --> CDNUpload
+    end
+
+    %% ===== Source Data =====
+    subgraph SourceData["Source Data (TypeScript)"]
+        direction LR
+        TSChainReg["chain-registry.ts"]
+        TSProtocolReg["protocol-registry.ts"]
+        TSWalletLabels["wallet-labels.ts"]
+        TSWalletClass["wallet-classification.ts"]
+    end
+
+    %% ===== Connections =====
+    SourceData --> DataModPublisher
+    CDNUpload --> CDN
+
+    CDN --> WL1
+    CDN --> WU1
+    CDN --> iOS1
+    CDN --> And1
+    CDN --> RN1
+
+    %% ===== Update Triggers =====
+    AppStart["App Start<br/>(check for updates)"]
+    Interval["Periodic Check<br/>(configurable interval)"]
+
+    AppStart --> WU1
+    AppStart --> iOS1
+    AppStart --> And1
+    AppStart --> RN1
+
+    Interval -.-> WU1
+    Interval -.-> iOS1
+    Interval -.-> And1
+    Interval -.-> RN1
+
+    %% ===== Styles =====
+    classDef cdnStyle fill:#E67E22,stroke:#C0651B,color:#FFFFFF
+    classDef moduleStyle fill:#F39C12,stroke:#D68910,color:#FFFFFF
+    classDef webStyle fill:#3498DB,stroke:#2471A3,color:#FFFFFF
+    classDef iosStyle fill:#FF6B6B,stroke:#CC5555,color:#FFFFFF
+    classDef androidStyle fill:#27AE60,stroke:#1E8449,color:#FFFFFF
+    classDef rnStyle fill:#61DAFB,stroke:#4DB8D5,color:#000000
+    classDef cicdStyle fill:#8E44AD,stroke:#6C3483,color:#FFFFFF
+    classDef sourceStyle fill:#95A5A6,stroke:#7F8C8D,color:#FFFFFF
+    classDef triggerStyle fill:#1ABC9C,stroke:#148F77,color:#FFFFFF
+
+    class LoaderJS,Manifests cdnStyle
+    class ChainRegistry,ProtocolRegistry,WalletLabels,WalletClassification moduleStyle
+    class WL1,WL2,WL3,WL4,WU1,WU2,WU3,WU4,WU5 webStyle
+    class iOS1,iOS2,iOS3,iOS4 iosStyle
+    class And1,And2,And3,And4 androidStyle
+    class RN1,RN2,RN3 rnStyle
+    class DataModPublisher,ManifestPublisher,CDNUpload cicdStyle
+    class TSChainReg,TSProtocolReg,TSWalletLabels,TSWalletClass sourceStyle
+    class AppStart,Interval triggerStyle

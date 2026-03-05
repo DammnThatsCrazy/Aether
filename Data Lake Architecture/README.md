@@ -25,13 +25,14 @@ A distributed data warehouse and lakehouse backend for the Aether behavioral ana
                           Aether Data Lake — End-to-End Data Flow
 
   SDKs / Sources                Ingestion                  Streaming              Data Lake
- +--------------+         +------------------+        +--------------+      +------------------+
- | Web SDK      |         |                  |        |              |      |                  |
- | Mobile SDK   | ---->   |  Ingestion API   | -----> |    Kafka     | ---> |  Bronze (Raw)    |
- | Server SDK   |  HTTP   |  (validate,      |  sink  |  (real-time  |      |  JSONL + gzip    |
- | Webhooks     |  POST   |   dedup,         |        |   stream)    |      |  S3 partitioned  |
- +--------------+         |   enrich)        |        +--------------+      +--------+---------+
-                          +--------+---------+              |                        |
+ +----------------+       +------------------+        +--------------+      +------------------+
+ | Web SDK        |       |                  |        |              |      |                  |
+ | Mobile SDK     | --->  |  Ingestion API   | -----> |    Kafka     | ---> |  Bronze (Raw)    |
+ | Server SDK     | HTTP  |  (validate,      |  sink  |  (real-time  |      |  JSONL + gzip    |
+ | Webhooks       | POST  |   dedup,         |        |   stream)    |      |  S3 partitioned  |
+ | Web3 Events    |       |   enrich)        |        +--------------+      +--------+---------+
+ |  (7 VMs, DeFi) |       |                  |
+ +----------------+       +--------+---------+              |                        |
                                    |                        |                   ETL Scheduler
                                    |                        v                        |
                                    |               +--------------+          +-------v---------+
@@ -123,10 +124,11 @@ All event data flows through three progressively refined storage tiers:
 |  Partition:  project_id / year / month / day / hour              |
 |  Retention:  90 days                                             |
 |  Compaction: 128 MB target                                       |
-|  Purpose:    Immutable append-only event archive                 |
+|  Purpose:    Immutable append-only event archive (incl. Web3)    |
 +------------------------------+-----------------------------------+
                                |  ETL: validate, dedup, extract,
-                               |       sessionize, resolve identity
+                               |       sessionize, resolve identity,
+                               |       parse Web3 events (7 VMs)
                                v
 +------------------------------------------------------------------+
 |                        SILVER (Clean)                             |
@@ -136,10 +138,11 @@ All event data flows through three progressively refined storage tiers:
 |  Retention:  365 days                                            |
 |  Compaction: 256 MB target                                       |
 |  Tables:     silver_events, silver_sessions                      |
-|  Purpose:    Deduplicated, typed, sessionized events             |
+|  Purpose:    Deduplicated, typed, sessionized events + Web3 txns |
 +------------------------------+-----------------------------------+
                                |  ETL: aggregate, compute features,
-                               |       build attribution, funnels
+                               |       build attribution, funnels,
+                               |       Web3 activity aggregation
                                v
 +------------------------------------------------------------------+
 |                        GOLD (Metrics)                             |

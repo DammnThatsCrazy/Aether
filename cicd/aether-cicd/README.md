@@ -34,7 +34,11 @@ The pipeline is divided into **8 CI stages**, **6 CD stages** (production), a **
       |                                    |
       |                                    +---> Rollback (automatic)
       |
-      +---> SDK Release (npm, PyPI, Maven, CocoaPods)
+      +---> SDK Release (npm, PyPI, Maven, CocoaPods + loader build)
+      |
+      +---> Multi-chain Contract Deploy (Solana, SUI, NEAR, Cosmos)
+      |
+      +---> Data Module OTA Release (chain registry, protocols, wallets)
       |
       +---> Demo Pipeline (deploy → smoke → seed)
 ```
@@ -58,7 +62,11 @@ aether-cicd/
 |   |-- cd/
 |   |   +-- cd_stages.py        # 6-stage production CD + 3-stage demo CD pipeline
 |   +-- sdk/
-|       +-- sdk_release.py      # Multi-platform SDK release automation
+|       |-- sdk_release.py      # Multi-platform SDK release automation (+ loader build)
+|       |-- data_module_publisher.py  # OTA data module extraction and publish
+|       +-- manifest_publisher.py     # Per-platform manifest generation
+|-- deploy/
+|   +-- multichain_deployer.py  # Multi-chain smart contract deployer (Solana, SUI, NEAR, Cosmos)
 |-- scripts/
 |   +-- seed_demo_data.py       # Pre-seed demo environment with realistic data
 |-- shared/
@@ -70,7 +78,9 @@ aether-cicd/
 |   |-- ci.yml                  # CI workflow (8 stages)
 |   |-- cd.yml                  # CD workflow (production + demo)
 |   |-- infrastructure.yml      # Terraform plan/apply/drift (4 environments)
-|   |-- sdk-release.yml         # SDK release automation
+|   |-- sdk-release.yml         # SDK release automation (includes loader build step)
+|   |-- data-module-release.yml # OTA data module release pipeline
+|   |-- multichain-deploy.yml   # Multi-chain smart contract deployment
 |   +-- demo-management.yml     # Demo lifecycle (deploy/teardown/reset/status)
 +-- pyproject.toml              # Project metadata and dependencies
 ```
@@ -390,6 +400,36 @@ ruff format .
 | ruff | line-length     | 100   |
 | mypy | python_version  | 3.9   |
 | mypy | strict          | true  |
+
+---
+
+## Multi-Chain Smart Contract Deployment
+
+The CI/CD pipeline includes a multi-chain deployer for Aether reward contracts across all supported blockchain platforms.
+
+### Supported Chains
+
+| Chain | Contract Type | Deployer | CLI Tools |
+|-------|--------------|----------|-----------|
+| EVM (Ethereum, Polygon, Arbitrum, Base, Optimism) | Solidity | Hardhat | `npx hardhat` |
+| SVM (Solana) | Anchor/Rust | Anchor CLI | `anchor build/deploy` |
+| MoveVM (SUI) | Move | SUI CLI | `sui client publish` |
+| NEAR | Rust (near-sdk) | near-cli | `near deploy` |
+| TVM (TRON) | Solidity | TronBox | `tronbox migrate` |
+| Cosmos (CosmWasm) | Rust (cosmwasm) | Chain daemon | `wasmd tx wasm` |
+
+### Deployment
+
+```bash
+# Deploy to all chains (testnet)
+python deploy/multichain_deployer.py --chain all --network testnet
+
+# Deploy to specific chain
+python deploy/multichain_deployer.py --chain solana --network devnet
+
+# Dry run
+python deploy/multichain_deployer.py --chain evm --network mainnet --dry-run
+```
 
 ---
 
