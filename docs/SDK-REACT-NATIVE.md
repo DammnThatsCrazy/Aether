@@ -21,14 +21,13 @@ No additional setup required — the native module auto-links.
 ## Quick Start
 
 ```tsx
-import { AetherProvider, Aether } from '@aether/react-native-sdk';
+import { AetherProvider } from '@aether/react-native-sdk';
 
 export default function App() {
   return (
     <AetherProvider config={{
       apiKey: 'your-api-key',
       environment: 'production',
-      debug: false,
     }}>
       <NavigationContainer>
         <AppNavigator />
@@ -43,7 +42,7 @@ export default function App() {
 ### Event Tracking
 
 ```typescript
-import { Aether } from '@aether/react-native-sdk';
+import Aether from '@aether/react-native-sdk';
 
 // Custom event
 Aether.track('button_tapped', { buttonId: 'cta-hero', screen: 'home' });
@@ -74,18 +73,27 @@ const identity = await Aether.getIdentity();
 Aether.reset();
 ```
 
+### Device Fingerprint
+
+The SDK generates a device fingerprint via the native bridge (`NativeModules.AetherNative.getFingerprint()`), which delegates to the platform-specific implementation (CryptoKit on iOS, MessageDigest on Android). The fingerprint is cached and included in every event context.
+
+```typescript
+// Get fingerprint (async, cached after first call)
+const fingerprintId = await Aether.getFingerprint();
+```
+
 ## React Hooks
 
-### useAether
+### useAetherContext
 
 ```tsx
 import { useAetherContext } from '@aether/react-native-sdk';
 
 function MyComponent() {
-  const { track, identify, isInitialized } = useAetherContext();
+  const { aether, isInitialized } = useAetherContext();
 
   const handlePress = () => {
-    track('item_selected', { itemId: '123' });
+    aether.track('item_selected', { itemId: '123' });
   };
 
   return <Button onPress={handlePress} title="Select" />;
@@ -98,7 +106,7 @@ function MyComponent() {
 import { useIdentity } from '@aether/react-native-sdk';
 
 function ProfileScreen() {
-  const { identity, hydrate } = useIdentity();
+  const { identity, hydrate, reset } = useIdentity();
 
   useEffect(() => {
     if (user) {
@@ -123,32 +131,17 @@ function SettingsScreen() {
 }
 ```
 
-### useExperiment
-
-```tsx
-import { useExperiment } from '@aether/react-native-sdk';
-
-function FeatureComponent() {
-  const variant = useExperiment('new-checkout-flow');
-
-  if (variant === 'treatment') {
-    return <NewCheckoutFlow />;
-  }
-  return <OldCheckoutFlow />;
-}
-```
-
 ## Wallet Tracking
 
 ```typescript
 // Wallet connected
 Aether.wallet.connect('0x1234...abcd', {
-  walletType: 'metamask',
+  type: 'metamask',
   chainId: 1,
 });
 
 // Wallet disconnected
-Aether.wallet.disconnect('0x1234...abcd');
+Aether.wallet.disconnect();
 
 // Transaction
 Aether.wallet.transaction('0xabc123...', {
@@ -174,23 +167,18 @@ const state = await Aether.consent.getState();
 ## Ecommerce
 
 ```typescript
-import { RNEcommerce } from '@aether/react-native-sdk';
-
-// Initialize (done automatically via AetherProvider)
-RNEcommerce.initialize({ onTrack: Aether.track });
-
 // Product view
-RNEcommerce.productViewed({
+Aether.ecommerce.trackProductView({
   id: 'sku-001', name: 'Widget Pro', price: 29.99
 });
 
 // Add to cart
-RNEcommerce.addToCart({
+Aether.ecommerce.trackAddToCart({
   productId: 'sku-001', quantity: 2, price: 29.99
 });
 
 // Purchase
-RNEcommerce.orderCompleted({
+Aether.ecommerce.trackPurchase({
   orderId: 'order-456', total: 29.99, currency: 'USD',
   items: [{ productId: 'sku-001', quantity: 1, price: 29.99 }]
 });
@@ -199,35 +187,26 @@ RNEcommerce.orderCompleted({
 ## Feature Flags
 
 ```typescript
-import { RNFeatureFlags } from '@aether/react-native-sdk';
-
 // Check flag
-const enabled = await RNFeatureFlags.isEnabled('dark-mode');
+const enabled = await Aether.featureFlag.isEnabled('dark-mode');
 
 // Get value
-const flag = await RNFeatureFlags.getFlag('upload-limit');
+const flag = await Aether.featureFlag.getFlag('upload-limit');
 
 // Force refresh
-await RNFeatureFlags.refresh();
-
-// Local override (for testing)
-await RNFeatureFlags.setOverride('dark-mode', true);
-await RNFeatureFlags.clearOverride('dark-mode');
+await Aether.featureFlag.refresh();
 ```
 
 ## Feedback / Surveys
 
+Survey definitions come from the backend. The SDK provides methods to register and display them.
+
 ```typescript
-import { RNFeedback } from '@aether/react-native-sdk';
-
 // Register a survey (definitions come from backend)
-RNFeedback.registerSurvey(surveyConfig, { event: 'purchase_completed' });
-
-// Check if survey should show
-const shouldShow = await RNFeedback.shouldShowSurvey('survey-123');
+Aether.feedback.registerSurvey(surveyConfig, { event: 'purchase_completed' });
 
 // Submit response
-RNFeedback.submitResponse('survey-123', {
+Aether.feedback.submitResponse('survey-123', {
   answers: { q1: 9, q2: 'Great experience!' }
 });
 ```
@@ -263,53 +242,54 @@ Aether.trackPushOpened({
 interface AetherRNConfig {
   apiKey: string;
   environment?: 'production' | 'staging' | 'development';
-  endpoint?: string;           // Custom API endpoint
-  debug?: boolean;             // Enable debug logging
-  batchSize?: number;          // Events per batch (default: 10)
-  flushInterval?: number;      // Flush interval in ms (default: 5000)
+  endpoint?: string;           // Default: 'https://api.aether.io'
+  debug?: boolean;
   modules?: {
-    ecommerce?: boolean;
-    featureFlags?: boolean;
-    feedback?: boolean;
-    web3?: boolean;
+    screenTracking?: boolean;  // Auto screen tracking
+    deepLinkAttribution?: boolean;
+    pushTracking?: boolean;
+    walletTracking?: boolean;
+    experiments?: boolean;     // Removed in v7.0 — use feature flags
+  };
+  privacy?: {
+    gdprMode?: boolean;
+    anonymizeIP?: boolean;
   };
 }
 ```
 
 ## Architecture
 
-The React Native SDK follows a **"Sense and Ship"** architecture with native bridge delegation:
-
 ```
 React Components / Hooks
-        |
+        │
     AetherProvider (init + cleanup)
-        |
-    +-- Aether singleton (JS)
-    |       |
-    |   NativeModules.AetherNative (bridge to iOS/Android)
-    |       |
-    |   Native Event Queue + Batch Flush
-    |       |
-    |   POST /v1/batch -> Aether Backend
-    |
-    +-- Semantic Context (Tier 1 only)
-    |       |
-    |   {os, osVersion, viewport, locale, timezone, sessionId}
-    |
-    +-- Module Bridges (pure delegation)
-        +-- Ecommerce -> NativeModules.AetherEcommerce
-        +-- FeatureFlags -> NativeModules.AetherFeatureFlags
-        +-- Feedback -> NativeModules.AetherFeedback
+        │
+    ├── Aether singleton (JS)
+    │       │
+    │   NativeModules.AetherNative (bridge to iOS/Android)
+    │       │
+    │   Native Event Queue + Batch Flush + Device Fingerprint
+    │       │
+    │   POST /v1/batch → Aether Backend
+    │
+    ├── Semantic Context (Tier 1 only)
+    │       │
+    │   {device, viewport, locale, timezone, sessionId}
+    │
+    └── Module Bridges (pure delegation)
+        ├── Ecommerce → RNEcommerce
+        ├── FeatureFlags → RNFeatureFlags
+        └── Feedback → RNFeedback
 ```
 
 ### What changed in v7.0:
-- **Removed**: OTA Update Manager (361 lines) — backend serves config
+- **Removed**: OTA Update Manager (361 lines) — backend serves config via `GET /v1/config`
 - **Removed**: Semantic Context Tiers 2 & 3 — backend handles enrichment
-- **Removed**: Survey factory methods — backend defines surveys
+- **Added**: Device fingerprint via native bridge (`getFingerprint()`)
+- **Added**: Server config fetch on init
 - **Kept**: All NativeModules bridges (zero JS processing)
-- **Kept**: React hooks (useIdentity, useExperiment, useScreenTracking)
-- **Added**: Server config fetch on init via `GET /v1/config`
+- **Kept**: React hooks (useIdentity, useScreenTracking)
 
 ### v7.0 Size:
 - **Before**: 1,064 LOC across 6 files

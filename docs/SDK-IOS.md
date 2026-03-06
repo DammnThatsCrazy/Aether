@@ -26,12 +26,7 @@ pod 'AetherSDK', '~> 7.0'
 import AetherSDK
 
 // In AppDelegate.application(_:didFinishLaunchingWithOptions:)
-Aether.shared.initialize(config: AetherConfig(
-    apiKey: "your-api-key",
-    environment: .production,
-    modules: ModuleConfig(screenTracking: true),
-    privacy: PrivacyConfig(gdprMode: true, anonymizeIP: true)
-))
+Aether.shared.initialize(config: AetherConfig(apiKey: "your-api-key"))
 ```
 
 ## Core API
@@ -41,19 +36,19 @@ Aether.shared.initialize(config: AetherConfig(
 ```swift
 // Custom event
 Aether.shared.track("button_tapped", properties: [
-    "buttonId": "cta-hero",
-    "screen": "home"
+    "buttonId": AnyCodable("cta-hero"),
+    "screen": AnyCodable("home")
 ])
 
 // Screen view (auto-tracked if screenTracking enabled)
 Aether.shared.screenView("PricingScreen", properties: [
-    "source": "navigation"
+    "source": AnyCodable("navigation")
 ])
 
 // Conversion
 Aether.shared.conversion("purchase_completed", value: 29.99, properties: [
-    "plan": "pro",
-    "currency": "USD"
+    "plan": AnyCodable("pro"),
+    "currency": AnyCodable("USD")
 ])
 ```
 
@@ -64,8 +59,8 @@ Aether.shared.conversion("purchase_completed", value: 29.99, properties: [
 Aether.shared.hydrateIdentity(IdentityData(
     userId: "user-123",
     traits: [
-        "email": "user@example.com",
-        "plan": "enterprise"
+        "email": AnyCodable("user@example.com"),
+        "plan": AnyCodable("enterprise")
     ]
 ))
 
@@ -75,6 +70,12 @@ let anonId = Aether.shared.getAnonymousId()
 // Reset on logout
 Aether.shared.reset()
 ```
+
+### Device Fingerprint
+
+The SDK automatically generates a SHA-256 device fingerprint on initialization from: `identifierForVendor`, device model, system version, screen dimensions, scale, locale, timezone, processor count, and physical memory (via CryptoKit).
+
+The fingerprint is included in every event's `context.fingerprint.id`. Only the composite hash is sent — raw device signals are never transmitted.
 
 ## Wallet Tracking
 
@@ -94,7 +95,7 @@ Aether.shared.walletTransaction(
     txHash: "0xabc123...",
     chainId: "eip155:1",
     value: "1.5",
-    properties: ["token": "ETH"]
+    properties: ["token": AnyCodable("ETH")]
 )
 ```
 
@@ -116,17 +117,17 @@ let state = Aether.shared.getConsentState() // ["analytics"]
 ```swift
 // Product view
 Aether.shared.trackProductView([
-    "id": "sku-001",
-    "name": "Widget Pro",
-    "price": 29.99,
-    "category": "tools"
+    "id": AnyCodable("sku-001"),
+    "name": AnyCodable("Widget Pro"),
+    "price": AnyCodable(29.99),
+    "category": AnyCodable("tools")
 ])
 
 // Add to cart
 Aether.shared.trackAddToCart([
-    "productId": "sku-001",
-    "quantity": 2,
-    "price": 29.99
+    "productId": AnyCodable("sku-001"),
+    "quantity": AnyCodable(2),
+    "price": AnyCodable(29.99)
 ])
 
 // Purchase
@@ -135,7 +136,7 @@ Aether.shared.trackPurchase(
     total: 29.99,
     currency: "USD",
     items: [
-        ["productId": "sku-001", "quantity": 1, "price": 29.99]
+        ["productId": AnyCodable("sku-001"), "quantity": AnyCodable(1), "price": AnyCodable(29.99)]
     ]
 )
 ```
@@ -195,10 +196,10 @@ struct ModuleConfig {
     var screenTracking: Bool = true              // Auto-track UIViewController appearances
     var deepLinkAttribution: Bool = true
     var pushNotificationTracking: Bool = true
-    var walletTracking: Bool = true
+    var walletTracking: Bool = true              // Wallet event tracking
     var purchaseTracking: Bool = true
     var errorTracking: Bool = true
-    var experiments: Bool = false
+    var experiments: Bool = false                 // Removed in v7.0 — use feature flags
 }
 
 struct PrivacyConfig {
@@ -210,45 +211,44 @@ struct PrivacyConfig {
 
 ## Architecture
 
-The iOS SDK follows a **"Sense and Ship"** architecture:
-
 ```
 UIKit Events / Wallet Interactions
-        |
+        │
     Raw Events (screen views, taps, wallet connects)
-        |
+        │
+    Device Fingerprint (SHA-256 via CryptoKit)
+        │
     Serial Dispatch Queue (thread-safe event buffering)
-        |
+        │
     Timer-based batch flush (every 5 seconds)
-        |
-    POST /v1/batch -> Aether Backend
+        │
+    POST /v1/batch → Aether Backend
 ```
 
 ### What the SDK sends:
 - Event type, name, and raw properties
 - Minimal context: `{os: "iOS", osVersion, locale, timezone}`
+- Device fingerprint hash
 - Session ID, anonymous ID, user ID
-- SDK version identifier
 
 ### What the backend derives:
 - Device model, screen size from User-Agent
+- IP geolocation (MaxMind GeoLite2)
+- Identity resolution (cross-device matching)
 - Traffic source classification
 - ML predictions (intent, bot detection)
-- Feature flag evaluation
-- Funnel matching
 
 ## Auto Screen Tracking
 
-When `screenTracking` is enabled, the SDK uses method swizzling on `UIViewController.viewDidAppear(_:)` to automatically track screen views. System view controllers (prefixed with `UI`, `_`, `SFSafari`) are filtered out.
-
-To disable for a specific controller, override the class name check or disable `screenTracking` in config.
+When `screenTracking` is enabled, the SDK uses method swizzling on `UIViewController.viewDidAppear(_:)` to automatically track screen views. System view controllers (prefixed with `UI`, `_`, `NS`) are filtered out.
 
 ## Thread Safety
 
-All event operations are dispatched to a private serial queue (`DispatchQueue(label: "io.aether.sdk")`). The SDK is safe to call from any thread.
+All event operations are dispatched to a private serial queue (`DispatchQueue(label: "com.aether.sdk.serial")`). The SDK is safe to call from any thread.
 
 ## Data Persistence
 
-- **Anonymous ID** and **User ID** are persisted in `UserDefaults` under `aether_` prefix
+- **Anonymous ID** and **User ID** are persisted in `UserDefaults` under `com.aether.sdk` suite
+- **Device fingerprint** is generated on each init (deterministic — same result for same device)
 - **Event queue** is in-memory only (flushed on background/termination)
-- No keychain usage in the base SDK
+- **Server config** cached in memory (refreshed on each app launch)

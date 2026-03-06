@@ -1,148 +1,134 @@
 # Aether
 
-**Full-stack behavioral analytics, identity resolution, and AI-powered insights platform with multi-chain Web3 support.**
+Cross-platform analytics SDK with Web3 wallet tracking, cross-device identity resolution, and on-chain reward automation.
 
-Aether is a modular analytics platform that captures user behavior across web, mobile, and Web3 touchpoints (7 VM families, 20+ blockchains, 150+ DeFi protocols), resolves identities across sessions and devices, runs ML predictions (churn, LTV, journey forecasting), and orchestrates campaigns — all with GDPR compliance and SOC 2 readiness built in.
+## Architecture
 
-## Architecture Overview
+Aether v7.0 uses a **"Sense and Ship"** thin-client architecture. SDKs collect raw events, device fingerprints, and wallet interactions — the backend handles all processing, ML inference, identity resolution, and analytics.
 
 ```
-                     SDK Layer                          Backend Layer (16 services, 85+ endpoints)
-              +-------------------+               +-------------------------------+
-              | Web SDK (TS)      |               | API Gateway    | Ingestion    |
-              | React Native SDK  |  ── HTTPS ──> | Identity       | Analytics    |
-              | iOS SDK (Swift)   |               | ML Serving     | Agent        |
-              | Android SDK (Kt)  |               | Campaign       | Consent      |
-              +-------------------+               | Notification   | Admin        |
-                                                  | Traffic        | Fraud        |
-              +-------------------+               | Attribution    | Rewards      |
-              | Web2 Analytics    |               | Oracle         | Automation   |
-              | Modules           |               +-------------------------------+
-              | (Ecommerce, Forms,|                         |
-              |  Feature Flags,   |               +-------------------------------+
-              |  Feedback, Heatmaps|              | Multi-chain Oracle Bridge     |
-              |  Funnels)         |               | (7 VMs: EVM, SVM, Bitcoin,    |
-              +-------------------+               |  MoveVM, NEAR, TVM, Cosmos)   |
-                                                  +-------------------------------+
-              +-------------------+                         |
-              | Data Ingestion    |               +-------------------------------+
-              | (Node.js pipeline)|               | Multi-chain Smart Contracts   |
-              +-------------------+               | (EVM, Solana, SUI, NEAR,      |
-                       |                          |  Cosmos) + Reward Pipeline    |
-                       |                          +-------------------------------+
-                       v                                    |
-              +-------------------+               +-------------------------------+
-              | Data Lake         |               | Agent Layer                   |
-              | (S3 + TimescaleDB |               | (10 Celery Workers)           |
-              |  + Neptune Graph) |               +-------------------------------+
-              +-------------------+                         |
-                       |                          +-------------------------------+
-              +-------------------+               | ML Models                     |
-              | OTA Update System |               | (9 models: edge + server-side)|
-              | (CDN Data Modules)|               +-------------------------------+
-              +-------------------+                         |
-                       |                          +-------------------------------+
-              +-------------------+               | 150+ DeFi Protocols           |
-              | AWS Infrastructure|               | (DEX, lending, perpetuals,    |
-              | (Multi-AZ, DR)    |               |  staking, bridges, NFTs, ...) |
-              +-------------------+               +-------------------------------+
-                       |
-              +-------------------+
-              | GDPR & SOC 2      |
-              | Compliance        |
-              +-------------------+
+SDK (Web/iOS/Android/RN)          Backend (FastAPI + Neptune + TimescaleDB)
+┌──────────────────────┐          ┌─────────────────────────────────┐
+│ Raw events           │  POST    │ Ingestion → IP Enrichment       │
+│ Device fingerprint   │  /v1/   │ Identity Resolution (10 signals)│
+│ Wallet connections   │  batch   │ ML Scoring (intent, bot)        │
+│ Session + identity   │ ──────> │ DeFi Tx Classification          │
+│ Consent gates        │         │ Traffic Source Attribution       │
+│ Feature flag cache   │  GET    │ Funnel Matching                 │
+│                      │  /v1/   │ Heatmap Grid Generation         │
+│                      │  config │ Reward Automation               │
+└──────────────────────┘         └─────────────────────────────────┘
 ```
 
-## Packages
+## SDKs
 
-| Package | Language | Description | Location |
-|---------|----------|-------------|----------|
-| [Web SDK](packages/web/) | TypeScript | Browser analytics SDK with consent, multi-chain Web3 (7 VMs), Edge ML | `packages/web/` |
-| [React Native SDK](packages/react-native/) | TypeScript | React Native bridge to native iOS/Android SDKs | `packages/react-native/` |
-| [Mobile SDK](Aether%20Mobile%20SDK/) | Swift / Kotlin | Native iOS and Android SDKs | `Aether Mobile SDK/` |
-| [Playground](playground/) | HTML / Vite | Multi-VM Web3 wallet simulation playground | `playground/` |
-| [Data Ingestion](Data%20Ingestion%20Layer/) | TypeScript | Event ingestion, validation, enrichment pipeline | `Data Ingestion Layer/` |
-| [Data Lake](Data%20Lake%20Architecture/) | Python / TS | Distributed data warehouse with 13+ services | `Data Lake Architecture/` |
-| [Agent Layer](Agent%20Layer/) | Python | 10 autonomous discovery & enrichment workers | `Agent Layer/` |
-| [Backend](Backend%20Architecture/) | Python | FastAPI microservices (16 services, 85+ endpoints) | `Backend Architecture/` |
-| [ML Models](ML%20Models/) | Python | 9 production ML models (edge + server) | `ML Models/` |
-| [CI/CD Pipeline](cicd/) | Python | Deployment automation (8 CI + 6 CD + demo pipeline) | `cicd/` |
-| [AWS Deployment](AWS%20Deployment/) | Python / HCL | Multi-account AWS infrastructure with Terraform (4 envs) | `AWS Deployment/` |
-| [GDPR & SOC 2](GDPR%20%26%20SOC2/) | Python | GDPR compliance & SOC 2 Type II readiness | `GDPR & SOC2/` |
-| [Smart Contracts](Smart%20Contracts/) | Solidity / Rust / Move | Multi-chain reward contracts (EVM, Solana, SUI, NEAR, Cosmos) | Smart Contracts/ |
+| Platform | Package | Size (v7.0) |
+|---|---|---|
+| **Web** | `@aether/web-sdk` | ~5,200 LOC |
+| **iOS** | `AetherSDK` (Swift) | ~535 LOC |
+| **Android** | `io.aether:sdk-android` (Kotlin) | ~493 LOC |
+| **React Native** | `@aether/react-native-sdk` | ~497 LOC |
 
-## Technology Stack
+### Quick Start
 
-- **SDKs:** TypeScript (Web), Swift (iOS), Kotlin (Android), React Native
-- **Backend:** Python 3.11+, FastAPI, Celery
-- **Data:** PostgreSQL (TimescaleDB), Neptune (Graph), Redis, DynamoDB, S3, OpenSearch
-- **ML:** PyTorch, TensorFlow, XGBoost, scikit-learn, SageMaker, ONNX
-- **Infrastructure:** AWS (ECS Fargate, ALB, CloudFront, WAF), Terraform
-- **Web3:** EVM, SVM (Solana), Bitcoin, MoveVM (SUI), NEAR, TVM (TRON), Cosmos
-- **Smart Contracts:** Solidity (EVM/TRON), Anchor/Rust (Solana), Move (SUI), Rust (NEAR/CosmWasm)
-- **CI/CD:** GitHub Actions, Docker, canary deployments, demo environment
-- **Compliance:** GDPR (Articles 15-21, 25, 28, 30, 33-35), SOC 2 Type II
+**Web:**
+```typescript
+import aether from '@aether/web-sdk';
 
-## Quick Start
-
-```bash
-# Install monorepo dependencies
-npm install
-
-# Run the playground
-cd playground && npm run dev
-
-# Run backend
-cd "Backend Architecture/aether-backend" && python3 main.py
-
-# Run ML models
-cd "ML Models/aether-ml" && python3 -m training.pipelines.train
-
-# Run compliance framework
-cd "GDPR & SOC2/aether-compliance" && python3 main.py
+aether.init({ apiKey: 'your-key' });
+aether.track('button_clicked', { buttonId: 'cta' });
+aether.hydrateIdentity({
+  userId: 'user-123',
+  email: 'user@example.com',
+});
 ```
 
-## Key Capabilities
+**iOS:**
+```swift
+import AetherSDK
+Aether.shared.initialize(config: AetherConfig(apiKey: "your-key"))
+Aether.shared.track("button_tapped", properties: ["buttonId": AnyCodable("cta")])
+```
 
-### Analytics & Identity
-- Behavioral event tracking (page views, clicks, scrolls, custom events)
-- Cross-device identity resolution via graph database
-- Session management with automatic timeout and resumption
-- Multi-chain Web3 wallet tracking (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos)
-- DeFi protocol detection across 15 categories (DEX, lending, perpetuals, staking, bridges, NFTs, etc.)
-- Wallet classification (hot, cold, smart, exchange, protocol, multisig)
-- Cross-chain portfolio aggregation
+**Android:**
+```kotlin
+import com.aether.sdk.Aether
+Aether.initialize(application, AetherConfig(apiKey = "your-key"))
+Aether.track("button_clicked", mapOf("buttonId" to "cta"))
+```
 
-### Machine Learning
-- **Edge models** (< 100ms, browser-side): Intent prediction, bot detection, session scoring
-- **Server models** (SageMaker): Churn, LTV, journey prediction, anomaly detection, attribution
-- Model monitoring with drift detection and automated retraining
+**React Native:**
+```tsx
+import { AetherProvider } from '@aether/react-native-sdk';
 
-### Compliance
-- GDPR: 7 data protection controls, 6 data subject rights, consent management, breach notification
-- SOC 2: 5 trust criteria, 34 controls, gap analysis, continuous compliance monitoring
-- Record of Processing Activities (ROPA), cross-border transfer tracking
+<AetherProvider config={{ apiKey: 'your-key' }}>
+  <App />
+</AetherProvider>
+```
 
-### Web2 Analytics Modules
-- E-commerce tracking (product views, cart state, checkout funnel, orders, refunds)
-- Form analytics (field-level interaction tracking, abandonment detection, drop-off analysis)
-- Feature flags (remote config with stale-while-revalidate caching)
-- Feedback surveys (NPS, CSAT, CES with trigger rules, sampling, and DOM rendering)
-- Heatmaps (click, movement, scroll depth, attention tracking)
-- Funnel tracking (multi-step conversion funnels with drop-off identification)
+## Key Features
 
-### Automated Reward Pipeline
-- Multi-chain reward distribution across 7 VM families (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos)
-- 8-signal fraud detection engine with composable scoring
-- 6-model multi-touch attribution (first/last touch, linear, time-decay, position-based, data-driven)
-- Oracle-signed cryptographic proofs for on-chain verification
-- Smart contracts on Ethereum, Solana, SUI, NEAR, and Cosmos
+- **Cross-device identity resolution** — Deterministic (email, phone, wallet, userId, OAuth) and probabilistic (fingerprint similarity, IP clustering, behavioral signals) matching into unified Identity Clusters
+- **Device fingerprinting** — SHA-256 hash from platform-specific signals (Web: 17 browser signals via Web Crypto; iOS: CryptoKit; Android: MessageDigest)
+- **Web3 wallet tracking** — 7 VM families: EVM, Solana, Bitcoin, Move/SUI, NEAR, TRON, Cosmos
+- **DeFi transaction classification** — Protocol identification, swap/stake/lend/bridge categorization
+- **On-chain reward automation** — Eligibility checks, pre-built claim payloads, oracle-verified proofs
+- **GDPR/CCPA consent management** — Consent-gated data collection with banner UI
+- **Feature flags** — Server-evaluated, locally cached
+- **Web2 analytics** — Ecommerce, funnels, heatmaps, form analytics, traffic attribution
+- **ML inference** — Server-side intent prediction, bot detection, session scoring
 
-### Infrastructure
-- Multi-account AWS (dev, staging, production, demo, data, security)
-- Multi-AZ with DR (RPO 1h, RTO 4h)
-- CI/CD with quality gates (coverage 90%, security scanning, performance budgets)
-- Demo environment for sales/BD with pre-seeded data and auto-teardown
+## Project Structure
+
+```
+packages/
+├── web/              Web SDK (TypeScript)
+├── ios/              iOS SDK (Swift)
+├── android/          Android SDK (Kotlin)
+└── react-native/     React Native SDK (TypeScript)
+
+Backend Architecture/
+└── aether-backend/
+    ├── services/
+    │   ├── ingestion/     Event ingestion + IP enrichment
+    │   ├── identity/      Identity management
+    │   ├── resolution/    Cross-device identity resolution
+    │   ├── analytics/     Session scoring + anomaly detection
+    │   ├── fraud/         Fraud detection
+    │   ├── attribution/   Campaign attribution
+    │   └── ml_serving/    ML model serving
+    ├── shared/
+    │   ├── graph/         Neptune graph client
+    │   ├── events/        Event bus (Kafka/SNS)
+    │   ├── cache/         Redis cache
+    │   └── common/        Shared utilities
+    └── main.py            FastAPI application
+
+docs/
+├── ARCHITECTURE.md       System architecture overview
+├── BACKEND-API.md        API endpoint specification
+├── IDENTITY-RESOLUTION.md  Identity resolution deep dive
+├── SDK-WEB.md            Web SDK integration guide
+├── SDK-IOS.md            iOS SDK integration guide
+├── SDK-ANDROID.md        Android SDK integration guide
+├── SDK-REACT-NATIVE.md   React Native SDK integration guide
+├── MIGRATION-v7.md       v6 → v7 migration guide
+└── CHANGELOG.md          Version history
+```
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture](docs/ARCHITECTURE.md) | System design, module architecture, event flow |
+| [Backend API](docs/BACKEND-API.md) | All API endpoints with request/response examples |
+| [Identity Resolution](docs/IDENTITY-RESOLUTION.md) | Cross-device matching algorithms and graph schema |
+| [Web SDK](docs/SDK-WEB.md) | Web integration guide |
+| [iOS SDK](docs/SDK-IOS.md) | iOS integration guide |
+| [Android SDK](docs/SDK-ANDROID.md) | Android integration guide |
+| [React Native SDK](docs/SDK-REACT-NATIVE.md) | React Native integration guide |
+| [Migration Guide](docs/MIGRATION-v7.md) | Breaking changes from v6 to v7 |
+| [Changelog](docs/CHANGELOG.md) | Version history |
 
 ## License
 

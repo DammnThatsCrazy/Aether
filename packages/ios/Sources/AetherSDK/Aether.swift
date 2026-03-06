@@ -13,7 +13,7 @@ public struct AetherConfig {
     public let apiKey: String
     public var environment: Environment = .production
     public var debug: Bool = false
-    public var endpoint: String = "https://api.aether.network"
+    public var endpoint: String = "https://api.aether.io"
     public var modules: ModuleConfig = ModuleConfig()
     public var privacy: PrivacyConfig = PrivacyConfig()
     public var batchSize: Int = 10
@@ -32,10 +32,10 @@ public struct ModuleConfig {
     public var screenTracking: Bool = true
     public var deepLinkAttribution: Bool = true
     public var pushNotificationTracking: Bool = true
-    public var walletTracking: Bool = false
+    public var walletTracking: Bool = true
     public var purchaseTracking: Bool = true
     public var errorTracking: Bool = true
-    public var experiments: Bool = true
+    public var experiments: Bool = false
 
     public init() {}
 }

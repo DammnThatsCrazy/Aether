@@ -29,7 +29,7 @@ data class AetherConfig(
     val apiKey: String,
     val environment: Environment = Environment.PRODUCTION,
     val debug: Boolean = false,
-    val endpoint: String = "https://api.aether.network",
+    val endpoint: String = "https://api.aether.io",
     val batchSize: Int = 10,
     val flushIntervalMs: Long = 5000L,
     val modules: ModuleConfig = ModuleConfig(),
@@ -45,7 +45,7 @@ data class ModuleConfig(
     val walletTracking: Boolean = false,
     val purchaseTracking: Boolean = true,
     val errorTracking: Boolean = true,
-    val experiments: Boolean = true
+    val experiments: Boolean = false
 )
 
 data class PrivacyConfig(

@@ -23,18 +23,12 @@ implementation 'io.aether:sdk-android:7.0.0'
 ```kotlin
 import com.aether.sdk.Aether
 import com.aether.sdk.AetherConfig
-import com.aether.sdk.ModuleConfig
 
 // In Application.onCreate()
 class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        Aether.initialize(this, AetherConfig(
-            apiKey = "your-api-key",
-            environment = AetherConfig.Environment.PRODUCTION,
-            modules = ModuleConfig(activityTracking = true),
-            debug = false
-        ))
+        Aether.initialize(this, AetherConfig(apiKey = "your-api-key"))
     }
 }
 ```
@@ -80,6 +74,12 @@ val anonId = Aether.getAnonymousId()
 // Reset on logout
 Aether.reset()
 ```
+
+### Device Fingerprint
+
+The SDK automatically generates a SHA-256 device fingerprint on initialization from: `ANDROID_ID`, `Build.MODEL`, `Build.MANUFACTURER`, OS version, display metrics (width, height, density), locale, timezone, and available processors (via `MessageDigest`).
+
+The fingerprint is included in every event's `context.fingerprint.id`. Only the composite hash is sent — raw device signals are never transmitted.
 
 ## Wallet Tracking
 
@@ -188,58 +188,58 @@ data class AetherConfig(
     val environment: Environment = Environment.PRODUCTION,
     val debug: Boolean = false,
     val endpoint: String = "https://api.aether.io",
-    val modules: ModuleConfig = ModuleConfig(),
-    val privacy: PrivacyConfig = PrivacyConfig(),
     val batchSize: Int = 10,
-    val flushIntervalSeconds: Long = 5
+    val flushIntervalMs: Long = 5000L,
+    val modules: ModuleConfig = ModuleConfig(),
+    val privacy: PrivacyConfig = PrivacyConfig()
 ) {
     enum class Environment { PRODUCTION, STAGING, DEVELOPMENT }
 }
 
 data class ModuleConfig(
-    val activityTracking: Boolean = true,
+    val activityTracking: Boolean = true,      // Auto-track Activity changes
     val deepLinkAttribution: Boolean = true,
     val pushTracking: Boolean = true,
-    val walletTracking: Boolean = true,
+    val walletTracking: Boolean = false,       // Wallet event tracking
     val purchaseTracking: Boolean = true,
     val errorTracking: Boolean = true,
-    val experiments: Boolean = false
+    val experiments: Boolean = false            // Removed in v7.0 — use feature flags
 )
 
 data class PrivacyConfig(
-    val gdprMode: Boolean = false,
-    val anonymizeIP: Boolean = true
+    val gdprMode: Boolean = false,             // Require consent before tracking
+    val anonymizeIP: Boolean = true             // Hash IP addresses
 )
 ```
 
 ## Architecture
 
-The Android SDK follows a **"Sense and Ship"** architecture:
-
 ```
 Activity Lifecycle / User Interactions
-        |
+        │
     Raw Events (screen views, taps, wallet connects)
-        |
+        │
+    Device Fingerprint (SHA-256 via MessageDigest)
+        │
     ConcurrentLinkedQueue (thread-safe event buffer)
-        |
+        │
     Coroutine-based batch flush (every 5 seconds)
-        |
-    POST /v1/batch -> Aether Backend
+        │
+    POST /v1/batch → Aether Backend
 ```
 
 ### What the SDK sends:
 - Event type, name, and raw properties
 - Minimal context: `{os: "Android", osVersion, locale, timezone}`
+- Device fingerprint hash
 - Session ID, anonymous ID, user ID
-- SDK version identifier
 
 ### What the backend derives:
 - Device model, manufacturer, screen size from User-Agent
+- IP geolocation (MaxMind GeoLite2)
+- Identity resolution (cross-device matching)
 - Traffic source classification
 - ML predictions (intent, bot detection)
-- Feature flag evaluation
-- Funnel matching
 
 ## Auto Activity Tracking
 
@@ -267,6 +267,7 @@ When `errorTracking` is enabled, the SDK installs a global `Thread.UncaughtExcep
 
 ## Data Persistence
 
-- **Anonymous ID** and **User ID** persisted in `SharedPreferences` under `aether_prefs`
+- **Anonymous ID** and **User ID** persisted in `SharedPreferences` under `com.aether.sdk`
+- **Device fingerprint** is generated on each init (deterministic — same result for same device)
 - **Event queue** is in-memory only (flushed on background/termination)
 - **Server config** cached in memory (refreshed on each app launch)

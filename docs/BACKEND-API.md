@@ -2,7 +2,7 @@
 
 ## Overview
 
-The v7.0 thin-client architecture requires the backend to handle all processing that was previously done client-side. This document specifies the endpoints that SDKs depend on.
+The v7.0 thin-client architecture requires the backend to handle all processing that was previously done client-side. This document specifies all backend endpoints.
 
 ## Authentication
 
@@ -10,11 +10,11 @@ All endpoints require an API key passed as:
 - Header: `Authorization: Bearer <api-key>`
 - Or query parameter: `?apiKey=<api-key>`
 
-## Endpoints
+## Event Ingestion
 
 ### POST /v1/events
 
-Receives batched raw events from all SDK platforms.
+Receives batched raw events from the Web SDK.
 
 **Request:**
 ```json
@@ -30,10 +30,10 @@ Receives batched raw events from all SDK platforms.
       "userId": "user-123",
       "properties": { "buttonId": "cta-hero" },
       "context": {
-        "os": { "name": "iOS", "version": "18.0" },
+        "library": { "name": "@aether/sdk", "version": "7.0.0" },
+        "fingerprint": { "id": "sha256-hash" },
         "locale": "en-US",
-        "timezone": "America/New_York",
-        "library": { "name": "aether-ios", "version": "7.0.0" }
+        "timezone": "America/New_York"
       }
     }
   ],
@@ -46,13 +46,19 @@ Receives batched raw events from all SDK platforms.
 { "success": true, "accepted": 10 }
 ```
 
-**Backend Processing:**
-- Enrich events with device info derived from User-Agent
-- Classify traffic sources from UTM/referrer data
-- Match events against funnel definitions
-- Run ML scoring (intent, bot detection)
-- Build heatmap grids from coordinate events
-- Detect rage clicks and dead clicks from click patterns
+### POST /v1/batch
+
+Receives batched raw events from iOS and Android SDKs. Same schema as `/v1/events`.
+
+**Backend Processing (applies to both endpoints):**
+- IP enrichment via MaxMind GeoLite2 (country, region, city, ASN, VPN/proxy detection)
+- Identity resolution (deterministic + probabilistic cross-device matching)
+- Device info derived from User-Agent headers
+- Traffic source classification from UTM/referrer data
+- Funnel step matching against server definitions
+- ML scoring (intent prediction, bot detection)
+- Heatmap grid building from coordinate events
+- Rage click and dead click detection
 
 ---
 
@@ -63,7 +69,6 @@ Returns SDK initialization configuration. Called once on `init()`.
 **Query Parameters:**
 - `apiKey` (required)
 - `platform` (optional): `web|ios|android|react-native`
-- `version` (optional): SDK version
 
 **Response:**
 ```json
@@ -99,6 +104,8 @@ Returns SDK initialization configuration. Called once on `init()`.
 
 ---
 
+## Transaction & Chain Endpoints
+
 ### POST /v1/tx/enrich
 
 Classifies and enriches raw blockchain transaction data.
@@ -132,15 +139,12 @@ Classifies and enriches raw blockchain transaction data.
     "gasCostETH": "0.00063000",
     "gasCostUSD": 1.89
   },
-  "whaleAlert": null,
   "walletLabels": {
     "from": { "label": "User Wallet", "type": "hot_wallet", "risk": "low" },
     "to": { "label": "Uniswap V3 Router", "type": "smart_contract", "risk": "low" }
   }
 }
 ```
-
----
 
 ### GET /v1/chains/{chainId}
 
@@ -153,20 +157,16 @@ Returns chain metadata on demand.
   "name": "Ethereum Mainnet",
   "vm": "evm",
   "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 },
-  "rpcUrls": ["https://eth-mainnet.g.alchemy.com/v2/..."],
   "blockExplorer": "https://etherscan.io",
   "testnet": false
 }
 ```
 
----
-
 ### GET /v1/protocols/{address}
 
 Identifies a smart contract / protocol by address.
 
-**Query Parameters:**
-- `chainId` (required)
+**Query Parameters:** `chainId` (required)
 
 **Response:**
 ```json
@@ -182,9 +182,11 @@ Identifies a smart contract / protocol by address.
 
 ---
 
+## ML & Classification
+
 ### POST /v1/predict
 
-ML inference endpoint replacing client-side edge-ml.
+ML inference endpoint (replaces client-side edge-ml).
 
 **Request:**
 ```json
@@ -196,8 +198,7 @@ ML inference endpoint replacing client-side edge-ml.
     "clickCount": 12,
     "formInteractions": 3,
     "pagesViewed": 5,
-    "sessionDuration": 180,
-    "userAgent": "Mozilla/5.0..."
+    "sessionDuration": 180
   }
 }
 ```
@@ -214,14 +215,66 @@ ML inference endpoint replacing client-side edge-ml.
 }
 ```
 
+### POST /v1/classify-source
+
+Classifies a traffic source from raw attribution data.
+
+**Request:**
+```json
+{
+  "referrer": "https://google.com/search?q=aether",
+  "utmSource": "google",
+  "utmMedium": "cpc",
+  "utmCampaign": "brand-q1",
+  "clickIds": { "gclid": "abc123" },
+  "landingPage": "https://app.aether.io/pricing"
+}
+```
+
+**Response:**
+```json
+{
+  "channel": "paid_search",
+  "source": "google",
+  "medium": "cpc",
+  "campaign": "brand-q1",
+  "attribution": {
+    "model": "last_click",
+    "touchpoints": [
+      { "source": "google", "medium": "cpc", "timestamp": "2026-03-05T11:55:00Z" }
+    ]
+  }
+}
+```
+
+### GET /v1/wallet-label/{address}
+
+Returns risk assessment and label for a wallet address.
+
+**Query Parameters:** `chainId` (optional)
+
+**Response:**
+```json
+{
+  "address": "0x1234...",
+  "label": "Binance Hot Wallet",
+  "type": "exchange",
+  "risk": "low",
+  "tags": ["cex", "high_volume", "verified"],
+  "firstSeen": "2020-01-15",
+  "transactionCount": 1500000
+}
+```
+
 ---
+
+## Rewards
 
 ### GET /v1/rewards/{rewardId}/eligibility
 
 Checks if a user is eligible for a specific reward.
 
-**Query Parameters:**
-- `userId` (required)
+**Query Parameters:** `userId` (required)
 
 **Response:**
 ```json
@@ -235,15 +288,11 @@ Checks if a user is eligible for a specific reward.
 }
 ```
 
----
-
 ### GET /v1/rewards/{rewardId}/payload
 
 Returns a pre-built transaction payload for on-chain claiming.
 
-**Query Parameters:**
-- `userId` (required)
-- `chainId` (required)
+**Query Parameters:** `userId` (required), `chainId` (required)
 
 **Response:**
 ```json
@@ -257,8 +306,6 @@ Returns a pre-built transaction payload for on-chain claiming.
   "expiry": 1743868800
 }
 ```
-
----
 
 ### POST /v1/rewards/{rewardId}/claim
 
@@ -284,60 +331,111 @@ Submits an on-chain claim for verification.
 
 ---
 
-### POST /v1/classify-source
+## Identity Resolution
 
-Classifies a traffic source from raw attribution data.
+### GET /v1/resolution/cluster/{user_id}
+
+Get the full identity cluster for a user — all merged profiles, linked devices, IPs, wallets, and emails.
+
+**Response:**
+```json
+{
+  "cluster_id": "clust-abc",
+  "canonical_user_id": "user-123",
+  "confidence": 1.0,
+  "member_count": 3,
+  "resolution_status": "auto_merged",
+  "members": [
+    { "user_id": "user-123", "role": "primary", "joined_at": "2026-01-15T..." },
+    { "user_id": "anon-456", "role": "merged", "joined_at": "2026-02-01T..." },
+    { "user_id": "anon-789", "role": "merged", "joined_at": "2026-03-01T..." }
+  ],
+  "linked_devices": [
+    { "fingerprint_id": "a1b2c3...", "first_seen": "2026-01-15T...", "observations": 47 },
+    { "fingerprint_id": "d4e5f6...", "first_seen": "2026-02-01T...", "observations": 23 }
+  ],
+  "linked_ips": [
+    { "ip_hash": "abc123...", "ip_range": "192.168.1.0/24", "observations": 120 }
+  ],
+  "linked_wallets": [
+    { "address": "0x1234...abcd", "vm": "evm", "ens": "user.eth" },
+    { "address": "7nY4...Kx3p", "vm": "svm" }
+  ],
+  "linked_emails": [
+    { "email_hash": "def456...", "domain": "gmail.com" }
+  ]
+}
+```
+
+### GET /v1/resolution/pending
+
+List pending resolution decisions awaiting admin review.
+
+**Query Parameters:** `limit` (optional, default: 50)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "decision_id": "dec-123",
+      "profile_a_id": "user-123",
+      "profile_b_id": "anon-456",
+      "composite_confidence": 0.82,
+      "deterministic_match": false,
+      "signals": { "fingerprint": 0.85, "ip_cluster": 0.78, "location": 0.6 },
+      "created_at": "2026-03-05T12:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /v1/resolution/pending/{id}/approve
+
+Admin approves a pending identity merge.
+
+### POST /v1/resolution/pending/{id}/reject
+
+Admin rejects a pending identity merge.
+
+### GET /v1/resolution/audit/{decision_id}
+
+Get the full audit trail for a resolution decision — includes all signal snapshots at decision time.
+
+### GET /v1/resolution/config
+
+Get the current resolution engine configuration.
+
+**Response:**
+```json
+{
+  "auto_merge_threshold": 0.95,
+  "review_threshold": 0.70,
+  "max_cluster_size": 50,
+  "cooldown_hours": 24,
+  "require_deterministic_for_auto": true,
+  "allow_probabilistic_auto_merge": false
+}
+```
+
+### PUT /v1/resolution/config
+
+Update resolution engine configuration thresholds.
 
 **Request:**
 ```json
 {
-  "referrer": "https://google.com/search?q=aether",
-  "utmSource": "google",
-  "utmMedium": "cpc",
-  "utmCampaign": "brand-q1",
-  "clickIds": { "gclid": "abc123" },
-  "landingPage": "https://app.aether.io/pricing"
+  "auto_merge_threshold": 0.90,
+  "review_threshold": 0.65,
+  "max_cluster_size": 100
 }
 ```
 
-**Response:**
-```json
-{
-  "channel": "paid_search",
-  "source": "google",
-  "medium": "cpc",
-  "campaign": "brand-q1",
-  "isNewVisitor": true,
-  "attribution": {
-    "model": "last_click",
-    "touchpoints": [
-      { "source": "google", "medium": "cpc", "timestamp": "2026-03-05T11:55:00Z" }
-    ]
-  }
-}
-```
+### POST /v1/resolution/batch
+
+Trigger a batch probabilistic matching job for the tenant.
 
 ---
-
-### GET /v1/wallet-label/{address}
-
-Returns risk assessment and label for a wallet address.
-
-**Query Parameters:**
-- `chainId` (optional)
-
-**Response:**
-```json
-{
-  "address": "0x1234...",
-  "label": "Binance Hot Wallet",
-  "type": "exchange",
-  "risk": "low",
-  "tags": ["cex", "high_volume", "verified"],
-  "firstSeen": "2020-01-15",
-  "transactionCount": 1500000
-}
-```
 
 ## Error Responses
 

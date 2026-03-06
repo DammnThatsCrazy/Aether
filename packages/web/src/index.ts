@@ -1,5 +1,5 @@
 // =============================================================================
-// AETHER SDK — MAIN CLASS v5.1.0 (Tier 2 Thin Client)
+// AETHER SDK — MAIN CLASS v7.0.0 (Tier 2 Thin Client)
 // Public API orchestrating all modules: identity, session, events, web3
 // Removed: EdgeML, Experiments, Performance, Feedback, UpdateManager
 // Added: fetchConfig() for backend-driven configuration
@@ -30,8 +30,8 @@ import { DeviceFingerprintCollector } from './core/fingerprint';
 import { generateId, now, getPageContext, getDeviceContext, getCampaignContext } from './utils';
 import { createModuleProxy } from './utils/module-proxy';
 
-const SDK_VERSION = '5.1.0';
-const DEFAULT_ENDPOINT = 'https://api.aether.network';
+const SDK_VERSION = '7.0.0';
+const DEFAULT_ENDPOINT = 'https://api.aether.io';
 
 class AetherSDK implements AetherSDKInterface {
   private config: AetherConfig | null = null;
@@ -95,7 +95,7 @@ class AetherSDK implements AetherSDKInterface {
     }
 
     this.initialized = true;
-    this.log('info', 'Aether SDK v5.1.0 initialized — Tier 2 thin client');
+    this.log('info', 'Aether SDK v7.0.0 initialized — Tier 2 thin client');
   }
 
   track(event: string, properties?: Record<string, unknown>): void {

@@ -13,12 +13,13 @@ npm install @aether/web-sdk
 ## Quick Start
 
 ```typescript
-import { aether } from '@aether/web-sdk';
+import aether from '@aether/web-sdk';
 
 aether.init({
   apiKey: 'your-api-key',
   environment: 'production',
   modules: {
+    walletTracking: true,
     autoDiscovery: true,
     ecommerce: true,
     featureFlags: true,
@@ -41,8 +42,8 @@ aether.init({
 // Custom event
 aether.track('button_clicked', { buttonId: 'cta-hero', variant: 'blue' });
 
-// Page/screen view
-aether.page('pricing', { referrer: '/home' });
+// Page view (auto-tracked on SPA navigation)
+aether.pageView('/pricing', { referrer: '/home' });
 
 // Conversion
 aether.conversion('signup_completed', 0, { plan: 'pro' });
@@ -51,37 +52,62 @@ aether.conversion('signup_completed', 0, { plan: 'pro' });
 ### Identity
 
 ```typescript
-// Identify a user
-aether.identify('user-123', {
-  email: 'user@example.com',
-  plan: 'enterprise',
-  createdAt: '2024-01-15',
+// Identify a user with cross-device resolution signals
+aether.hydrateIdentity({
+  userId: 'user-123',
+  traits: {
+    email: 'user@example.com',
+    plan: 'enterprise',
+    createdAt: '2024-01-15',
+  },
+  // Identity resolution signals (optional)
+  email: 'user@example.com',       // Deterministic cross-device link
+  phone: '+14155551234',            // Deterministic cross-device link
+  oauthProvider: 'google',          // OAuth-based linking
+  oauthSubject: 'google-uid-xyz',   // OAuth subject ID
 });
 
-// Get anonymous ID (auto-generated)
-const anonId = aether.getAnonymousId();
+// Get current identity
+const identity = aether.getIdentity();
+// { anonymousId, userId, wallets[], traits, firstSeen, lastSeen, sessionCount }
 
 // Reset identity (logout)
 aether.reset();
 ```
 
+### Device Fingerprint
+
+The SDK automatically generates a SHA-256 device fingerprint on initialization from 17 browser signals (canvas rendering, WebGL, audio context, fonts, screen, timezone, language, platform, hardware). The fingerprint is included in every event's `context.fingerprint.id`.
+
+- Only the composite hash is sent to the backend — raw signals never leave the browser
+- Fingerprinting is skipped when GDPR mode is active and analytics consent is not granted
+- Cached in localStorage with a 7-day TTL
+
 ### Consent Management (GDPR/CCPA)
 
 ```typescript
 // Grant consent for specific categories
-aether.consent.grant(['analytics', 'marketing']);
+aether.consent.grant(['analytics', 'marketing', 'web3']);
 
 // Revoke consent
 aether.consent.revoke(['marketing']);
 
 // Check consent state
 const state = aether.consent.getState();
-// { analytics: true, marketing: false, functional: true }
+// { analytics: true, marketing: false, web3: true, updatedAt: '...', policyVersion: '...' }
+
+// Show consent banner (auto-shown in gdprMode if no prior consent)
+aether.consent.showBanner({ position: 'bottom', theme: 'dark' });
+
+// Listen for consent changes
+const unsub = aether.consent.onUpdate((state) => {
+  console.log('Consent updated:', state);
+});
 ```
 
 ## Web3 Wallet Tracking
 
-The SDK automatically detects wallets across 7 VM families:
+The SDK detects wallets across 7 VM families:
 
 | VM | Wallets Detected |
 |---|---|
@@ -96,11 +122,27 @@ The SDK automatically detects wallets across 7 VM families:
 ### Wallet Events
 
 ```typescript
-// Wallet events are captured automatically when detected.
-// You can also manually track:
-aether.wallet.connect(address, { chainId: 1, walletType: 'metamask' });
+// EVM wallet
+aether.wallet.connect(address, { chainId: 1, type: 'metamask' });
 aether.wallet.disconnect(address);
 aether.wallet.transaction(txHash, { chainId: 1, value: '1.5' });
+
+// Multi-VM wallets
+aether.wallet.connectSVM(address, { type: 'phantom' });
+aether.wallet.connectBTC(address, { type: 'unisat' });
+aether.wallet.connectSUI(address, { type: 'sui-wallet' });
+aether.wallet.connectNEAR(accountId, { type: 'near-wallet' });
+aether.wallet.connectTRON(address, { type: 'tronlink' });
+aether.wallet.connectCosmos(address, { type: 'keplr' });
+
+// Get all connected wallets
+const wallets = aether.wallet.getWallets();
+const evmWallets = aether.wallet.getWalletsByVM('evm');
+
+// Listen for wallet changes
+const unsub = aether.wallet.onWalletChange((wallets) => {
+  console.log('Wallets changed:', wallets);
+});
 ```
 
 ### Transaction Enrichment
@@ -152,7 +194,7 @@ if (aether.featureFlag.isEnabled('dark-mode')) {
 }
 
 // Get typed value
-const limit = aether.featureFlag.getValue('upload-limit', 10); // default: 10
+const limit = aether.featureFlag.getValue('upload-limit', 10);
 
 // Force refresh from server
 await aether.featureFlag.refresh();
@@ -201,7 +243,7 @@ The SDK automatically captures on init:
 - Click IDs (`gclid`, `fbclid`, `ttclid`, `msclkid`, etc.)
 - Landing page URL
 
-Classification (organic, paid, social, email, etc.) happens server-side.
+Classification (organic, paid, social, email, etc.) happens server-side via `POST /v1/classify-source`.
 
 ## Rewards
 
@@ -220,27 +262,59 @@ await aether.rewards.submitClaim(txHash, 'reward-abc');
 
 ```typescript
 interface AetherConfig {
-  apiKey: string;
+  apiKey: string;                          // Required
   environment?: 'production' | 'staging' | 'development';
-  endpoint?: string;           // Custom API endpoint
-  debug?: boolean;             // Enable console logging
-  batchSize?: number;          // Events per batch (default: 10)
-  flushInterval?: number;      // Flush interval in ms (default: 5000)
+  endpoint?: string;                       // Default: 'https://api.aether.io'
+  debug?: boolean;                         // Enable console logging
   modules?: {
-    autoDiscovery?: boolean;   // Auto-track clicks (default: true)
-    ecommerce?: boolean;       // Ecommerce tracking (default: false)
-    featureFlags?: boolean;    // Feature flags (default: false)
-    heatmaps?: boolean;        // Heatmap collection (default: false)
-    funnels?: boolean;         // Funnel tagging (default: false)
-    formAnalytics?: boolean;   // Form field tracking (default: false)
-    web3?: boolean;            // Web3 wallet detection (default: true)
+    // Web2 Analytics
+    autoDiscovery?: boolean;               // Auto-track clicks (default: true)
+    ecommerce?: boolean;                   // Ecommerce tracking (default: true)
+    featureFlags?: boolean;                // Feature flags (default: false)
+    heatmaps?: boolean;                    // Heatmap collection (default: false)
+    funnels?: boolean;                     // Funnel tagging (default: false)
+    formAnalytics?: boolean;               // Form field tracking (default: true)
+    // Web3 (enable per VM family)
+    walletTracking?: boolean;              // EVM wallets
+    svmTracking?: boolean;                 // Solana wallets
+    bitcoinTracking?: boolean;             // Bitcoin wallets
+    moveTracking?: boolean;                // SUI/Move wallets
+    nearTracking?: boolean;                // NEAR wallets
+    tronTracking?: boolean;                // TRON wallets
+    cosmosTracking?: boolean;              // Cosmos wallets
   };
   privacy?: {
-    anonymizeIP?: boolean;     // Hash IP addresses (default: true)
-    gdprMode?: boolean;        // Require consent before tracking (default: false)
-    respectDNT?: boolean;      // Honor Do Not Track header (default: true)
+    anonymizeIP?: boolean;                 // Hash IP addresses (default: true)
+    gdprMode?: boolean;                    // Require consent before tracking
+    ccpaMode?: boolean;                    // CCPA compliance
+    respectDNT?: boolean;                  // Honor Do Not Track header
+    maskSensitiveFields?: boolean;         // Mask passwords/CC fields
+    cookieConsent?: 'none' | 'notice' | 'opt-in' | 'opt-out';
+  };
+  advanced?: {
+    heartbeatInterval?: number;            // Session heartbeat in ms (default: 30000)
+    batchSize?: number;                    // Events per batch (default: 10)
+    flushInterval?: number;                // Flush interval in ms (default: 5000)
+    maxQueueSize?: number;                 // Max queued events (default: 100)
+    retry?: { maxRetries?: number; baseDelay?: number; maxDelay?: number };
+    customHeaders?: Record<string, string>;
   };
 }
+```
+
+## Plugins
+
+Extend SDK functionality with plugins:
+
+```typescript
+const myPlugin: AetherPlugin = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  init(sdk) { /* called on SDK init */ },
+  destroy() { /* cleanup */ },
+};
+
+aether.use(myPlugin);
 ```
 
 ## Architecture
@@ -249,22 +323,25 @@ The Web SDK follows a **"Sense and Ship"** architecture:
 
 ```
 Browser DOM / Wallets
-        |
+        │
     Raw Events (clicks, scrolls, wallet connects, purchases)
-        |
+        │
+    Device Fingerprint (SHA-256 from 17 browser signals)
+        │
     Consent Gate (GDPR/CCPA check)
-        |
+        │
     Event Queue (localStorage persistence, batch flush)
-        |
+        │
     POST /v1/events → Aether Backend
-        |
+        │
     Backend Processing:
-    - ML inference (intent, bot detection)
-    - DeFi transaction classification
-    - Traffic source classification
-    - Funnel matching & analysis
-    - Heatmap grid generation
-    - Portfolio aggregation
+    ├── Identity resolution (cross-device matching)
+    ├── ML inference (intent, bot detection)
+    ├── DeFi transaction classification
+    ├── Traffic source classification
+    ├── Funnel matching & analysis
+    ├── Heatmap grid generation
+    └── Portfolio aggregation
 ```
 
 ### What the SDK does NOT do (v7.0+):
