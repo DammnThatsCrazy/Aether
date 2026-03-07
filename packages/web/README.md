@@ -7,7 +7,7 @@
 ![Tests](https://img.shields.io/badge/tests-Vitest-6E9F18)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey)
 
-**Behavioral analytics SDK for the browser with multi-chain Web3 support.** Track user interactions, resolve identities across sessions, run A/B experiments, monitor Web3 wallets across 7 VM families (EVM, Solana, Bitcoin, MoveVM, NEAR, TRON, Cosmos), track DeFi positions across 150+ protocols, aggregate cross-chain portfolios, and score sessions with on-device ML -- all with built-in GDPR consent management and privacy-first data collection.
+**Behavioral analytics SDK for the browser with multi-chain Web3 support.** Track user interactions, resolve identities across sessions, monitor Web3 wallets across 7 VM families (EVM, Solana, Bitcoin, MoveVM, NEAR, TRON, Cosmos), and manage GDPR consent — all with a thin-client architecture that ships raw events to the Aether backend for processing, ML inference, and classification.
 
 ---
 
@@ -18,14 +18,10 @@
 - **Session management** -- automatic timeout, heartbeat, and SPA navigation support
 - **GDPR consent management** -- configurable banner UI with per-purpose opt-in/opt-out
 - **Auto-discovery** -- automatic capture of clicks, forms, scroll depth, rage clicks, and dead clicks
-- **A/B experiments** -- deterministic variant assignment with weighted splits and exposure tracking
-- **Multi-chain Web3 wallet tracking** -- 7 VM families (EVM, SVM/Solana, Bitcoin, MoveVM/SUI, NEAR, TVM/TRON, Cosmos) with 20+ blockchain support, wallet classification (hot, cold, smart, exchange, protocol, multisig), and automatic provider detection
-- **DeFi protocol tracking** -- 150+ protocols across 15 categories (DEX, lending, perpetuals, staking, bridges, NFTs, yield, governance, insurance, options, launchpads, payments, restaking, CEX, routing)
-- **Cross-chain portfolio aggregation** -- real-time portfolio value tracking, token balances, and DeFi position monitoring across all connected chains
-- **Edge ML** -- in-browser intent prediction, bot detection, and session scoring (no server round-trip)
-- **Performance monitoring** -- Core Web Vitals (LCP, FID, CLS, TTFB, FCP) and error tracking
-- **CDN auto-loader** -- lightweight (~3KB) loader at stable URL that dynamically fetches and caches the latest SDK bundle, with background version checks and offline fallback
-- **OTA data updates** -- automatic over-the-air updates for chain registry, DeFi protocol definitions, wallet labels, and classification rules without requiring SDK reinstall
+- **Feature flags** -- server-evaluated flags with stale-while-revalidate local cache
+- **Multi-chain Web3 wallet tracking** -- 7 VM families (EVM, SVM/Solana, Bitcoin, MoveVM/SUI, NEAR, TVM/TRON, Cosmos) with 20+ blockchain support and automatic provider detection
+- **Device fingerprinting** -- 17 browser signals hashed to SHA-256 for cross-device identity resolution
+- **CDN auto-loader** -- lightweight (~3KB) loader at stable URL that dynamically fetches and caches the latest SDK bundle
 - **Event batching** -- configurable batch size, flush intervals, retry with exponential backoff, and offline queue persistence
 - **Tiered semantic context** -- 3-tier consent-driven context enrichment (Essential → Functional → Rich) with journey stage inference, sentiment signals (frustration, engagement, urgency, confusion), interaction heatmaps, and inferred intent -- automatically attached to every event
 - **Automatic traffic source tracking** -- zero-config detection of all traffic sources (UTM params, ad click IDs across 12 platforms, organic/social/email/referral classification), localStorage-persisted attribution with configurable window, and dynamic virtual link creation on the backend

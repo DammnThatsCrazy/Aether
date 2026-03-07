@@ -1,7 +1,7 @@
 {
   "name": "@aether/web",
-  "version": "4.0.0",
-  "description": "Aether SDK for Web — Behavioral analytics, Web3 tracking, and Edge ML",
+  "version": "8.2.0",
+  "description": "Aether SDK for Web — Behavioral analytics with thin-client architecture",
   "main": "dist/aether.cjs.js",
   "module": "dist/aether.esm.js",
   "types": "dist/index.d.ts",

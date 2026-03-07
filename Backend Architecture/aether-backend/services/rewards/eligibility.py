@@ -19,6 +19,7 @@ Integration:
 
 from __future__ import annotations
 
+import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -206,6 +207,7 @@ class EligibilityEngine:
         self._campaigns: dict[str, Campaign] = {}
         self._claim_counts: dict[tuple[str, str], int] = defaultdict(int)
         self._last_claim_ts: dict[tuple[str, str], float] = {}
+        self._claim_lock = threading.Lock()
 
     # -- campaign management ---------------------------------------------
 
@@ -285,19 +287,24 @@ class EligibilityEngine:
     # -- claim recording -------------------------------------------------
 
     def record_claim(self, user_address: str, campaign_id: str) -> None:
-        """Record that a user has claimed a reward from a campaign."""
-        key = (user_address.lower(), campaign_id)
-        self._claim_counts[key] += 1
-        self._last_claim_ts[key] = time.time()
+        """Record that a user has claimed a reward from a campaign.
 
-        campaign = self._campaigns.get(campaign_id)
-        if campaign and campaign.rules:
-            # Debit the first-matching tier amount from campaign budget
-            campaign.spent_wei += campaign.rules[0].reward_tier.amount_wei
+        Thread-safe: uses a lock to prevent lost-update races on
+        concurrent claim submissions.
+        """
+        with self._claim_lock:
+            key = (user_address.lower(), campaign_id)
+            self._claim_counts[key] += 1
+            self._last_claim_ts[key] = time.time()
+
+            campaign = self._campaigns.get(campaign_id)
+            if campaign and campaign.rules:
+                # Debit the first-matching tier amount from campaign budget
+                campaign.spent_wei += campaign.rules[0].reward_tier.amount_wei
 
         logger.info(
             f"Claim recorded: user={user_address} campaign={campaign_id} "
-            f"total_claims={self._claim_counts[key]}"
+            f"total_claims={self._claim_counts[(user_address.lower(), campaign_id)]}"
         )
         metrics.increment("rewards_claims_recorded", labels={"campaign": campaign_id})
 

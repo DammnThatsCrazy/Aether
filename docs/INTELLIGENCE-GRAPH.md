@@ -87,9 +87,9 @@ A weighted composite derived entirely from existing model outputs. No new model 
 
 | Component | Weight | Source |
 |-----------|--------|--------|
-| Transaction Score | 40% | Existing Whale Detection + DeFi Tx Classifier |
+| Transaction Score | 40% | Existing Anomaly Detection + Fraud Engine signals |
 | Identity Score | 35% | Existing Identity Resolution confidence + Bot Detection inverse |
-| Behavioral Score | 25% | Existing Intent Prediction + Session Quality heuristics |
+| Behavioral Score | 25% | Existing Intent Prediction + Session Scoring heuristics |
 
 **Output:** `trustScore` float `0.0 - 1.0`, written to `AGENT` node on every task completion.
 

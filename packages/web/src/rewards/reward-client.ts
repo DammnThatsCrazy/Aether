@@ -24,12 +24,13 @@ export class RewardClient {
 
   /** Check eligibility via backend */
   async checkEligibility(userId: string, rewardId: string): Promise<Record<string, unknown>> {
-    const response = await fetch(`${this.endpoint}/v1/rewards/${rewardId}/eligibility?userId=${encodeURIComponent(userId)}`, {
-      method: 'GET',
+    const response = await fetch(`${this.endpoint}/v1/rewards/${rewardId}/eligibility`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ userId }),
     });
     if (!response.ok) throw new Error(`Eligibility check failed: ${response.status}`);
     return response.json();
@@ -37,12 +38,13 @@ export class RewardClient {
 
   /** Get claim payload from backend */
   async getClaimPayload(userId: string, rewardId: string): Promise<Record<string, unknown>> {
-    const response = await fetch(`${this.endpoint}/v1/rewards/${rewardId}/payload?userId=${encodeURIComponent(userId)}`, {
-      method: 'GET',
+    const response = await fetch(`${this.endpoint}/v1/rewards/${rewardId}/payload`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ userId }),
     });
     if (!response.ok) throw new Error(`Claim payload fetch failed: ${response.status}`);
     return response.json();

@@ -66,7 +66,7 @@ pnpm add @aether/react-native
 cd ios && pod install && cd ..
 ```
 
-The podspec declares a dependency on `AetherSDK ~> 5.0`, which CocoaPods will resolve automatically.
+The podspec declares a dependency on `AetherSDK ~> 7.0`, which CocoaPods will resolve automatically.
 
 ### 3. Android -- Gradle
 

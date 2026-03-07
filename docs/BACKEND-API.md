@@ -1,8 +1,8 @@
-# Aether Backend API v7.0.0 — Endpoint Specification
+# Aether Backend API v8.2.0 — Endpoint Specification
 
 ## Overview
 
-The v7.0 thin-client architecture requires the backend to handle all processing that was previously done client-side. This document specifies all backend endpoints.
+The thin-client architecture requires the backend to handle all processing that was previously done client-side. This document specifies all backend endpoints.
 
 ## Authentication
 

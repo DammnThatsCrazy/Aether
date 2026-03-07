@@ -246,10 +246,10 @@ class OracleSigner(BaseProofSigner):
         packed = b"".join([
             bytes.fromhex(user.removeprefix("0x").lower()),
             action_type.encode("utf-8"),
-            struct.pack(">Q", amount_wei),           # uint256 simplified to uint64
-            bytes.fromhex(nonce),                     # 32 bytes
-            struct.pack(">Q", expiry),                # uint256 simplified to uint64
-            struct.pack(">Q", self._config.chain_id), # uint256 simplified to uint64
+            amount_wei.to_bytes(32, "big"),            # uint256 (full 256-bit range)
+            bytes.fromhex(nonce),                      # 32 bytes
+            expiry.to_bytes(32, "big"),                 # uint256
+            self._config.chain_id.to_bytes(32, "big"),  # uint256
             bytes.fromhex(self._config.contract_address.removeprefix("0x").lower()),
         ])
         # Production: return Web3.keccak(packed).hex()

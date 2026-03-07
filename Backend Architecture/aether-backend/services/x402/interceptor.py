@@ -32,6 +32,9 @@ CARD_FEE_RATE = 0.029
 # Maximum header value size (8 KB)
 _MAX_HEADER_SIZE = 8192
 
+# Maximum in-memory captures before eviction (prevents OOM)
+_MAX_CAPTURES = 10_000
+
 
 class X402Interceptor:
     """
@@ -130,7 +133,10 @@ class X402Interceptor:
             fee_eliminated_usd=fee_eliminated,
         )
 
-        # Record capture locally first (always succeeds)
+        # Record capture locally (evict oldest if at capacity)
+        if len(self._captures) >= _MAX_CAPTURES:
+            self._captures = self._captures[-(_MAX_CAPTURES // 2):]
+            logger.warning(f"x402 capture buffer evicted: trimmed to {len(self._captures)} entries")
         self._captures.append(tx)
 
         # Publish event (non-critical — capture still succeeds if publish fails)

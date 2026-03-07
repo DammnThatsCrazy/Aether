@@ -24,10 +24,10 @@ SDK (Web/iOS/Android/RN)          Backend (FastAPI + Neptune + TimescaleDB)
 
 | Platform | Package | Size |
 |---|---|---|
-| **Web** | `@aether/web-sdk` | ~5,200 LOC |
+| **Web** | `@aether/web` | ~5,200 LOC |
 | **iOS** | `AetherSDK` (Swift) | ~535 LOC |
 | **Android** | `io.aether:sdk-android` (Kotlin) | ~493 LOC |
-| **React Native** | `@aether/react-native-sdk` | ~497 LOC |
+| **React Native** | `@aether/react-native` | ~497 LOC |
 
 ### Quick Start
 
@@ -99,8 +99,8 @@ import { AetherProvider } from '@aether/react-native-sdk';
 | Layers | 8 | L0 On-Chain Actions through L7 Compliance |
 | ML Models | 9 | Intent, bot, session (edge); identity resolution, journey, churn, LTV, anomaly, attribution (server) |
 | Streams | 5 | Wallet tx, SDK events, agent logs, x402 receipts, oracle callbacks |
-| Node Types | 6 | User, Device, Wallet, Agent, Contract, Merchant |
-| Edge Types | 13 | Transfer, Delegation, Invocation, Co-sign, Referral, etc. |
+| Node Types | 6 | Agent, Service, Contract, Protocol, Payment, ActionRecord (new; layered onto existing Identity Graph) |
+| Edge Types | 13 | LAUNCHED_BY, DELEGATES, INTERACTS_WITH, HIRED, PAYS, CONSUMES, EARNS_FROM, DEPLOYED, CALLED, USES_PROTOCOL, PRODUCED, REFERENCES, TRIGGERED_BY |
 | Stores | 5 | Neptune, TimescaleDB, Redis, S3, Kafka |
 
 ### New Services (Feature-Flagged)

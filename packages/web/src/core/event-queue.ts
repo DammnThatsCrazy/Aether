@@ -181,10 +181,13 @@ export class EventQueue {
       batch: this.filterByConsent(events),
       sentAt: new Date().toISOString(),
       context: { library: { name: '@aether/sdk', version: '__SDK_VERSION__' } },
-      apiKey: this.config.apiKey,
     });
     const blob = new Blob([payload], { type: 'application/json' });
-    return navigator.sendBeacon(`${this.config.endpoint}/v1/batch`, blob);
+    // API key sent via query param (sendBeacon does not support custom headers)
+    return navigator.sendBeacon(
+      `${this.config.endpoint}/v1/batch?token=${encodeURIComponent(this.config.apiKey)}`,
+      blob,
+    );
   }
 
   private startFlushTimer(): void {

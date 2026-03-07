@@ -19,6 +19,7 @@ Integration:
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import time
 from dataclasses import dataclass, field
@@ -136,8 +137,7 @@ class FraudEngine:
     def _register_defaults(self) -> None:
         """Populate with the default signal set, applying any custom weights."""
         for signal in DEFAULT_SIGNALS:
-            clone = signal.__class__.__new__(signal.__class__)
-            clone.__dict__.update(signal.__dict__)
+            clone = copy.deepcopy(signal)
             if clone.name in self.config.custom_weights:
                 clone.weight = self.config.custom_weights[clone.name]
             self._signals.append(clone)

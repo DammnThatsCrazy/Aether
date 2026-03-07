@@ -182,6 +182,7 @@ object Aether : DefaultLifecycleObserver {
 
     fun reset() {
         flush()
+        flushJob?.cancel()
         userId = null
         traits.clear()
         anonymousId = UUID.randomUUID().toString()
