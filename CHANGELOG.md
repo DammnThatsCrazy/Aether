@@ -29,6 +29,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
+## [7.0.0] — 2026-03-05
+
+### Thin-Client Architecture, Identity Resolution, and DRY Consolidation
+
+Major architectural shift to "Sense and Ship" thin-client design. SDKs now collect and ship raw events; all processing (identity resolution, ML inference, DeFi classification, funnel matching, heatmap generation) happens server-side. Cross-device identity resolution with hybrid deterministic + probabilistic matching. Full codebase DRY consolidation eliminating duplication across SDK, backend, and cross-platform modules.
+
+### Added
+
+- **Identity Resolution Engine** (`Backend Architecture/aether-backend/services/identity/`) — deterministic matching (email, phone, wallet, OAuth) + probabilistic matching (device fingerprint similarity, behavioral clustering, temporal overlap) with configurable thresholds
+- **Identity Graph** — Neptune-backed graph with User, Session, Device, Email, Phone, Wallet, Company, IdentityCluster vertex types and HAS_SESSION, VIEWED_PAGE, TRIGGERED_EVENT, OWNS_WALLET, MEMBER_OF_CLUSTER, SIMILAR_TO edge types
+- **Identity Resolution ML Model** — PyTorch MLP + Graph Attention Network for probabilistic cross-device identity matching
+- **SDK hydrateIdentity()** — new method across all 4 SDKs that receives resolved identity from backend and hydrates local session
+- **Backend processing pipeline** — server-side IP enrichment, identity resolution, ML inference, DeFi classification, traffic attribution, funnel matching, heatmap generation, whale detection
+
+### Changed
+
+- **Web SDK** — stripped to thin client: removed all server-side logic, SDK now collects raw events and ships via POST /v1/events
+- **iOS/Android/React Native SDKs** — aligned to thin-client architecture with identical event-shipping pattern
+- **Backend** — expanded from 15 to 16 microservices with dedicated Identity Resolution service
+- **Documentation** — complete rewrite of ARCHITECTURE.md, new IDENTITY-RESOLUTION.md, updated BACKEND-API.md with identity endpoints
+
+### Refactored
+
+- **DRY consolidation** — eliminated duplication across SDK packages, backend services, and cross-platform modules
+- **Shared type definitions** — unified type system across TypeScript SDK and Python backend
+- **Common utilities** — consolidated redundant helper functions into shared modules
+
+### Stats
+
+- **36 files changed** — 8 added, 28 modified
+
+---
+
 ## [6.1.0] — 2026-03-04
 
 ### Web2 Analytics Modules & Multi-Chain Reward Automation
@@ -545,6 +578,7 @@ Initial release of the Aether platform with the Web SDK, React Native bridge, na
 | Version | Date | Highlights |
 |---------|------|------------|
 | [8.0.0](#800--2026-03-06) | 2026-03-06 | Unified On-Chain Intelligence Graph (8 layers, H2H/H2A/A2A), commerce service, on-chain actions, x402 interceptor, trust score, bytecode risk, agent extensions, 2 new consent purposes |
+| [7.0.0](#700--2026-03-05) | 2026-03-05 | Thin-client "Sense and Ship" architecture, identity resolution (deterministic + probabilistic), DRY consolidation |
 | [6.1.0](#610--2026-03-04) | 2026-03-04 | Web2 analytics modules (ecommerce, forms, feature flags, feedback, heatmaps, funnels), multi-chain reward automation (7 VMs), smart contracts (Solana, SUI, NEAR, Cosmos) |
 | [6.0.0](#600--2026-03-04) | 2026-03-04 | Smart contract analytics integration, fraud engine, attribution, oracle bridge, automated rewards, on-chain claiming |
 | [5.2.0](#520--2026-03-04) | 2026-03-04 | Tiered semantic context, automatic traffic source tracking, ML optimization (quantization, distillation, pruning) |
