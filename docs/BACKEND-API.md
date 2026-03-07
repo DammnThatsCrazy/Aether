@@ -191,7 +191,7 @@ ML inference endpoint (replaces client-side edge-ml).
 **Request:**
 ```json
 {
-  "type": "intent|bot|session_score",
+  "type": "intent|bot|session_score|identity|journey|churn|ltv|anomaly|attribution",
   "signals": {
     "scrollDepth": 0.75,
     "timeOnPage": 45,

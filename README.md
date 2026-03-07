@@ -77,7 +77,7 @@ import { AetherProvider } from '@aether/react-native-sdk';
 - **Feature flags** — Server-evaluated, locally cached
 - **Automatic traffic source detection** — Server-side SourceClassifier with 40+ social, 17+ search, 14 email domain tables and 12 ad platform click IDs; priority chain: Click IDs → UTMs → Referrer → Direct
 - **Web2 analytics** — Ecommerce, funnels, heatmaps, form analytics
-- **ML inference** — Server-side intent prediction, bot detection, session scoring
+- **ML inference** — 9 production models across edge and server tiers: intent prediction, bot detection, session scoring (edge, < 100ms); identity resolution (GNN), journey prediction (LSTM), churn prediction (XGBoost), LTV prediction (ensemble), anomaly detection (Isolation Forest + AutoEncoder), campaign attribution (Shapley values) (server, SageMaker/ECS)
 - **Diagnostics & circuit breakers** — Centralized error registry with SHA-256 fingerprinting, per-operation circuit breakers, and real-time health monitoring
 
 ## Unified On-Chain Intelligence Graph
@@ -97,7 +97,7 @@ import { AetherProvider } from '@aether/react-native-sdk';
 | Dimension | Count | Notes |
 |---|---|---|
 | Layers | 8 | L0 On-Chain Actions through L7 Compliance |
-| ML Models | 6 | Mapped from existing 9 (intent, bot, session, anomaly, attribution, fraud) |
+| ML Models | 9 | Intent, bot, session (edge); identity resolution, journey, churn, LTV, anomaly, attribution (server) |
 | Streams | 5 | Wallet tx, SDK events, agent logs, x402 receipts, oracle callbacks |
 | Node Types | 6 | User, Device, Wallet, Agent, Contract, Merchant |
 | Edge Types | 13 | Transfer, Delegation, Invocation, Co-sign, Referral, etc. |

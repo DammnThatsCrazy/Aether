@@ -13,7 +13,7 @@ Aether v7.0 adopts a **"Sense and Ship"** thin-client architecture across all pl
 │  - Device fingerprinting    │  /v1/  │  - Identity resolution           │
 │  - Wallet detection (7 VMs) │ batch  │    (deterministic + probabilistic│
 │  - Raw event batching       │        │     cross-device matching)       │
-│  - Session & identity mgmt  │  GET   │  - ML inference (intent, bot)    │
+│  - Session & identity mgmt  │  GET   │  - ML inference (9 models)       │
 │  - Consent gates (GDPR)     │  /v1/  │  - DeFi tx classification        │
 │  - Feature flag cache       │ config │  - Traffic source auto-classify  │
 │  - Fingerprint generation   │        │  - Funnel matching & analysis    │
@@ -233,7 +233,7 @@ Resolution Consumer (real-time)
 | `/v1/tx/enrich` | POST | Transaction classification + DeFi labeling |
 | `/v1/chains/{id}` | GET | Chain metadata on demand |
 | `/v1/protocols/{addr}` | GET | Protocol identification |
-| `/v1/predict` | POST | ML inference (intent, bot, scoring) |
+| `/v1/predict` | POST | ML inference (9 models: intent, bot, session, identity, journey, churn, LTV, anomaly, attribution) |
 | `/v1/rewards/{id}/eligibility` | GET | Reward eligibility check |
 | `/v1/rewards/{id}/payload` | GET | Pre-built claim transaction |
 | `/v1/rewards/{id}/claim` | POST | Submit on-chain claim |
@@ -346,7 +346,7 @@ The Identity Graph above captures **who** a user is across devices and wallets. 
 
 ### Layer 1 — H2H (Human-to-Human)
 
-The existing behavioral analytics layer, unchanged. Vertices: `User`, `Session`, `Device`, `Email`, `Wallet`, `IdentityCluster`. Seven ML models (intent prediction, bot detection, whale scoring, churn risk, conversion propensity, funnel dropout, traffic quality) continue to operate on this layer exclusively.
+The existing behavioral analytics layer, unchanged. Vertices: `User`, `Session`, `Device`, `Email`, `Wallet`, `IdentityCluster`. Nine ML models — edge (intent prediction, bot detection, session scoring) and server (identity resolution, journey prediction, churn prediction, LTV prediction, anomaly detection, campaign attribution) — continue to operate on this layer.
 
 ### Layer 2 — H2A (Human-to-Agent)
 

@@ -339,7 +339,7 @@ Browser DOM / Wallets
         │
     Backend Processing:
     ├── Identity resolution (cross-device matching)
-    ├── ML inference (intent, bot detection)
+    ├── ML inference (9 models: intent, bot, session, identity, journey, churn, LTV, anomaly, attribution)
     ├── DeFi transaction classification
     ├── Traffic source classification
     ├── Funnel matching & analysis
