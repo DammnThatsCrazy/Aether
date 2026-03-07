@@ -40,6 +40,16 @@ class VertexType:
     WALLET = "Wallet"
     IDENTITY_CLUSTER = "IdentityCluster"
 
+    # Intelligence Graph — Actor nodes
+    AGENT = "Agent"
+    SERVICE = "Service"
+    CONTRACT = "Contract"
+    PROTOCOL = "Protocol"
+
+    # Intelligence Graph — Record nodes
+    PAYMENT = "Payment"
+    ACTION_RECORD = "ActionRecord"
+
 
 class EdgeType:
     HAS_SESSION = "HAS_SESSION"
@@ -61,6 +71,27 @@ class EdgeType:
     MEMBER_OF_CLUSTER = "MEMBER_OF_CLUSTER"
     SIMILAR_TO = "SIMILAR_TO"
     IP_MAPS_TO = "IP_MAPS_TO"
+
+    # Intelligence Graph — Human-to-Agent (H2A)
+    LAUNCHED_BY = "LAUNCHED_BY"           # Agent → User who created it
+    DELEGATES = "DELEGATES"               # User → Agent (task delegation)
+    INTERACTS_WITH = "INTERACTS_WITH"     # User → Protocol
+
+    # Intelligence Graph — Economic edges
+    PAYS = "PAYS"                         # Agent/User → Agent/Service
+    CONSUMES = "CONSUMES"                 # Agent → Service (API consumption)
+    HIRED = "HIRED"                       # Agent → Agent (task hiring)
+
+    # Intelligence Graph — Protocol / On-Chain (A2A)
+    DEPLOYED = "DEPLOYED"                 # Agent → Contract
+    CALLED = "CALLED"                     # Agent/User → Contract
+    COMPOSED_WITH = "COMPOSED_WITH"       # Contract → Contract
+    UPGRADED = "UPGRADED"                 # Contract → Contract (proxy upgrade)
+    GOVERNED_BY = "GOVERNED_BY"           # Protocol → Contract (governance)
+    DEPENDS_ON = "DEPENDS_ON"             # Agent → Agent (dependency)
+
+    # Intelligence Graph — Action tracking
+    PERFORMED_ACTION = "PERFORMED_ACTION"  # Agent → ActionRecord
 
 
 # ═══════════════════════════════════════════════════════════════════════════

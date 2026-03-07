@@ -78,6 +78,46 @@ import { AetherProvider } from '@aether/react-native-sdk';
 - **Web2 analytics** — Ecommerce, funnels, heatmaps, form analytics, traffic attribution
 - **ML inference** — Server-side intent prediction, bot detection, session scoring
 
+## Unified On-Chain Intelligence Graph
+
+8-layer architecture for tracking behavioral and financial relationships across human-to-human, human-to-agent, and agent-to-agent interactions. Built on top of the existing Neptune identity graph.
+
+### Relationship Layers
+
+| Layer | Description |
+|---|---|
+| **H2H** (Human-to-Human) | Referral chains, shared-wallet co-signers, social graph edges derived from on-chain transfers |
+| **H2A** (Human-to-Agent) | User interactions with autonomous agents — delegation events, tool invocations, approval flows |
+| **A2A** (Agent-to-Agent) | Inter-agent message passing, x402 payment channels, orchestration dependencies |
+
+### By the Numbers
+
+| Dimension | Count | Notes |
+|---|---|---|
+| Layers | 8 | L0 On-Chain Actions through L7 Compliance |
+| ML Models | 6 | Mapped from existing 9 (intent, bot, session, anomaly, attribution, fraud) |
+| Streams | 5 | Wallet tx, SDK events, agent logs, x402 receipts, oracle callbacks |
+| Node Types | 6 | User, Device, Wallet, Agent, Contract, Merchant |
+| Edge Types | 13 | Transfer, Delegation, Invocation, Co-sign, Referral, etc. |
+| Stores | 5 | Neptune, TimescaleDB, Redis, S3, Kafka |
+
+### New Services (Feature-Flagged)
+
+All intelligence graph layers are **disabled by default**. Progressive activation via environment variables (`AETHER_GRAPH_L0=true`, etc.).
+
+- **On-Chain Actions (L0)** — Raw transaction indexing and event normalization (`AETHER_GRAPH_L0`)
+- **Commerce (L3a)** — Merchant-side analytics, cart-to-chain attribution (`AETHER_GRAPH_L3A`)
+- **x402 Interceptor (L3b)** — Agent-to-agent micropayment capture and settlement tracking (`AETHER_GRAPH_L3B`)
+
+### Scoring
+
+- **Trust Score** — Composite metric derived from existing ML models (intent, bot, fraud, anomaly) applied to graph node context
+- **Bytecode Risk** — Rule-based scorer for smart contract interactions; no ML dependency
+
+### GDPR Compliance
+
+2 new consent purposes added: `agent_interaction` and `commerce_tracking`. DSR (Data Subject Request) cascade extended to cover all new vertex types (Agent, Contract, Merchant).
+
 ## Project Structure
 
 ```

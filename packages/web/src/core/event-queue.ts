@@ -40,6 +40,10 @@ const CONSENT_MAP: Record<string, string> = {
   perpetual_trade: 'web3', options_trade: 'web3', governance_vote: 'web3',
   yield_harvest: 'web3', nft_trade: 'web3', staking_action: 'web3',
   insurance_action: 'web3', launchpad_action: 'web3', payment_stream: 'web3',
+  // Intelligence Graph events
+  agent_task: 'agent', agent_decision: 'agent',
+  payment: 'commerce', x402_payment: 'commerce',
+  contract_action: 'web3',
 };
 
 export class EventQueue {

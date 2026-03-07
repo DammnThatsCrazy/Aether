@@ -15,7 +15,7 @@ export class ConsentModule {
 
   constructor(config?: Partial<ConsentConfig>) {
     this.config = {
-      purposes: ['analytics', 'marketing', 'web3'],
+      purposes: ['analytics', 'marketing', 'web3', 'agent', 'commerce'],
       policyUrl: '/privacy',
       policyVersion: '1.0',
       ...config,
@@ -179,6 +179,8 @@ export class ConsentModule {
       analytics: false,
       marketing: false,
       web3: false,
+      agent: false,
+      commerce: false,
       updatedAt: now(),
       policyVersion: this.config.policyVersion,
     };

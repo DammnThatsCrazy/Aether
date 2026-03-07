@@ -143,6 +143,31 @@ class AuthConfig:
 
 
 # ---------------------------------------------------------------------------
+# Intelligence Graph — feature flags for progressive layer activation
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class IntelligenceGraphConfig:
+    """Feature flags for Unified On-Chain Intelligence Graph layers."""
+    enable_agent_layer: bool = _env_bool("IG_AGENT_LAYER", False)           # L2
+    enable_commerce_layer: bool = _env_bool("IG_COMMERCE_LAYER", False)     # L3a
+    enable_x402_layer: bool = _env_bool("IG_X402_LAYER", False)             # L3b
+    enable_onchain_layer: bool = _env_bool("IG_ONCHAIN_LAYER", False)       # L0
+    enable_trust_scoring: bool = _env_bool("IG_TRUST_SCORING", False)       # Composite
+    enable_bytecode_risk: bool = _env_bool("IG_BYTECODE_RISK", False)       # Rule-based
+    enable_rpc_gateway: bool = _env_bool("IG_RPC_GATEWAY", False)           # L6
+
+
+@dataclass(frozen=True)
+class QuickNodeConfig:
+    """L6 Infrastructure Backbone — single shared RPC gateway."""
+    api_key: str = _env("QUICKNODE_API_KEY", "")
+    endpoint: str = _env("QUICKNODE_ENDPOINT", "")
+    x402_enabled: bool = _env_bool("QUICKNODE_X402_ENABLED", False)
+    max_rps: int = _env_int("QUICKNODE_MAX_RPS", 100)
+
+
+# ---------------------------------------------------------------------------
 # Master settings
 # ---------------------------------------------------------------------------
 
@@ -163,6 +188,10 @@ class Settings:
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     api: APIConfig = field(default_factory=APIConfig)
     auth: AuthConfig = field(default_factory=AuthConfig)
+
+    # Intelligence Graph
+    intelligence_graph: IntelligenceGraphConfig = field(default_factory=IntelligenceGraphConfig)
+    quicknode: QuickNodeConfig = field(default_factory=QuickNodeConfig)
 
     @property
     def is_production(self) -> bool:

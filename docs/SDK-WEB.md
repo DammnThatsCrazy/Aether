@@ -357,3 +357,26 @@ Browser DOM / Wallets
 - No heatmap grid building
 
 All of the above are handled by the Aether backend.
+
+## Intelligence Graph Event Types
+
+v8.0 adds 5 new event types for the Intelligence Graph:
+
+| Event Type | Description | Required Consent |
+|---|---|---|
+| `agent_task` | An AI agent begins or completes a task | `agent` |
+| `agent_decision` | An AI agent makes an autonomous decision | `agent` |
+| `payment` | A fiat or crypto payment is recorded | `commerce` |
+| `x402_payment` | An HTTP 402-based micropayment is captured | `commerce` |
+| `contract_action` | A smart-contract interaction is observed | `web3` |
+
+Two new consent purposes are available alongside the existing `analytics`, `marketing`, and `web3` purposes:
+- **`agent`** — governs tracking of AI-agent activity (`agent_task`, `agent_decision`)
+- **`commerce`** — governs tracking of payment events (`payment`, `x402_payment`)
+
+The SDK routes events through a `CONSENT_MAP`:
+- `agent_task` / `agent_decision` → `'agent'`
+- `payment` / `x402_payment` → `'commerce'`
+- `contract_action` → `'web3'`
+
+These events are only tracked when the corresponding consent purpose is granted. If the user has not consented to the mapped purpose, the event is silently dropped at flush time, consistent with all other consent-gated event types.

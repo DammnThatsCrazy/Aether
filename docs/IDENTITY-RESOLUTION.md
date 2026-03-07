@@ -280,3 +280,17 @@ aether.identify('user-123', {
 // When a user connects MetaMask on desktop AND Phantom on mobile,
 // the backend resolves both to the same identity cluster.
 ```
+
+## Agent Identity Resolution
+
+v8.0 extends the identity graph to autonomous AI agents and smart contracts.
+
+**AGENT vertex** — Every registered agent receives its own `AGENT` vertex in the identity graph, connected to its owner via a `LAUNCHED_BY` edge pointing to the owner's `User` vertex. Agent identity links include:
+- `owner_user_id` — the human user who deployed or owns the agent
+- `model_name` — the underlying model (e.g. `gpt-4o`, `claude-opus-4-20250514`)
+- `capabilities[]` — declared capability set (e.g. `['trade', 'analyze', 'deploy']`)
+- `wallet` — the agent's on-chain wallet address (if applicable)
+
+**Cross-layer resolution (H2A edges)** — Human-to-Agent (`H2A`) edges trace attribution from agent actions back to the human users who launched them. When an agent performs an on-chain action or records a decision, the resolution consumer follows the `LAUNCHED_BY` edge to attribute the activity to the owning `IdentityCluster`. This enables end-to-end auditability across the human-agent boundary.
+
+**CONTRACT vertex** — Smart contracts deployed by agents receive a `CONTRACT` vertex linked to the deploying agent via a `DEPLOYED` edge (`AGENT → CONTRACT`). Contract vertices store `address`, `chain_id`, `bytecode_hash`, and `deployer_agent_id`, enabling full provenance from contract back to human owner through the agent layer.

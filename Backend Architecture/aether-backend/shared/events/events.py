@@ -64,6 +64,27 @@ class Topic(str, Enum):
     FINGERPRINT_OBSERVED = "aether.identity.fingerprint.observed"
     IP_OBSERVED = "aether.identity.ip.observed"
 
+    # Intelligence Graph — Agent Behavioral (L2)
+    AGENT_TASK_STARTED = "aether.agent.task.started"
+    AGENT_TASK_COMPLETED = "aether.agent.task.completed"
+    AGENT_DECISION_MADE = "aether.agent.decision.made"
+    AGENT_STATE_SNAPSHOT = "aether.agent.state.snapshot"
+    AGENT_GROUND_TRUTH = "aether.agent.ground_truth"
+
+    # Intelligence Graph — Commerce (L3a)
+    PAYMENT_SENT = "aether.commerce.payment.sent"
+    AGENT_HIRED = "aether.commerce.agent.hired"
+    SERVICE_PURCHASED = "aether.commerce.service.purchased"
+    FEE_ELIMINATED = "aether.commerce.fee.eliminated"
+
+    # Intelligence Graph — On-Chain Actions (L0)
+    ACTION_RECORDED = "aether.onchain.action.recorded"
+    CONTRACT_DEPLOYED = "aether.onchain.contract.deployed"
+    CONTRACT_CALLED = "aether.onchain.contract.called"
+
+    # Intelligence Graph — x402 Payments (L3b)
+    X402_PAYMENT_CAPTURED = "aether.x402.payment.captured"
+
     # Dead letter
     DEAD_LETTER = "aether.dlq"
 

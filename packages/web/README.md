@@ -711,6 +711,22 @@ The SDK targets modern browsers with support for:
 
 ---
 
+## Intelligence Graph Events
+
+v8.0 introduces 5 new event types for the Intelligence Graph:
+
+| Event Type | Description | Required Consent |
+|---|---|---|
+| `agent_task` | AI agent begins or completes a task | `agent` |
+| `agent_decision` | AI agent makes an autonomous decision | `agent` |
+| `payment` | Fiat or crypto payment recorded | `commerce` |
+| `x402_payment` | HTTP 402-based micropayment captured | `commerce` |
+| `contract_action` | Smart-contract interaction observed | `web3` |
+
+Two new consent purposes -- `agent` and `commerce` -- join the existing `analytics`, `marketing`, and `web3` purposes. Events are gated by consent like all other event types: if the mapped consent purpose has not been granted, the event is silently dropped at flush time.
+
+---
+
 ## License
 
 Proprietary. All rights reserved. See LICENSE for details.

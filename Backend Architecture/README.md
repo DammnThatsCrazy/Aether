@@ -2,7 +2,7 @@
 
 **FastAPI microservices backend for the Aether platform.**
 
-Aether Backend is a unified API gateway that mounts 16 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, multi-chain automation, and multi-tenant administration -- all behind a single versioned API surface with 85+ endpoints.
+Aether Backend is a unified API gateway that mounts 18 domain-specific microservices (15 core + 3 Intelligence Graph) onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, multi-chain automation, and multi-tenant administration -- all behind a single versioned API surface with 85+ endpoints.
 
 ---
 
@@ -11,6 +11,7 @@ Aether Backend is a unified API gateway that mounts 16 domain-specific microserv
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
 - [Services](#services)
+- [Intelligence Graph Services (Feature-Flagged)](#intelligence-graph-services-feature-flagged)
 - [API Reference Overview](#api-reference-overview)
 - [Authentication & Authorization](#authentication--authorization)
 - [Installation](#installation)
@@ -58,7 +59,7 @@ Aether Backend is a unified API gateway that mounts 16 domain-specific microserv
                  |  CORS -> Auth -> Rate Limit -> Body Size -> Log |
                  +------------------------+------------------------+
                                           |
-          16 Service Routers (85+ endpoints)
+          18 Service Routers (85+ endpoints)
     +-----+-----+------+------+-----+------+------+------+
     |     |     |      |      |     |      |      |      |
   +-v--+ +v--+ +v---+ +v---+ +v--+ +v---+ +v---+ +v---+ |
@@ -89,7 +90,7 @@ Aether Backend is a unified API gateway that mounts 16 domain-specific microserv
 
 **Key architectural decisions:**
 
-- **Single process, multiple routers** -- all 16 services are mounted as FastAPI `APIRouter` instances, sharing a single event loop and connection pool for reduced operational overhead.
+- **Single process, multiple routers** -- all 18 services are mounted as FastAPI `APIRouter` instances, sharing a single event loop and connection pool for reduced operational overhead.
 - **Dependency injection with lifecycle management** -- a `ResourceRegistry` singleton owns all shared resources (cache, graph, event bus, auth handlers). It is initialized at startup and torn down at shutdown via FastAPI's lifespan protocol.
 - **Repository pattern** -- data access is abstracted behind repository classes that separate query logic from business logic, with built-in caching, graph operations, and write-ahead logging hooks.
 - **12-Factor configuration** -- all settings are sourced from environment variables with sensible defaults (`config/settings.py`).
@@ -116,6 +117,50 @@ Aether Backend is a unified API gateway that mounts 16 domain-specific microserv
 | 14 | **Rewards**      | `/v1/rewards`           | Automated reward eligibility, campaign management, queue     | `POST /v1/rewards/evaluate`, `GET /v1/rewards/proof/{id}` |
 | 15 | **Oracle**       | `/v1/oracle`            | Multi-chain (EVM, SVM, Bitcoin, MoveVM, NEAR, TVM, Cosmos) cryptographic proof generation/verification   | `POST /v1/oracle/proof/generate`, `POST /v1/oracle/proof/verify` |
 | 16 | **Automation**   | `/v1/automation`        | Automated analytics pipeline, reward trigger, insights      | `POST /v1/automation/ingest`, `GET /v1/automation/insights` |
+
+---
+
+## Intelligence Graph Services (Feature-Flagged)
+
+Three additional services power the **Unified On-Chain Intelligence Graph**. All are disabled by default and activated individually via feature flags in `IntelligenceGraphConfig`.
+
+| #  | Service          | Prefix           | Feature Flag          | Description                                                    |
+| -- | ---------------- | ---------------- | --------------------- | -------------------------------------------------------------- |
+| 17 | **Commerce (L3a)** | `/v1/commerce` | `IG_COMMERCE_LAYER`   | Payment recording, agent hiring, fee elimination               |
+| 18 | **On-Chain (L0)**  | `/v1/onchain`  | `IG_ONCHAIN_LAYER`    | Action recording, chain listening, RPC gateway                 |
+| 19 | **x402 (L3b)**     | `/v1/x402`     | `IG_X402_LAYER`       | HTTP payment header capture, economic graph                    |
+
+### Shared Modules
+
+| Path                                | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `shared/scoring/trust_score.py`     | Composite trust score (on-chain + off-chain)     |
+| `shared/scoring/bytecode_risk.py`   | Smart-contract bytecode risk classifier          |
+| `shared/scoring/anomaly_config.py`  | Anomaly detection thresholds and rule sets        |
+| `shared/graph/relationship_layers.py` | H2H, H2A, and A2A relationship edge types       |
+
+### Configuration
+
+`IntelligenceGraphConfig` exposes 7 flags (all default `false`): `IG_COMMERCE_LAYER`, `IG_ONCHAIN_LAYER`, `IG_X402_LAYER`, `IG_TRUST_SCORING`, `IG_BYTECODE_RISK`, `IG_ANOMALY_DETECTION`, `IG_RELATIONSHIP_LAYERS`. `QuickNodeConfig` provides L6 infrastructure settings (`QUICKNODE_ENDPOINT`, `QUICKNODE_API_KEY`, `QUICKNODE_CHAIN_IDS`).
+
+### Relationship Layers
+
+| Layer | Type              | Description                                    |
+| ----- | ----------------- | ---------------------------------------------- |
+| H2H   | Human-to-Human    | Existing identity graph (referrals, merges)     |
+| H2A   | Human-to-Agent    | User delegates tasks to autonomous agents       |
+| A2A   | Agent-to-Agent    | Inter-agent collaboration and trust propagation |
+
+### Agent Endpoints
+
+| Method | Path                                | Description                          |
+| ------ | ----------------------------------- | ------------------------------------ |
+| `POST` | `/v1/agent/register`                | Register a new autonomous agent      |
+| `POST` | `/v1/agent/tasks/{id}/lifecycle`    | Advance task lifecycle state         |
+| `POST` | `/v1/agent/tasks/{id}/decision`     | Record an agent decision             |
+| `POST` | `/v1/agent/tasks/{id}/feedback`     | Submit task feedback / rating        |
+| `GET`  | `/v1/agent/{id}/graph`              | Get agent relationship sub-graph     |
+| `GET`  | `/v1/agent/{id}/trust`              | Get agent composite trust score      |
 
 ---
 

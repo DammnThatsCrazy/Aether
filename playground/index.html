@@ -3,1080 +3,2108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aether SDK Playground — Multi-VM Web3</title>
+  <title>AETHER — Analytics Playground v7.0.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
+    /* ================================================================
+       DESIGN SYSTEM — NUREBAIRO PALETTE
+       ================================================================ */
     :root {
-      --bg: #0a0a1a;
-      --bg-card: #12122a;
-      --bg-surface: #0e0e22;
-      --border: #1e1e3a;
-      --border-active: #6C63FF;
-      --accent: #6C63FF;
-      --accent-dim: #4a42cc;
-      --text: #e0e0e0;
-      --text-dim: #888;
-      --text-muted: #a0a0c0;
-      --success: #4ade80;
-      --warning: #fbbf24;
-      --error: #f87171;
+      /* Core */
+      --nurebairo: #000B00;
+      --kon-nezu: #44617B;
+      --kinario: #FBFAF5;
+
+      /* Derived */
+      --bg: #000B00;
+      --bg-panel: #001400;
+      --bg-hover: #002200;
+      --bg-input: #001A00;
+      --accent: #44617B;
+      --accent-dark: #33485A;
+      --accent-light: #5A7D99;
+      --text: #FBFAF5;
+      --text-dim: #D4D3CE;
+      --text-muted: #8A8982;
+      --border: #44617B;
+      --border-dim: #1A3040;
+
+      /* Status */
+      --success: #5A9E6F;
+      --warning: #C4A35A;
+      --error: #B85450;
+
+      /* VM chain colors (subdued) */
       --evm: #627EEA;
       --svm: #9945FF;
       --btc: #F7931A;
-      --sui: #4DA2FF;
-      --near: #00C08B;
-      --tron: #FF0013;
-      --cosmos: #2E3148;
-      --tag-hot: #f97316;
-      --tag-cold: #3b82f6;
-      --tag-smart: #a855f7;
-      --tag-exchange: #eab308;
+      --sui: #6FBCF0;
+      --near: #7B8CBF;
+      --tron: #C73535;
+      --cosmos: #6F7390;
+
+      /* Event type colors */
+      --ev-page: #5A7D99;
+      --ev-click: #7B8CBF;
+      --ev-tx: #F7931A;
+      --ev-conv: #5A9E6F;
+      --ev-wall: #9945FF;
+      --ev-form: #627EEA;
+      --ev-error: #B85450;
+      --ev-id: #6FBCF0;
     }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    /* Header */
-    .header { padding: 1.5rem 2rem 0; }
-    h1 { font-size: 1.6rem; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
-    h1 span { color: var(--accent); }
-    .subtitle { color: var(--text-dim); font-size: 0.8rem; margin-top: 0.3rem; }
-    .version-badge { display: inline-block; background: var(--accent); color: #fff; font-size: 0.65rem; padding: 2px 8px; border-radius: 999px; margin-left: 8px; font-weight: 600; vertical-align: middle; }
+    body {
+      font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
 
-    /* Layout */
-    .container { padding: 1rem 2rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
-
-    /* Action bar */
-    .action-bar { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-    .action-group { display: flex; gap: 0.3rem; align-items: center; padding: 0 0.5rem; border-right: 1px solid var(--border); }
-    .action-group:last-child { border-right: none; }
-    .action-group-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 0.3rem; }
-
-    button { background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border); padding: 0.45rem 0.85rem; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
-    button:hover { border-color: var(--accent); color: #fff; background: rgba(108, 99, 255, 0.1); }
-    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-    button.primary:hover { background: var(--accent-dim); }
-    button.vm-evm { border-color: var(--evm); color: var(--evm); }
-    button.vm-evm:hover { background: rgba(98, 126, 234, 0.15); color: #fff; }
-    button.vm-svm { border-color: var(--svm); color: var(--svm); }
-    button.vm-svm:hover { background: rgba(153, 69, 255, 0.15); color: #fff; }
-    button.vm-btc { border-color: var(--btc); color: var(--btc); }
-    button.vm-btc:hover { background: rgba(247, 147, 26, 0.15); color: #fff; }
-    button.destructive { border-color: var(--error); color: var(--error); }
-    button.destructive:hover { background: rgba(248, 113, 113, 0.1); }
-
-    /* Status bar */
-    .status-bar { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; font-size: 0.75rem; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .status-dot.off { background: var(--error); }
-    .status-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
-    .status-text { color: var(--text-dim); }
-    .status-text strong { color: var(--text); font-weight: 600; }
-    .status-badges { display: flex; gap: 0.4rem; margin-left: auto; flex-wrap: wrap; }
-    .badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
-    .badge-evm { background: rgba(98, 126, 234, 0.2); color: var(--evm); }
-    .badge-svm { background: rgba(153, 69, 255, 0.2); color: var(--svm); }
-    .badge-btc { background: rgba(247, 147, 26, 0.2); color: var(--btc); }
-    .badge-wallets { background: rgba(74, 222, 128, 0.2); color: var(--success); }
-
-    /* Main grid */
-    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
-
-    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
-    .card-header h2 { font-size: 0.8rem; font-weight: 600; color: var(--accent); letter-spacing: 0.3px; }
-    .card-header .card-tag { font-size: 0.6rem; color: var(--text-dim); }
-    .card-body { padding: 1rem; }
-    .card-body pre { background: var(--bg); border-radius: 6px; padding: 0.75rem; font-size: 0.72rem; overflow: auto; color: var(--text-muted); line-height: 1.6; max-height: 320px; font-family: inherit; }
-
-    /* Event log */
-    .log-entry { padding: 3px 0; border-bottom: 1px solid rgba(30, 30, 58, 0.5); }
-    .log-entry:last-child { border-bottom: none; }
-    .log-time { color: var(--text-dim); font-size: 0.65rem; }
-    .log-type { font-weight: 600; font-size: 0.7rem; margin: 0 0.3rem; }
-    .log-type.wallet { color: var(--accent); }
-    .log-type.tx { color: var(--warning); }
-    .log-type.defi { color: var(--success); }
-    .log-type.portfolio { color: #38bdf8; }
-    .log-type.system { color: var(--text-dim); }
-    .log-type.identity { color: #c084fc; }
-    .log-msg { color: var(--text-muted); font-size: 0.7rem; }
-
-    /* Wallet cards */
-    .wallet-grid { display: flex; flex-direction: column; gap: 0.5rem; }
-    .wallet-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; display: flex; align-items: center; gap: 0.75rem; }
-    .wallet-card .vm-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; color: #fff; flex-shrink: 0; }
-    .wallet-card .vm-icon.evm { background: var(--evm); }
-    .wallet-card .vm-icon.svm { background: var(--svm); }
-    .wallet-card .vm-icon.btc { background: var(--btc); }
-    .wallet-card .wallet-info { flex: 1; min-width: 0; }
-    .wallet-card .wallet-addr { font-size: 0.75rem; color: var(--text); font-weight: 500; }
-    .wallet-card .wallet-meta { font-size: 0.65rem; color: var(--text-dim); margin-top: 2px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .wallet-card .wallet-meta .tag { padding: 1px 6px; border-radius: 4px; font-size: 0.6rem; }
-    .tag-hot { background: rgba(249, 115, 22, 0.15); color: var(--tag-hot); }
-    .tag-cold { background: rgba(59, 130, 246, 0.15); color: var(--tag-cold); }
-    .tag-smart { background: rgba(168, 85, 247, 0.15); color: var(--tag-smart); }
-    .tag-primary { background: rgba(74, 222, 128, 0.15); color: var(--success); }
-
-    /* Portfolio */
-    .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; }
-    .portfolio-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.75rem; }
-    .portfolio-stat .label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-    .portfolio-stat .value { font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 4px; }
-    .portfolio-stat .sub { font-size: 0.65rem; color: var(--success); margin-top: 2px; }
-
-    /* Tabs */
-    .tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
-    .tab { padding: 0.5rem 1rem; font-size: 0.72rem; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; background: none; border-top: none; border-left: none; border-right: none; }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    /* Token/NFT/DeFi rows */
-    .asset-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid rgba(30, 30, 58, 0.3); }
-    .asset-row:last-child { border-bottom: none; }
-    .asset-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; flex-shrink: 0; }
-    .asset-info { flex: 1; }
-    .asset-name { font-size: 0.75rem; color: var(--text); font-weight: 500; }
-    .asset-detail { font-size: 0.65rem; color: var(--text-dim); }
-    .asset-value { text-align: right; }
-    .asset-amount { font-size: 0.75rem; color: var(--text); font-weight: 500; }
-    .asset-usd { font-size: 0.65rem; color: var(--text-dim); }
-
-    /* DeFi position card */
-    .defi-position { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem; }
-    .defi-position .defi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
-    .defi-position .protocol-name { font-size: 0.75rem; font-weight: 600; color: var(--text); }
-    .defi-position .protocol-cat { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; background: rgba(108, 99, 255, 0.15); color: var(--accent); }
-    .defi-position .defi-stats { display: flex; gap: 1rem; flex-wrap: wrap; }
-    .defi-position .defi-stat { font-size: 0.65rem; }
-    .defi-position .defi-stat span { color: var(--text-dim); }
-
-    /* Full-width card */
-    .full-width { grid-column: 1 / -1; }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    /* ── SCROLLBAR ─────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--accent-dark); border-radius: 2px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-    /* Simulate animation */
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .pulsing { animation: pulse 1.5s ease-in-out infinite; }
+    /* ── HEADER ─────────────────────────────────────── */
+    .header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
 
-    /* Empty state */
-    .empty-state { text-align: center; padding: 2rem 1rem; color: var(--text-dim); font-size: 0.75rem; }
-    .empty-state .empty-icon { font-size: 1.5rem; margin-bottom: 0.5rem; opacity: 0.3; }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .ascii-logo {
+      color: var(--accent-light);
+      font-size: 10px;
+      line-height: 1.2;
+      white-space: pre;
+      letter-spacing: 1px;
+    }
+
+    .header-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .header-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .version-badge {
+      display: inline-block;
+      border: 1px solid var(--accent);
+      color: var(--accent-light);
+      font-size: 9px;
+      padding: 1px 6px;
+      letter-spacing: 1px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    /* ── BUTTONS ─────────────────────────────────────── */
+    .btn {
+      background: transparent;
+      border: 1px solid var(--accent-dark);
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 10px;
+      padding: 5px 12px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--bg-hover);
+      box-shadow: 0 0 8px rgba(68,97,123,0.3);
+    }
+    .btn.active {
+      border-color: var(--accent-light);
+      color: var(--text);
+      background: var(--accent-dark);
+    }
+    .btn.primary {
+      border-color: var(--accent);
+      color: var(--text);
+      background: rgba(68,97,123,0.2);
+    }
+    .btn.primary:hover {
+      background: rgba(68,97,123,0.4);
+    }
+    .btn.danger {
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .btn.danger:hover {
+      background: rgba(184,84,80,0.15);
+    }
+
+    /* ── JOURNEY PROGRESS BAR ─────────────────────── */
+    .journey-bar {
+      display: none;
+      padding: 6px 20px;
+      border-bottom: 1px solid var(--border-dim);
+      background: rgba(68,97,123,0.08);
+      font-size: 10px;
+      align-items: center;
+      gap: 12px;
+    }
+    .journey-bar.active {
+      display: flex;
+    }
+    .journey-bar .journey-label {
+      color: var(--accent-light);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      min-width: 120px;
+    }
+    .journey-bar .journey-track {
+      flex: 1;
+      height: 6px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-dim);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    .journey-bar .journey-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.4s ease;
+    }
+    .journey-bar .journey-step {
+      color: var(--text-dim);
+      white-space: nowrap;
+      min-width: 220px;
+      text-align: right;
+    }
+
+    /* ── NOTIFICATION TOAST ───────────────────────── */
+    .toast {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 10px 18px;
+      background: var(--bg-panel);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(-12px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      box-shadow: 0 0 12px rgba(68,97,123,0.4);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── GLOW PULSE for identify ──────────────────── */
+    @keyframes identifyPulse {
+      0% { box-shadow: 0 0 0px rgba(68,97,123,0); }
+      50% { box-shadow: 0 0 20px rgba(68,97,123,0.6); }
+      100% { box-shadow: 0 0 0px rgba(68,97,123,0); }
+    }
+    .panel.glow-pulse {
+      animation: identifyPulse 1s ease 2;
+    }
+
+    /* ── NAV TABS ────────────────────────────────────── */
+    .nav-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-dim);
+      padding: 0 20px;
+      gap: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .nav-tab {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 8px 16px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .nav-tab:hover {
+      color: var(--text-dim);
+      background: var(--bg-panel);
+    }
+    .nav-tab.active {
+      color: var(--accent-light);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── STATUS BAR ──────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 6px 20px;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      flex-wrap: wrap;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+    }
+    .status-dot.inactive { background: var(--text-muted); }
+    .status-label { color: var(--text-dim); }
+    .status-value { color: var(--accent-light); font-weight: 500; }
+
+    /* ── MAIN CONTENT ────────────────────────────────── */
+    .main-content {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    /* ── PANEL ───────────────────────────────────────── */
+    .panel {
+      border: 1px solid var(--border-dim);
+      background: var(--bg-panel);
+      margin-bottom: 12px;
+    }
+    .panel-header {
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-body {
+      padding: 10px 12px;
+    }
+    .panel.glow {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px rgba(68,97,123,0.15);
+      transition: box-shadow 0.5s, border-color 0.5s;
+    }
+
+    /* ── GRID LAYOUTS ────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .grid-8 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+    @media (max-width: 900px) {
+      .grid-4, .grid-8 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .grid-4, .grid-8 { grid-template-columns: 1fr; }
+    }
+
+    /* ── KPI BOX ─────────────────────────────────────── */
+    .kpi-box {
+      border: 1px solid var(--border-dim);
+      background: var(--bg-panel);
+      padding: 10px 12px;
+    }
+    .kpi-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .kpi-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .kpi-spark {
+      margin-top: 4px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: var(--accent-light);
+    }
+    .kpi-change {
+      font-size: 9px;
+      margin-top: 2px;
+    }
+    .kpi-change.up { color: var(--success); }
+    .kpi-change.down { color: var(--error); }
+
+    /* ── TABLE ───────────────────────────────────────── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-dim);
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-size: 9px;
+    }
+    .data-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(68,97,123,0.1);
+      color: var(--text-dim);
+      vertical-align: top;
+    }
+    .data-table tr:hover td {
+      background: var(--bg-hover);
+    }
+
+    /* ── EVENT TAG ────────────────────────────────────── */
+    .ev-tag {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .ev-tag.page { color: var(--ev-page); border-color: var(--ev-page); }
+    .ev-tag.click { color: var(--ev-click); border-color: var(--ev-click); }
+    .ev-tag.tx { color: var(--ev-tx); border-color: var(--ev-tx); }
+    .ev-tag.conv { color: var(--ev-conv); border-color: var(--ev-conv); }
+    .ev-tag.wall { color: var(--ev-wall); border-color: var(--ev-wall); }
+    .ev-tag.form { color: var(--ev-form); border-color: var(--ev-form); }
+    .ev-tag.error { color: var(--ev-error); border-color: var(--ev-error); }
+    .ev-tag.id { color: var(--ev-id); border-color: var(--ev-id); }
+
+    /* ── VM TAG ──────────────────────────────────────── */
+    .vm-tag {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .vm-tag.evm { color: var(--evm); border: 1px solid var(--evm); }
+    .vm-tag.svm { color: var(--svm); border: 1px solid var(--svm); }
+    .vm-tag.btc { color: var(--btc); border: 1px solid var(--btc); }
+    .vm-tag.sui { color: var(--sui); border: 1px solid var(--sui); }
+    .vm-tag.near { color: var(--near); border: 1px solid var(--near); }
+    .vm-tag.tron { color: var(--tron); border: 1px solid var(--tron); }
+    .vm-tag.cosmos { color: var(--cosmos); border: 1px solid var(--cosmos); }
+
+    /* ── BAR CHART ───────────────────────────────────── */
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 10px;
+    }
+    .bar-label {
+      width: 80px;
+      text-align: right;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 14px;
+      background: var(--bg);
+      position: relative;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.5s;
+    }
+    .bar-pct {
+      width: 40px;
+      text-align: right;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    /* ── FUNNEL ──────────────────────────────────────── */
+    .funnel-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .funnel-name {
+      width: 90px;
+      text-align: right;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+    .funnel-bar {
+      height: 20px;
+      background: var(--accent);
+      transition: width 0.5s;
+      display: flex;
+      align-items: center;
+      padding-left: 6px;
+      font-size: 9px;
+      color: var(--text);
+      min-width: 30px;
+    }
+    .funnel-drop {
+      font-size: 9px;
+      color: var(--error);
+      margin-left: 8px;
+      width: 60px;
+    }
+
+    /* ── HEATMAP ─────────────────────────────────────── */
+    .heatmap-grid {
+      font-family: inherit;
+      line-height: 1;
+      letter-spacing: 1px;
+      font-size: 13px;
+      color: var(--accent-light);
+      white-space: pre;
+    }
+
+    /* ── IDENTITY GRAPH ──────────────────────────────── */
+    .id-graph {
+      font-size: 11px;
+      line-height: 1.6;
+      white-space: pre;
+      color: var(--text-dim);
+      overflow-x: auto;
+    }
+    .id-graph .vertex { color: var(--accent-light); font-weight: 600; }
+    .id-graph .edge { color: var(--text-muted); }
+    .id-graph .value { color: var(--text); }
+
+    /* ── SIGNAL BAR ──────────────────────────────────── */
+    .signal-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      font-size: 10px;
+    }
+    .signal-name {
+      width: 100px;
+      color: var(--text-muted);
+    }
+    .signal-bar-track {
+      width: 120px;
+      height: 8px;
+      background: var(--bg);
+    }
+    .signal-bar-fill {
+      height: 100%;
+      background: var(--accent-light);
+      transition: width 0.3s;
+    }
+    .signal-val {
+      width: 40px;
+      text-align: right;
+      color: var(--text-dim);
+    }
+    .signal-status {
+      font-size: 10px;
+    }
+    .signal-status.ok { color: var(--success); }
+    .signal-status.warn { color: var(--warning); }
+    .signal-status.fail { color: var(--error); }
+
+    /* ── FRAUD METER ─────────────────────────────────── */
+    .fraud-meter {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .fraud-score-display {
+      font-size: 36px;
+      font-weight: 700;
+      width: 80px;
+      text-align: center;
+    }
+    .fraud-bar-container {
+      flex: 1;
+    }
+    .fraud-bar-track {
+      height: 16px;
+      background: var(--bg);
+      position: relative;
+      border: 1px solid var(--border-dim);
+    }
+    .fraud-bar-fill {
+      height: 100%;
+      transition: width 0.5s;
+    }
+    .fraud-bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      letter-spacing: 1px;
+    }
+
+    /* ── EVENT LOG ────────────────────────────────────── */
+    .event-log {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    .event-entry {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(68,97,123,0.08);
+      font-size: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .event-entry:hover {
+      background: var(--bg-hover);
+    }
+    .event-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      width: 65px;
+    }
+    .event-type {
+      flex-shrink: 0;
+      width: 50px;
+    }
+    .event-detail {
+      color: var(--text-dim);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── TICKER ──────────────────────────────────────── */
+    .ticker {
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    /* ── FINGERPRINT ─────────────────────────────────── */
+    .fp-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 3px;
+      font-size: 10px;
+    }
+    .fp-label {
+      width: 120px;
+      color: var(--text-muted);
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .fp-value {
+      color: var(--text-dim);
+      word-break: break-all;
+    }
+
+    /* ── WHALE ALERT ─────────────────────────────────── */
+    .whale-alert {
+      border-left: 2px solid var(--warning);
+      padding: 6px 10px;
+      margin-bottom: 6px;
+      background: rgba(196,163,90,0.05);
+      font-size: 10px;
+    }
+    .whale-amount {
+      color: var(--warning);
+      font-weight: 600;
+    }
+
+    /* ── FILTER BAR ──────────────────────────────────── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .filter-bar select, .filter-bar input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 10px;
+      padding: 4px 8px;
+    }
+    .filter-bar select:focus, .filter-bar input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .filter-bar input {
+      flex: 1;
+      max-width: 300px;
+    }
+
+    /* ── TOGGLE ──────────────────────────────────────── */
+    .toggle {
+      width: 28px;
+      height: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border-dim);
+      position: relative;
+      cursor: pointer;
+      display: inline-block;
+    }
+    .toggle.on { background: var(--accent-dark); border-color: var(--accent); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      top: 1px;
+      left: 1px;
+      background: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .toggle.on::after {
+      left: 15px;
+      background: var(--accent-light);
+    }
+
+    /* ── ANIMATIONS ──────────────────────────────────── */
+    @keyframes glowPulse {
+      0% { box-shadow: 0 0 4px rgba(68,97,123,0.2); }
+      50% { box-shadow: 0 0 12px rgba(68,97,123,0.4); }
+      100% { box-shadow: 0 0 4px rgba(68,97,123,0.2); }
+    }
+    .flash-update {
+      animation: glowPulse 0.5s ease;
+    }
+
+    /* ── LAYOUT WRAPPER ──────────────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
   </style>
 </head>
 <body>
+<div id="app">
+  <!-- ═══ HEADER ═══ -->
   <div class="header">
-    <h1><span>Aether</span> SDK Playground <span class="version-badge">v5.0.0</span></h1>
-    <p class="subtitle">Multi-VM Web3 Wallet Tracking &mdash; EVM &bull; Solana &bull; Bitcoin &bull; SUI &bull; NEAR &bull; TRON &bull; Cosmos</p>
-  </div>
-
-  <div class="container">
-    <!-- Action Bar -->
-    <div class="action-bar">
-      <div class="action-group">
-        <span class="action-group-label">SDK</span>
-        <button class="primary" onclick="initSDK()">Init SDK</button>
-        <button onclick="resetSDK()" class="destructive">Reset</button>
-      </div>
-      <div class="action-group">
-        <span class="action-group-label">EVM</span>
-        <button class="vm-evm" onclick="connectEVMWallet()">Connect MetaMask</button>
-        <button class="vm-evm" onclick="connectLedger()">Connect Ledger</button>
-        <button class="vm-evm" onclick="simulateEVMSwap()">Uniswap Swap</button>
-        <button class="vm-evm" onclick="simulateAAVESupply()">AAVE Supply</button>
-      </div>
-      <div class="action-group">
-        <span class="action-group-label">SVM</span>
-        <button class="vm-svm" onclick="connectSolanaWallet()">Connect Phantom</button>
-        <button class="vm-svm" onclick="simulateJupiterSwap()">Jupiter Swap</button>
-        <button class="vm-svm" onclick="simulateMarinadeStake()">Marinade Stake</button>
-      </div>
-      <div class="action-group">
-        <span class="action-group-label">Multi</span>
-        <button class="vm-btc" onclick="connectBTCWallet()">Connect BTC</button>
-        <button onclick="simulateBridgeTransfer()">Bridge ETH→SOL</button>
-        <button onclick="viewPortfolio()">Portfolio</button>
-        <button onclick="disconnectAll()" class="destructive">Disconnect All</button>
+    <div class="header-left">
+      <div class="ascii-logo">&#9650; AETHER</div>
+      <div class="header-info">
+        <div class="header-title">Analytics Playground <span class="version-badge">v7.0.0</span></div>
+        <div class="header-sub">SENSE AND SHIP // THIN CLIENT ARCHITECTURE</div>
       </div>
     </div>
-
-    <!-- Status Bar -->
-    <div class="status-bar">
-      <div class="status-dot off" id="statusDot"></div>
-      <span class="status-text" id="statusText">SDK not initialized</span>
-      <div class="status-badges" id="statusBadges"></div>
-    </div>
-
-    <!-- Main Grid -->
-    <div class="main-grid">
-      <!-- Event Log -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Event Log</h2>
-          <span class="card-tag" id="eventCount">0 events</span>
-        </div>
-        <div class="card-body">
-          <div id="logContainer" style="max-height: 320px; overflow-y: auto;">
-            <div class="empty-state">
-              <div class="empty-icon">◇</div>
-              Click "Init SDK" to begin
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Connected Wallets -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Connected Wallets</h2>
-          <span class="card-tag" id="walletCount">0 wallets</span>
-        </div>
-        <div class="card-body">
-          <div class="wallet-grid" id="walletGrid">
-            <div class="empty-state">
-              <div class="empty-icon">◈</div>
-              No wallets connected
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Portfolio / Tokens / DeFi (tabbed) -->
-      <div class="card full-width">
-        <div class="tab-bar">
-          <button class="tab active" onclick="switchTab('portfolio')">Portfolio</button>
-          <button class="tab" onclick="switchTab('tokens')">Tokens</button>
-          <button class="tab" onclick="switchTab('defi')">DeFi Positions</button>
-          <button class="tab" onclick="switchTab('identity')">Identity</button>
-          <button class="tab" onclick="switchTab('consent')">Consent</button>
-        </div>
-        <div class="card-body">
-          <!-- Portfolio Tab -->
-          <div class="tab-content active" id="tab-portfolio">
-            <div class="portfolio-grid" id="portfolioStats">
-              <div class="empty-state" style="grid-column: 1/-1;">
-                <div class="empty-icon">◎</div>
-                Connect a wallet to view portfolio
-              </div>
-            </div>
-          </div>
-          <!-- Tokens Tab -->
-          <div class="tab-content" id="tab-tokens">
-            <div id="tokenList">
-              <div class="empty-state">
-                <div class="empty-icon">◈</div>
-                No token balances yet
-              </div>
-            </div>
-          </div>
-          <!-- DeFi Tab -->
-          <div class="tab-content" id="tab-defi">
-            <div id="defiList">
-              <div class="empty-state">
-                <div class="empty-icon">◇</div>
-                No DeFi positions yet
-              </div>
-            </div>
-          </div>
-          <!-- Identity Tab -->
-          <div class="tab-content" id="tab-identity">
-            <pre id="identityPre">-</pre>
-          </div>
-          <!-- Consent Tab -->
-          <div class="tab-content" id="tab-consent">
-            <pre id="consentPre">-</pre>
-          </div>
-        </div>
-      </div>
+    <div class="header-actions">
+      <button class="btn primary" id="btn-init" onclick="toggleSDK()">INIT SDK</button>
+      <button class="btn primary" id="btn-journey" onclick="simulateJourney()">SIMULATE JOURNEY</button>
+      <button class="btn" id="btn-identify" onclick="identifyUser()">IDENTIFY USER</button>
+      <button class="btn danger" id="btn-reset" onclick="resetSDK()">RESET</button>
     </div>
   </div>
 
-  <!-- ======================================================================= -->
-  <!-- PLAYGROUND SCRIPT -->
-  <!-- ======================================================================= -->
-  <script type="module">
-    import aether from '@aether/web';
-    window.aether = aether;
+  <!-- ═══ NAV TABS ═══ -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="overview" onclick="switchTab('overview')">OVERVIEW</button>
+    <button class="nav-tab" data-tab="web2" onclick="switchTab('web2')">WEB2</button>
+    <button class="nav-tab" data-tab="web3" onclick="switchTab('web3')">WEB3</button>
+    <button class="nav-tab" data-tab="identity" onclick="switchTab('identity')">IDENTITY</button>
+    <button class="nav-tab" data-tab="events" onclick="switchTab('events')">EVENTS</button>
+  </div>
 
-    // =========================================================================
-    // STATE
-    // =========================================================================
-    const state = {
-      initialized: false,
-      logs: [],
-      wallets: [],
-      tokens: [],
-      defiPositions: [],
-      portfolioValue: 0,
-    };
+  <!-- ═══ JOURNEY PROGRESS ═══ -->
+  <div class="journey-bar" id="journey-bar">
+    <span class="journey-label" id="journey-label">▶ JOURNEY</span>
+    <div class="journey-track"><div class="journey-fill" id="journey-fill"></div></div>
+    <span class="journey-step" id="journey-step">Initializing...</span>
+  </div>
 
-    // =========================================================================
-    // DEMO ADDRESSES — Realistic simulated wallet data
-    // =========================================================================
-    const DEMO = {
-      evm: {
-        metamask: {
-          address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-          type: 'MetaMask',
-          chainId: 1,
-          ens: 'aetherdemo.eth',
-        },
-        ledger: {
-          address: '0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF',
-          type: 'Ledger',
-          chainId: 1,
-        },
+  <!-- ═══ TOAST ═══ -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ═══ STATUS BAR ═══ -->
+  <div class="status-bar">
+    <div class="status-item"><span class="status-dot" id="status-dot"></span><span class="status-label">SDK:</span><span class="status-value" id="status-sdk">INACTIVE</span></div>
+    <div class="status-item"><span class="status-label">SESSION:</span><span class="status-value" id="status-session">0m 0s</span></div>
+    <div class="status-item"><span class="status-label">EVENTS:</span><span class="status-value" id="status-events">0</span></div>
+    <div class="status-item"><span class="status-label">WALLETS:</span><span class="status-value" id="status-wallets">0</span></div>
+    <div class="status-item"><span class="status-label">CHAINS:</span><span class="status-value" id="status-chains">0</span></div>
+    <div class="status-item"><span class="status-label">FP:</span><span class="status-value" id="status-fp">--</span></div>
+    <div class="status-item"><span class="status-label">SIM:</span><span class="status-value" id="status-sim">RUNNING</span></div>
+  </div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main-content">
+
+    <!-- ──── OVERVIEW TAB ──── -->
+    <div class="tab-view active" id="tab-overview">
+      <!-- KPI Strip -->
+      <div class="grid-8" id="kpi-strip"></div>
+      <div style="height:12px"></div>
+
+      <div class="grid-2">
+        <!-- Live Event Ticker -->
+        <div class="panel">
+          <div class="panel-header">LIVE EVENT TICKER</div>
+          <div class="panel-body ticker" id="ticker"></div>
+        </div>
+
+        <!-- Activity Sparklines -->
+        <div class="panel">
+          <div class="panel-header">ACTIVITY SPARKLINES</div>
+          <div class="panel-body" id="sparklines"></div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <!-- Mini Funnel -->
+        <div class="panel">
+          <div class="panel-header">CONVERSION FUNNEL</div>
+          <div class="panel-body" id="mini-funnel"></div>
+        </div>
+        <!-- Mini Identity -->
+        <div class="panel">
+          <div class="panel-header">IDENTITY CLUSTER</div>
+          <div class="panel-body" id="mini-identity"></div>
+        </div>
+        <!-- Mini Chain -->
+        <div class="panel">
+          <div class="panel-header">CHAIN ACTIVITY</div>
+          <div class="panel-body" id="mini-chains"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── WEB2 TAB ──── -->
+    <div class="tab-view" id="tab-web2">
+      <!-- Session KPIs -->
+      <div class="grid-4" id="web2-kpis"></div>
+      <div style="height:12px"></div>
+
+      <div class="grid-2">
+        <!-- Traffic Sources -->
+        <div class="panel">
+          <div class="panel-header">TRAFFIC SOURCES</div>
+          <div class="panel-body" id="traffic-sources"></div>
+        </div>
+
+        <!-- Conversion Funnel -->
+        <div class="panel">
+          <div class="panel-header">CONVERSION FUNNEL</div>
+          <div class="panel-body" id="full-funnel"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Ecommerce -->
+        <div class="panel">
+          <div class="panel-header">ECOMMERCE</div>
+          <div class="panel-body" id="ecommerce"></div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="panel">
+          <div class="panel-header">HEATMAP (SIMULATED)</div>
+          <div class="panel-body" id="heatmap"></div>
+        </div>
+      </div>
+
+      <!-- Feature Flags -->
+      <div class="panel">
+        <div class="panel-header">FEATURE FLAGS</div>
+        <div class="panel-body" id="feature-flags"></div>
+      </div>
+    </div>
+
+    <!-- ──── WEB3 TAB ──── -->
+    <div class="tab-view" id="tab-web3">
+      <!-- Wallet Connect Buttons -->
+      <div class="panel">
+        <div class="panel-header">WALLET CONNECTIONS <span style="flex:1"></span><button class="btn danger" style="font-size:8px;padding:2px 8px" onclick="disconnectAll()">DISCONNECT ALL</button></div>
+        <div class="panel-body" style="display:flex;gap:6px;flex-wrap:wrap" id="wallet-buttons"></div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Connected Wallets -->
+        <div class="panel">
+          <div class="panel-header">CONNECTED WALLETS <span class="status-value" id="wallet-count" style="margin-left:8px">0</span></div>
+          <div class="panel-body" id="wallets-table"></div>
+        </div>
+
+        <!-- Transaction Feed -->
+        <div class="panel">
+          <div class="panel-header">DEFI TRANSACTION FEED</div>
+          <div class="panel-body" style="max-height:300px;overflow-y:auto" id="tx-feed"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Chain Activity -->
+        <div class="panel">
+          <div class="panel-header">CHAIN ACTIVITY</div>
+          <div class="panel-body" id="chain-activity"></div>
+        </div>
+
+        <!-- Whale Alerts -->
+        <div class="panel">
+          <div class="panel-header">WHALE ALERTS</div>
+          <div class="panel-body" style="max-height:200px;overflow-y:auto" id="whale-alerts"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── IDENTITY TAB ──── -->
+    <div class="tab-view" id="tab-identity">
+      <div class="grid-2">
+        <!-- Identity Graph -->
+        <div class="panel">
+          <div class="panel-header">IDENTITY GRAPH</div>
+          <div class="panel-body" id="identity-graph"></div>
+        </div>
+
+        <!-- Resolution Signals -->
+        <div class="panel">
+          <div class="panel-header">RESOLUTION SIGNALS</div>
+          <div class="panel-body" id="resolution-signals"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Fraud Score -->
+        <div class="panel">
+          <div class="panel-header">FRAUD SCORE</div>
+          <div class="panel-body" id="fraud-score"></div>
+        </div>
+
+        <!-- Device Fingerprint -->
+        <div class="panel">
+          <div class="panel-header">DEVICE FINGERPRINT</div>
+          <div class="panel-body" id="device-fingerprint"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── EVENTS TAB ──── -->
+    <div class="tab-view" id="tab-events">
+      <div class="filter-bar">
+        <select id="event-filter" onchange="renderEventLog()">
+          <option value="all">ALL TYPES</option>
+          <option value="page">PAGE</option>
+          <option value="click">CLICK</option>
+          <option value="tx">TX</option>
+          <option value="conv">CONV</option>
+          <option value="wall">WALLET</option>
+          <option value="form">FORM</option>
+          <option value="id">IDENTITY</option>
+          <option value="error">ERROR</option>
+        </select>
+        <input type="text" id="event-search" placeholder="SEARCH EVENTS..." oninput="renderEventLog()" />
+        <button class="btn" onclick="clearEvents()" style="font-size:9px">CLEAR</button>
+      </div>
+      <div class="panel">
+        <div class="panel-header">EVENT STREAM <span class="status-value" id="event-log-count" style="margin-left:8px">0</span></div>
+        <div class="panel-body event-log" id="event-log"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ FETCH INTERCEPTOR — must run BEFORE module import ═══ -->
+<script>
+// Mock backend for playground — intercepts SDK fetch calls to localhost:9999
+// Regular script (not module) ensures this runs before the SDK module loads
+(function() {
+  var MOCK_ENDPOINT = 'http://localhost:9999';
+  var _origFetch = window.fetch;
+  window.fetch = function(input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.indexOf(MOCK_ENDPOINT) === 0) {
+      if (url.indexOf('/v1/config') !== -1) {
+        return Promise.resolve(new Response(JSON.stringify({
+          featureFlags: [
+            { key: 'dark_mode', enabled: true, value: true },
+            { key: 'new_checkout_flow', enabled: true, value: true },
+            { key: 'ai_recommendations', enabled: false, value: false },
+            { key: 'upload_limit_mb', enabled: true, value: 50 },
+            { key: 'beta_dashboard', enabled: true, value: true },
+            { key: 'max_wallets', enabled: true, value: 10 },
+            { key: 'defi_alerts', enabled: true, value: true },
+            { key: 'identity_resolution', enabled: true, value: true },
+            { key: 'whale_threshold', enabled: true, value: 100000 },
+            { key: 'cross_device_sync', enabled: false, value: false },
+          ],
+          funnelDefinitions: [],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      if (url.indexOf('/v1/batch') !== -1 || url.indexOf('/v1/events') !== -1) {
+        return Promise.resolve(new Response(JSON.stringify({ success: true, accepted: 0 }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    }
+    return _origFetch.apply(this, arguments);
+  };
+  window.__MOCK_ENDPOINT = MOCK_ENDPOINT;
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT — SDK Integration + Simulation Engine
+     ═══════════════════════════════════════════════════════════ -->
+<script type="module">
+import aether from '@aether/web';
+
+// ================================================================
+// STATE
+// ================================================================
+const state = {
+  sdkInitialized: false,
+  sessionStart: Date.now(),
+  events: [],
+  maxEvents: 200,
+  activeTab: 'overview',
+  simTimers: [],
+  journeyRunning: false,
+
+  // Metrics
+  metrics: {
+    sessions: 1,
+    totalEvents: 0,
+    pageViews: 0,
+    clicks: 0,
+    conversions: 0,
+    formEvents: 0,
+    transactions: 0,
+    revenue: 0,
+    walletEvents: 0,
+    identityMerges: 0,
+    flagsActive: 0,
+    fraudScore: 12,
+  },
+
+  // Sparkline data (last 20 values)
+  sparkData: {
+    pageViews: [],
+    clicks: [],
+    conversions: [],
+    transactions: [],
+  },
+
+  // Wallets
+  wallets: [],
+  txFeed: [],
+  whaleAlerts: [],
+  chainActivity: {
+    evm: { events: 0, txns: 0, value: 0, spark: [] },
+    svm: { events: 0, txns: 0, value: 0, spark: [] },
+    btc: { events: 0, txns: 0, value: 0, spark: [] },
+    sui: { events: 0, txns: 0, value: 0, spark: [] },
+    near: { events: 0, txns: 0, value: 0, spark: [] },
+    tron: { events: 0, txns: 0, value: 0, spark: [] },
+    cosmos: { events: 0, txns: 0, value: 0, spark: [] },
+  },
+
+  // Identity
+  identity: {
+    userId: null,
+    email: null,
+    phone: null,
+    devices: [],
+    linkedWallets: [],
+    resolved: false,
+    clusterSize: 0,
+  },
+
+  // Funnel
+  funnel: {
+    visit: 4280,
+    signup: 1842,
+    verified: 1204,
+    activated: 687,
+    purchase: 312,
+  },
+
+  // Traffic
+  traffic: {
+    organic: 42,
+    paid: 24,
+    social: 17,
+    referral: 10,
+    direct: 7,
+  },
+
+  // Feature flags
+  featureFlags: [
+    { key: 'dark_mode', value: true, type: 'boolean' },
+    { key: 'new_checkout_flow', value: true, type: 'boolean' },
+    { key: 'ai_recommendations', value: false, type: 'boolean' },
+    { key: 'upload_limit_mb', value: 50, type: 'number' },
+    { key: 'beta_dashboard', value: true, type: 'boolean' },
+    { key: 'max_wallets', value: 10, type: 'number' },
+    { key: 'defi_alerts', value: true, type: 'boolean' },
+    { key: 'identity_resolution', value: true, type: 'boolean' },
+    { key: 'whale_threshold', value: 100000, type: 'number' },
+    { key: 'cross_device_sync', value: false, type: 'boolean' },
+  ],
+
+  // Resolution signals
+  deterministicSignals: [
+    { name: 'userId', matched: true, weight: 1.0 },
+    { name: 'email', matched: false, weight: 1.0 },
+    { name: 'phone', matched: false, weight: 1.0 },
+    { name: 'wallet', matched: false, weight: 1.0 },
+    { name: 'oauthSub', matched: false, weight: 1.0 },
+  ],
+  probabilisticSignals: [
+    { name: 'fingerprint', score: 0.72, weight: 0.35 },
+    { name: 'graph', score: 0.45, weight: 0.20 },
+    { name: 'ip_geo', score: 0.88, weight: 0.15 },
+    { name: 'behavior', score: 0.34, weight: 0.15 },
+    { name: 'location', score: 0.91, weight: 0.15 },
+  ],
+
+  // Fraud signals
+  fraudSignals: [
+    { name: 'bot_score', score: 0.08 },
+    { name: 'velocity', score: 0.15 },
+    { name: 'fingerprint', score: 0.05 },
+    { name: 'ip_risk', score: 0.22 },
+    { name: 'behavior', score: 0.10 },
+    { name: 'wallet_risk', score: 0.03 },
+  ],
+};
+
+// ================================================================
+// DEMO DATA CONSTANTS
+// ================================================================
+const PAGES = [
+  '/home', '/products', '/products/widget-pro', '/products/data-engine',
+  '/products/analytics-suite', '/pricing', '/pricing/enterprise',
+  '/checkout', '/checkout/payment', '/checkout/confirm',
+  '/dashboard', '/dashboard/analytics', '/dashboard/wallets',
+  '/docs', '/docs/sdk', '/docs/api', '/blog', '/blog/web3-analytics',
+];
+
+const SELECTORS = [
+  '#cta-hero', '.nav-link', '#add-to-cart', '.product-card', '#signup-btn',
+  '.wallet-connect', '#checkout-btn', '.filter-option', '.tab-item',
+  '#search-input', '.dropdown-toggle', '.modal-close', '.pagination-next',
+];
+
+const WALLET_ADDRS = {
+  evm: ['0x742d35Cc6634C0532925a3b844Bc9e7595f2bD28', '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'],
+  svm: ['7S3P4HxJpyyigGzodYwHtCxZyUQe9JiBMHyRWXArAaKv', 'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy'],
+  btc: ['bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'],
+  sui: ['0x2c8d5ef9e6a5b8c0a1f3d7e9b4c6a2d8f0e1c3b5'],
+  near: ['alice.near', 'vault.near'],
+  tron: ['TJCnKsPa7y5okkXvQAidZBzqx3QyQ6sxMW'],
+  cosmos: ['cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh'],
+};
+
+const DEFI_PROTOCOLS = {
+  evm: [
+    { name: 'Uniswap', type: 'SWAP' },
+    { name: 'Aave', type: 'SUPPLY' },
+    { name: 'Lido', type: 'STAKE' },
+    { name: 'Compound', type: 'SUPPLY' },
+    { name: 'Wormhole', type: 'BRIDGE' },
+  ],
+  svm: [
+    { name: 'Jupiter', type: 'SWAP' },
+    { name: 'Marinade', type: 'STAKE' },
+    { name: 'Raydium', type: 'SWAP' },
+  ],
+};
+
+const PRODUCTS = [
+  { id: 'sku-001', name: 'Widget Pro', price: 29.99, category: 'tools' },
+  { id: 'sku-002', name: 'Data Engine', price: 149.99, category: 'analytics' },
+  { id: 'sku-003', name: 'Analytics Suite', price: 299.99, category: 'analytics' },
+  { id: 'sku-004', name: 'SDK License', price: 499.00, category: 'licenses' },
+  { id: 'sku-005', name: 'Cloud Credits', price: 99.99, category: 'cloud' },
+  { id: 'sku-006', name: 'API Access', price: 79.99, category: 'api' },
+  { id: 'sku-007', name: 'Support Plan', price: 199.99, category: 'services' },
+  { id: 'sku-008', name: 'Enterprise Bundle', price: 999.99, category: 'bundles' },
+];
+
+const CONVERSION_TYPES = ['signup_completed', 'trial_started', 'purchase_completed', 'upgrade_completed'];
+const FORM_FIELDS = ['email', 'name', 'company', 'password', 'card_number', 'address', 'phone'];
+const WALLET_TYPES = { evm: 'metamask', svm: 'phantom', btc: 'unisat', sui: 'sui-wallet', near: 'near-wallet', tron: 'tronlink', cosmos: 'keplr' };
+
+const SPARKLINE_CHARS = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588';
+
+// ================================================================
+// UTILITY FUNCTIONS
+// ================================================================
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pick(arr) { return arr[rand(0, arr.length - 1)]; }
+function pickKey(obj) { const keys = Object.keys(obj); return keys[rand(0, keys.length - 1)]; }
+function fmt(n) { return n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n.toString(); }
+function fmtUSD(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function timeAgo() { const s = Math.floor((Date.now() - state.sessionStart) / 1000); const m = Math.floor(s / 60); return `${m}m ${s % 60}s`; }
+function ts() { return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+function truncAddr(addr) { if (!addr) return ''; return addr.length > 14 ? addr.slice(0, 6) + '...' + addr.slice(-4) : addr; }
+
+function sparkline(data, len = 20) {
+  const d = data.slice(-len);
+  if (d.length === 0) return '';
+  const max = Math.max(...d, 1);
+  return d.map(v => SPARKLINE_CHARS[Math.min(Math.floor((v / max) * 7), 7)]).join('');
+}
+
+function addEvent(type, detail, props = {}) {
+  const ev = { type, detail, props, time: ts(), id: Date.now() + Math.random() };
+  state.events.unshift(ev);
+  if (state.events.length > state.maxEvents) state.events.pop();
+  state.metrics.totalEvents++;
+  return ev;
+}
+
+function flashEl(el) {
+  if (!el) return;
+  el.classList.add('flash-update');
+  setTimeout(() => el.classList.remove('flash-update'), 500);
+}
+
+// ================================================================
+// SDK INTEGRATION (fetch interceptor set up in pre-module script above)
+// ================================================================
+const MOCK_ENDPOINT = window.__MOCK_ENDPOINT || 'http://localhost:9999';
+let sdkReady = false;
+
+function initSDK() {
+  try {
+    aether.init({
+      apiKey: 'playground-demo-key',
+      environment: 'development',
+      debug: true,
+      endpoint: MOCK_ENDPOINT,
+      modules: {
+        autoDiscovery: true,
+        ecommerce: true,
+        featureFlags: true,
+        heatmaps: true,
+        funnels: true,
+        formAnalytics: true,
+        walletTracking: true,
+        svmTracking: true,
+        bitcoinTracking: true,
+        moveTracking: true,
+        nearTracking: true,
+        tronTracking: true,
+        cosmosTracking: true,
       },
-      svm: {
-        phantom: {
-          address: '7fUAJdStEuGbc3sM84cKRL6yYaaSstyLAfXsB6g8sBHM',
-          type: 'Phantom',
-        },
+      privacy: {
+        anonymizeIP: true,
+        gdprMode: false,
       },
-      btc: {
-        unisat: {
-          address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-          type: 'UniSat',
-        },
+      advanced: {
+        batchSize: 50,
+        flushInterval: 30000,
+        maxQueueSize: 500,
+        retry: { maxRetries: 0, baseDelay: 60000, maxDelay: 60000 },
       },
-    };
+    });
+    sdkReady = true;
+    state.sdkInitialized = true;
+    document.getElementById('status-sdk').textContent = 'ACTIVE';
+    document.getElementById('status-dot').classList.remove('inactive');
+    document.getElementById('btn-init').textContent = 'DESTROY SDK';
+    addEvent('id', 'SDK initialized v7.0.0');
+  } catch (e) {
+    console.warn('SDK init failed (expected in playground):', e.message);
+    sdkReady = false;
+    state.sdkInitialized = true;
+    document.getElementById('status-sdk').textContent = 'MOCK';
+    document.getElementById('status-dot').classList.remove('inactive');
+    document.getElementById('btn-init').textContent = 'DESTROY SDK';
+    addEvent('error', `SDK init: ${e.message}`);
+  }
+}
 
-    // Simulated EVM token balances
-    const EVM_TOKENS = [
-      { symbol: 'ETH', name: 'Ethereum', contractAddress: '0x0000000000000000000000000000000000000000', balance: '4.2371', decimals: 18, usdValue: 13558.72, vm: 'evm', chainId: 1, standard: 'native' },
-      { symbol: 'USDC', name: 'USD Coin', contractAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', balance: '12450.00', decimals: 6, usdValue: 12450.00, vm: 'evm', chainId: 1, standard: 'erc20' },
-      { symbol: 'WETH', name: 'Wrapped ETH', contractAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', balance: '1.5000', decimals: 18, usdValue: 4805.25, vm: 'evm', chainId: 1, standard: 'erc20' },
-      { symbol: 'stETH', name: 'Lido Staked ETH', contractAddress: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84', balance: '2.8000', decimals: 18, usdValue: 8974.80, vm: 'evm', chainId: 1, standard: 'erc20' },
-      { symbol: 'AAVE', name: 'Aave', contractAddress: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', balance: '45.00', decimals: 18, usdValue: 5850.00, vm: 'evm', chainId: 1, standard: 'erc20' },
-    ];
+function destroySDK() {
+  try { if (sdkReady) aether.destroy(); } catch {}
+  sdkReady = false;
+  state.sdkInitialized = false;
+  document.getElementById('status-sdk').textContent = 'INACTIVE';
+  document.getElementById('status-dot').classList.add('inactive');
+  document.getElementById('btn-init').textContent = 'INIT SDK';
+  addEvent('id', 'SDK destroyed');
+}
 
-    // Simulated Solana token balances
-    const SVM_TOKENS = [
-      { symbol: 'SOL', name: 'Solana', contractAddress: '11111111111111111111111111111111', balance: '128.459', decimals: 9, usdValue: 18441.57, vm: 'svm', chainId: 'mainnet-beta', standard: 'native' },
-      { symbol: 'USDC', name: 'USD Coin (SPL)', contractAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', balance: '8200.00', decimals: 6, usdValue: 8200.00, vm: 'svm', chainId: 'mainnet-beta', standard: 'spl' },
-      { symbol: 'JTO', name: 'Jito', contractAddress: 'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL', balance: '500.00', decimals: 9, usdValue: 1575.00, vm: 'svm', chainId: 'mainnet-beta', standard: 'spl' },
-      { symbol: 'mSOL', name: 'Marinade SOL', contractAddress: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', balance: '25.000', decimals: 9, usdValue: 3725.00, vm: 'svm', chainId: 'mainnet-beta', standard: 'spl' },
-    ];
+window.toggleSDK = function() {
+  state.sdkInitialized ? destroySDK() : initSDK();
+};
 
-    // Simulated BTC balance
-    const BTC_TOKENS = [
-      { symbol: 'BTC', name: 'Bitcoin', contractAddress: '', balance: '0.3821', decimals: 8, usdValue: 36499.55, vm: 'bitcoin', chainId: 'mainnet', standard: 'native' },
-    ];
+window.resetSDK = function() {
+  try { if (sdkReady) aether.reset(); } catch {}
+  state.identity = { userId: null, email: null, phone: null, devices: [], linkedWallets: [], resolved: false, clusterSize: 0 };
+  state.wallets = [];
+  state.deterministicSignals.forEach(s => s.matched = s.name === 'userId' ? false : false);
+  addEvent('id', 'SDK reset — anonymous identity');
+  renderAll();
+};
 
-    // =========================================================================
-    // LOGGING
-    // =========================================================================
-    function appendLog(type, msg) {
-      const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-      state.logs.unshift({ time, type, msg });
-      if (state.logs.length > 80) state.logs.pop();
-      renderLogs();
+// Internal identify — used by journey (no tab switch)
+function identifyUserInternal() {
+  const data = {
+    userId: 'user-' + rand(1000, 9999),
+    email: 'jane.doe@example.com',
+    phone: '+14155551234',
+    traits: { name: 'Jane Doe', plan: 'enterprise', company: 'Acme Corp' },
+    oauthProvider: 'google',
+    oauthSubject: 'google-uid-' + rand(100, 999),
+  };
+
+  try { if (sdkReady) aether.hydrateIdentity(data); } catch {}
+
+  state.identity.userId = data.userId;
+  state.identity.email = data.email;
+  state.identity.phone = data.phone;
+  state.identity.devices = ['Chrome/Mac', 'Safari/iPhone', 'Chrome/Pixel'];
+  state.identity.clusterSize = 3;
+  state.identity.resolved = true;
+
+  state.deterministicSignals[0].matched = true; // userId
+  state.deterministicSignals[1].matched = true; // email
+  state.deterministicSignals[2].matched = true; // phone
+  state.deterministicSignals[4].matched = true; // oauthSub
+
+  state.metrics.identityMerges++;
+  addEvent('id', `Identified: ${data.userId} (${data.email})`);
+}
+
+// Public identify — auto-switches to Identity tab with visual feedback
+window.identifyUser = function() {
+  identifyUserInternal();
+
+  // Switch to identity tab to showcase result
+  window.switchTab('identity');
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  showToast('✓ USER IDENTIFIED — Jane Doe (enterprise)');
+
+  // Add glow pulse to identity panels
+  setTimeout(() => {
+    document.querySelectorAll('#tab-identity .panel').forEach(p => {
+      p.classList.add('glow-pulse');
+      setTimeout(() => p.classList.remove('glow-pulse'), 2200);
+    });
+  }, 100);
+};
+
+// ================================================================
+// WALLET FUNCTIONS
+// ================================================================
+function connectWallet(vm) {
+  const addr = pick(WALLET_ADDRS[vm] || WALLET_ADDRS.evm);
+  const type = WALLET_TYPES[vm] || 'unknown';
+
+  // Call real SDK
+  try {
+    if (sdkReady) {
+      switch (vm) {
+        case 'evm': aether.wallet.connect(addr, { chainId: 1, type }); break;
+        case 'svm': aether.wallet.connectSVM(addr, { type }); break;
+        case 'btc': aether.wallet.connectBTC(addr, { type }); break;
+        case 'sui': aether.wallet.connectSUI(addr, { type }); break;
+        case 'near': aether.wallet.connectNEAR(addr, { type }); break;
+        case 'tron': aether.wallet.connectTRON(addr, { type }); break;
+        case 'cosmos': aether.wallet.connectCosmos(addr, { type }); break;
+      }
     }
+  } catch {}
 
-    function renderLogs() {
-      const container = document.getElementById('logContainer');
-      document.getElementById('eventCount').textContent = `${state.logs.length} events`;
-      if (state.logs.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-icon">◇</div>Click "Init SDK" to begin</div>';
-        return;
-      }
-      container.innerHTML = state.logs.map(l => `
-        <div class="log-entry">
-          <span class="log-time">${l.time}</span>
-          <span class="log-type ${l.type}">${l.type}</span>
-          <span class="log-msg">${l.msg}</span>
-        </div>
-      `).join('');
+  if (!state.wallets.find(w => w.address === addr)) {
+    state.wallets.push({
+      vm, address: addr, type,
+      classification: Math.random() > 0.7 ? 'cold' : 'hot',
+      chainId: vm === 'evm' ? 'eip155:1' : vm,
+      connected: ts(),
+    });
+  }
+
+  state.identity.linkedWallets = [...new Set([...state.identity.linkedWallets, addr])];
+  if (state.identity.linkedWallets.length > 0) {
+    state.deterministicSignals[3].matched = true;
+  }
+
+  state.metrics.walletEvents++;
+  state.chainActivity[vm].events++;
+  addEvent('wall', `${vm.toUpperCase()} connected: ${truncAddr(addr)} (${type})`);
+  renderAll();
+}
+
+window.disconnectAll = function() {
+  try { if (sdkReady) aether.wallet.disconnect(); } catch {}
+  state.wallets = [];
+  state.identity.linkedWallets = [];
+  state.deterministicSignals[3].matched = false;
+  addEvent('wall', 'All wallets disconnected');
+  renderAll();
+};
+
+// ================================================================
+// SIMULATION ENGINE
+// ================================================================
+function generatePageView() {
+  const page = pick(PAGES);
+  try { if (sdkReady) aether.pageView(page); } catch {}
+  state.metrics.pageViews++;
+  state.sparkData.pageViews.push(state.metrics.pageViews);
+  if (state.sparkData.pageViews.length > 20) state.sparkData.pageViews.shift();
+  addEvent('page', page);
+}
+
+function generateClick() {
+  const sel = pick(SELECTORS);
+  const x = rand(50, 1200);
+  const y = rand(50, 800);
+  try { if (sdkReady) aether.track('click', { selector: sel, x, y }); } catch {}
+  state.metrics.clicks++;
+  state.sparkData.clicks.push(state.metrics.clicks);
+  if (state.sparkData.clicks.length > 20) state.sparkData.clicks.shift();
+  addEvent('click', `${sel} (${x},${y})`);
+}
+
+function generateConversion() {
+  const type = pick(CONVERSION_TYPES);
+  const value = type.includes('purchase') ? pick(PRODUCTS).price : 0;
+  try { if (sdkReady) aether.conversion(type, value); } catch {}
+  state.metrics.conversions++;
+  state.metrics.revenue += value;
+  state.sparkData.conversions.push(state.metrics.conversions);
+  if (state.sparkData.conversions.length > 20) state.sparkData.conversions.shift();
+
+  // Update funnel
+  state.funnel.visit += rand(1, 5);
+  if (type === 'signup_completed') state.funnel.signup += rand(1, 3);
+  if (type === 'trial_started') state.funnel.verified += rand(0, 2);
+  if (type === 'purchase_completed') state.funnel.purchase += 1;
+
+  addEvent('conv', `${type}${value ? ' ' + fmtUSD(value) : ''}`);
+}
+
+function generateFormEvent() {
+  const field = pick(FORM_FIELDS);
+  const action = pick(['focus', 'blur', 'change']);
+  try { if (sdkReady) aether.track('form_field', { field, action }); } catch {}
+  state.metrics.formEvents++;
+  addEvent('form', `${field}: ${action}`);
+}
+
+function generateWalletEvent() {
+  const vm = pick(['evm', 'svm', 'btc', 'sui', 'near', 'tron', 'cosmos']);
+  if (Math.random() > 0.3 || state.wallets.length === 0) {
+    connectWallet(vm);
+  } else {
+    // Disconnect random
+    const w = pick(state.wallets);
+    state.wallets = state.wallets.filter(x => x.address !== w.address);
+    state.metrics.walletEvents++;
+    addEvent('wall', `${w.vm.toUpperCase()} disconnected: ${truncAddr(w.address)}`);
+  }
+}
+
+function generateTransaction() {
+  const vm = Math.random() > 0.4 ? 'evm' : 'svm';
+  const protocols = DEFI_PROTOCOLS[vm] || DEFI_PROTOCOLS.evm;
+  const protocol = pick(protocols);
+  const value = (Math.random() * 50 + 0.1).toFixed(4);
+  const token = vm === 'evm' ? pick(['ETH', 'USDC', 'WBTC', 'DAI']) : pick(['SOL', 'USDC', 'mSOL']);
+  const txHash = '0x' + Array.from({ length: 16 }, () => rand(0, 15).toString(16)).join('');
+  const status = Math.random() > 0.05 ? 'confirmed' : 'failed';
+
+  try {
+    if (sdkReady) aether.wallet.transaction(txHash, { chainId: vm === 'evm' ? 1 : 'solana', value });
+  } catch {}
+
+  const tx = {
+    hash: txHash,
+    protocol: protocol.name,
+    type: protocol.type,
+    vm,
+    value: parseFloat(value),
+    token,
+    status,
+    time: ts(),
+  };
+
+  state.txFeed.unshift(tx);
+  if (state.txFeed.length > 50) state.txFeed.pop();
+
+  state.metrics.transactions++;
+  state.sparkData.transactions.push(state.metrics.transactions);
+  if (state.sparkData.transactions.length > 20) state.sparkData.transactions.shift();
+
+  state.chainActivity[vm].txns++;
+  state.chainActivity[vm].value += parseFloat(value);
+  state.chainActivity[vm].spark.push(parseFloat(value));
+  if (state.chainActivity[vm].spark.length > 10) state.chainActivity[vm].spark.shift();
+
+  addEvent('tx', `${protocol.type} ${value} ${token} via ${protocol.name}`, { status });
+}
+
+function generateWhaleAlert() {
+  const vm = pick(['evm', 'svm', 'btc']);
+  const amount = rand(100000, 5000000);
+  const token = vm === 'evm' ? 'ETH' : vm === 'svm' ? 'SOL' : 'BTC';
+  const from = truncAddr(pick(WALLET_ADDRS[vm]));
+  const to = truncAddr('0x' + Array.from({ length: 40 }, () => rand(0, 15).toString(16)).join(''));
+
+  state.whaleAlerts.unshift({
+    vm, amount, token, from, to, time: ts(),
+  });
+  if (state.whaleAlerts.length > 20) state.whaleAlerts.pop();
+
+  addEvent('tx', `WHALE: ${fmtUSD(amount)} ${token} ${from} -> ${to}`);
+}
+
+function updateMetrics() {
+  // Jiggle fraud score slightly
+  state.metrics.fraudScore = Math.max(0, Math.min(100,
+    state.metrics.fraudScore + (Math.random() - 0.52) * 3
+  ));
+
+  // Update probabilistic signals
+  state.probabilisticSignals.forEach(s => {
+    s.score = Math.max(0, Math.min(1, s.score + (Math.random() - 0.5) * 0.05));
+  });
+
+  // Count active flags
+  state.metrics.flagsActive = state.featureFlags.filter(f => f.type === 'boolean' && f.value === true).length;
+
+  // Shuffle traffic slightly
+  const keys = Object.keys(state.traffic);
+  const k = pick(keys);
+  state.traffic[k] = Math.max(1, state.traffic[k] + rand(-1, 1));
+
+  renderStatusBar();
+}
+
+// ================================================================
+// TOAST NOTIFICATION
+// ================================================================
+function showToast(msg, duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ================================================================
+// SIMULATE JOURNEY
+// ================================================================
+window.simulateJourney = async function() {
+  if (state.journeyRunning) return;
+  state.journeyRunning = true;
+
+  const bar = document.getElementById('journey-bar');
+  const fill = document.getElementById('journey-fill');
+  const stepEl = document.getElementById('journey-step');
+  const labelEl = document.getElementById('journey-label');
+  bar.classList.add('active');
+  document.getElementById('btn-journey').classList.add('active');
+  addEvent('id', '▶ Journey simulation started');
+  showToast('▶ JOURNEY STARTED');
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  // Each step: { label, tab (auto-switch), fn }
+  const steps = [
+    { label: 'Landing on homepage', tab: 'overview', fn() { generatePageView(); addEvent('page', '/home (landing)'); } },
+    { label: 'Clicking hero CTA', tab: null, fn() { generateClick(); addEvent('click', '#hero-cta'); } },
+    { label: 'Browsing products', tab: 'web2', fn() { generatePageView(); addEvent('page', '/products'); } },
+    { label: 'Viewing product detail', tab: null, fn() {
+      const p = pick(PRODUCTS);
+      try { if (sdkReady) aether.ecommerce.trackProductView(p); } catch {}
+      addEvent('page', `/products/${p.id}`);
+    }},
+    { label: 'Adding item to cart', tab: null, fn() {
+      const p = pick(PRODUCTS);
+      try { if (sdkReady) aether.ecommerce.trackAddToCart({ productId: p.id, quantity: 1, price: p.price }); } catch {}
+      addEvent('conv', `Add to cart: ${p.name}`);
+    }},
+    { label: 'Filling signup form', tab: null, fn() { generateFormEvent(); addEvent('form', 'Signup form: email focus'); } },
+    { label: 'Completing signup', tab: null, fn() { generateConversion(); } },
+    { label: 'Identifying user (Jane Doe)', tab: 'identity', fn() { identifyUserInternal(); } },
+    { label: 'Connecting EVM wallet (MetaMask)', tab: 'web3', fn() { connectWallet('evm'); } },
+    { label: 'Connecting SVM wallet (Phantom)', tab: null, fn() { connectWallet('svm'); } },
+    { label: 'Executing Uniswap SWAP', tab: null, fn() {
+      generateTransaction();
+      addEvent('tx', 'Uniswap SWAP 2.5 ETH → USDC');
+    }},
+    { label: 'Staking SOL via Marinade', tab: null, fn() {
+      generateTransaction();
+      addEvent('tx', 'Marinade STAKE 50 SOL');
+    }},
+    { label: 'Resolving cross-device identity', tab: 'identity', fn() {
+      state.metrics.identityMerges++;
+      state.identity.resolved = true;
+      state.identity.clusterSize = 3;
+      addEvent('id', 'Identity resolution: 3 devices merged');
+    }},
+    { label: 'Completing purchase ($299.99)', tab: 'overview', fn() {
+      const order = { orderId: 'order-' + rand(1000, 9999), total: 299.99, currency: 'USD', items: [{ productId: 'sku-003', quantity: 1, price: 299.99 }] };
+      try { if (sdkReady) aether.ecommerce.trackPurchase(order); } catch {}
+      state.metrics.revenue += 299.99;
+      state.metrics.conversions++;
+      state.funnel.purchase++;
+      addEvent('conv', `Purchase: ${fmtUSD(299.99)}`);
+    }},
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    const pct = Math.round(((i + 1) / steps.length) * 100);
+    labelEl.textContent = `▶ STEP ${i + 1}/${steps.length}`;
+    stepEl.textContent = s.label;
+    fill.style.width = pct + '%';
+
+    // Auto-switch tab if specified
+    if (s.tab) window.switchTab(s.tab);
+
+    s.fn();
+    renderAll();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await delay(1500);
+  }
+
+  fill.style.width = '100%';
+  labelEl.textContent = '✓ COMPLETE';
+  stepEl.textContent = 'Journey finished — all steps executed';
+  showToast('✓ JOURNEY COMPLETE — 14 steps executed');
+
+  await delay(2000);
+
+  bar.classList.remove('active');
+  state.journeyRunning = false;
+  document.getElementById('btn-journey').classList.remove('active');
+  addEvent('id', '✓ Journey simulation completed');
+  window.switchTab('overview');
+  renderAll();
+};
+
+// ================================================================
+// TAB NAVIGATION
+// ================================================================
+window.switchTab = function(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+  document.querySelectorAll('.tab-view').forEach(el => el.classList.toggle('active', el.id === 'tab-' + tab));
+  renderAll();
+};
+
+// ================================================================
+// RENDER FUNCTIONS
+// ================================================================
+function renderAll() {
+  renderStatusBar();
+  switch (state.activeTab) {
+    case 'overview': renderOverview(); break;
+    case 'web2': renderWeb2(); break;
+    case 'web3': renderWeb3(); break;
+    case 'identity': renderIdentity(); break;
+    case 'events': renderEventLog(); break;
+  }
+}
+
+// ── STATUS BAR ──
+function renderStatusBar() {
+  document.getElementById('status-session').textContent = timeAgo();
+  document.getElementById('status-events').textContent = fmt(state.metrics.totalEvents);
+  document.getElementById('status-wallets').textContent = state.wallets.length;
+  document.getElementById('status-chains').textContent = new Set(state.wallets.map(w => w.vm)).size;
+  document.getElementById('status-fp').textContent = state.sdkInitialized ? 'OK' : '--';
+}
+
+// ── OVERVIEW TAB ──
+function renderOverview() {
+  // KPIs
+  const kpis = [
+    { label: 'SESSIONS', value: fmt(state.metrics.sessions), spark: '' },
+    { label: 'EVENTS', value: fmt(state.metrics.totalEvents), spark: '' },
+    { label: 'REVENUE', value: fmtUSD(state.metrics.revenue), spark: '' },
+    { label: 'WALLETS', value: state.wallets.length, spark: '' },
+    { label: 'CHAINS', value: new Set(state.wallets.map(w => w.vm)).size, spark: '' },
+    { label: 'FRAUD', value: Math.round(state.metrics.fraudScore), spark: '' },
+    { label: 'ID MERGES', value: state.metrics.identityMerges, spark: '' },
+    { label: 'FLAGS', value: state.metrics.flagsActive, spark: '' },
+  ];
+
+  document.getElementById('kpi-strip').innerHTML = kpis.map(k => `
+    <div class="kpi-box">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+    </div>
+  `).join('');
+
+  // Ticker
+  const tickerEl = document.getElementById('ticker');
+  tickerEl.innerHTML = state.events.slice(0, 20).map(ev => `
+    <div class="event-entry">
+      <span class="event-time">${ev.time}</span>
+      <span class="ev-tag ${ev.type}">${ev.type.toUpperCase()}</span>
+      <span class="event-detail">${ev.detail}</span>
+    </div>
+  `).join('');
+
+  // Sparklines
+  document.getElementById('sparklines').innerHTML = [
+    { label: 'Page Views', data: state.sparkData.pageViews, count: state.metrics.pageViews },
+    { label: 'Clicks', data: state.sparkData.clicks, count: state.metrics.clicks },
+    { label: 'Conversions', data: state.sparkData.conversions, count: state.metrics.conversions },
+    { label: 'Transactions', data: state.sparkData.transactions, count: state.metrics.transactions },
+  ].map(s => `
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span style="color:var(--text-muted);font-size:9px;letter-spacing:1px;text-transform:uppercase">${s.label}</span>
+        <span style="color:var(--accent-light);font-size:10px">${fmt(s.count)}</span>
+      </div>
+      <div class="kpi-spark">${sparkline(s.data)}</div>
+    </div>
+  `).join('');
+
+  // Mini Funnel
+  const maxFunnel = state.funnel.visit;
+  document.getElementById('mini-funnel').innerHTML = Object.entries(state.funnel).map(([k, v]) => `
+    <div class="funnel-step">
+      <span class="funnel-name">${k}</span>
+      <div class="funnel-bar" style="width:${(v / maxFunnel * 100)}%;background:var(--accent)">${fmt(v)}</div>
+    </div>
+  `).join('');
+
+  // Mini Identity
+  const id = state.identity;
+  document.getElementById('mini-identity').innerHTML = `<pre class="id-graph" style="font-size:10px">${id.resolved ?
+`<span class="vertex">IdentityCluster</span>
+<span class="edge">  \u251C\u2500\u2500</span> <span class="vertex">User</span> <span class="value">${id.userId || 'anon'}</span>
+<span class="edge">  \u2502   \u251C\u2500</span> <span class="value">${id.email || '---'}</span>
+<span class="edge">  \u2502   \u2514\u2500</span> <span class="value">${id.devices.length} devices</span>
+<span class="edge">  \u2514\u2500\u2500</span> <span class="vertex">Wallets</span> <span class="value">${id.linkedWallets.length} linked</span>` :
+`<span class="vertex">AnonymousProfile</span>
+<span class="edge">  \u2514\u2500\u2500</span> <span class="value">No identity linked</span>
+<span class="edge">      </span> <span style="color:var(--text-muted)">Click IDENTIFY USER</span>`
+  }</pre>`;
+
+  // Mini Chains
+  document.getElementById('mini-chains').innerHTML = Object.entries(state.chainActivity).map(([vm, d]) => `
+    <div class="bar-row">
+      <span class="bar-label"><span class="vm-tag ${vm}">${vm}</span></span>
+      <span class="bar-track"><span class="bar-fill" style="width:${Math.min(d.events * 5, 100)}%"></span></span>
+      <span class="bar-pct">${d.events}</span>
+    </div>
+  `).join('');
+}
+
+// ── WEB2 TAB ──
+function renderWeb2() {
+  // KPIs
+  const kpis = [
+    { label: 'PAGE VIEWS', value: fmt(state.metrics.pageViews) },
+    { label: 'CLICKS', value: fmt(state.metrics.clicks) },
+    { label: 'CONVERSIONS', value: fmt(state.metrics.conversions) },
+    { label: 'FORM EVENTS', value: fmt(state.metrics.formEvents) },
+  ];
+  document.getElementById('web2-kpis').innerHTML = kpis.map(k => `
+    <div class="kpi-box"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div></div>
+  `).join('');
+
+  // Traffic Sources
+  const totalTraffic = Object.values(state.traffic).reduce((a, b) => a + b, 0);
+  document.getElementById('traffic-sources').innerHTML = Object.entries(state.traffic).map(([k, v]) => {
+    const pct = Math.round(v / totalTraffic * 100);
+    return `<div class="bar-row">
+      <span class="bar-label">${k}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+      <span class="bar-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  // Conversion Funnel
+  const maxF = state.funnel.visit;
+  document.getElementById('full-funnel').innerHTML = Object.entries(state.funnel).map(([k, v], i, arr) => {
+    const pct = Math.round(v / maxF * 100);
+    const dropoff = i > 0 ? `-${Math.round((1 - v / arr[i - 1][1]) * 100)}%` : '';
+    return `<div class="funnel-step">
+      <span class="funnel-name">${k}</span>
+      <div class="funnel-bar" style="width:${pct}%">${fmt(v)}</div>
+      <span class="funnel-drop">${dropoff}</span>
+    </div>`;
+  }).join('');
+
+  // Ecommerce
+  const avgOrder = state.metrics.conversions > 0 ? state.metrics.revenue / state.metrics.conversions : 0;
+  const convRate = state.metrics.pageViews > 0 ? (state.metrics.conversions / state.metrics.pageViews * 100) : 0;
+  document.getElementById('ecommerce').innerHTML = `
+    <div class="grid-3" style="margin-bottom:12px">
+      <div class="kpi-box"><div class="kpi-label">REVENUE</div><div class="kpi-value">${fmtUSD(state.metrics.revenue)}</div></div>
+      <div class="kpi-box"><div class="kpi-label">AOV</div><div class="kpi-value">${fmtUSD(avgOrder)}</div></div>
+      <div class="kpi-box"><div class="kpi-label">CONV RATE</div><div class="kpi-value">${convRate.toFixed(1)}%</div></div>
+    </div>
+    <table class="data-table">
+      <tr><th>PRODUCT</th><th>PRICE</th><th>CATEGORY</th></tr>
+      ${PRODUCTS.slice(0, 5).map(p => `<tr><td>${p.name}</td><td>${fmtUSD(p.price)}</td><td style="color:var(--text-muted)">${p.category}</td></tr>`).join('')}
+    </table>
+  `;
+
+  // Heatmap
+  renderHeatmap();
+
+  // Feature Flags
+  document.getElementById('feature-flags').innerHTML = `
+    <table class="data-table">
+      <tr><th>FLAG</th><th>VALUE</th><th>TYPE</th><th>STATUS</th></tr>
+      ${state.featureFlags.map(f => `
+        <tr>
+          <td style="color:var(--text)">${f.key}</td>
+          <td>${f.type === 'boolean' ? (f.value ? '<span style="color:var(--success)">\u2713</span>' : '<span style="color:var(--text-muted)">\u25CB</span>') : f.value}</td>
+          <td style="color:var(--text-muted)">${f.type}</td>
+          <td><span class="toggle ${f.value ? 'on' : ''}"></span></td>
+        </tr>
+      `).join('')}
+    </table>
+  `;
+}
+
+function renderHeatmap() {
+  const w = 30, h = 12;
+  const chars = ' \u2591\u2592\u2593\u2588';
+  let grid = '';
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // Create hot spots
+      const d1 = Math.sqrt(Math.pow(x - 10, 2) + Math.pow(y - 3, 2));
+      const d2 = Math.sqrt(Math.pow(x - 20, 2) + Math.pow(y - 7, 2));
+      const d3 = Math.sqrt(Math.pow(x - 5, 2) + Math.pow(y - 9, 2));
+      const heat = Math.max(0, 1 - d1 / 8) + Math.max(0, 1 - d2 / 6) + Math.max(0, 1 - d3 / 7);
+      const intensity = Math.min(Math.floor(heat * 4 + Math.random() * 0.5), 4);
+      grid += chars[intensity];
     }
+    grid += '\n';
+  }
+  document.getElementById('heatmap').innerHTML = `<div class="heatmap-grid">${grid}</div>`;
+}
 
-    // =========================================================================
-    // UI UPDATES
-    // =========================================================================
-    function updateStatus() {
-      const dot = document.getElementById('statusDot');
-      const text = document.getElementById('statusText');
-      const badges = document.getElementById('statusBadges');
+// ── WEB3 TAB ──
+function renderWeb3() {
+  // Wallet buttons
+  document.getElementById('wallet-buttons').innerHTML = ['evm', 'svm', 'btc', 'sui', 'near', 'tron', 'cosmos'].map(vm =>
+    `<button class="btn" onclick="window._connectWallet('${vm}')" style="font-size:9px"><span class="vm-tag ${vm}">${vm.toUpperCase()}</span> CONNECT</button>`
+  ).join('');
 
-      if (state.initialized) {
-        dot.className = 'status-dot on';
-        const walletCount = state.wallets.length;
-        text.innerHTML = `<strong>SDK Active</strong> — ${walletCount} wallet${walletCount !== 1 ? 's' : ''} connected`;
+  // Wallet count
+  document.getElementById('wallet-count').textContent = state.wallets.length;
 
-        const vmCounts = {};
-        state.wallets.forEach(w => { vmCounts[w.vm] = (vmCounts[w.vm] || 0) + 1; });
-        let badgeHTML = '';
-        if (vmCounts.evm) badgeHTML += `<span class="badge badge-evm">EVM ×${vmCounts.evm}</span>`;
-        if (vmCounts.svm) badgeHTML += `<span class="badge badge-svm">SVM ×${vmCounts.svm}</span>`;
-        if (vmCounts.bitcoin) badgeHTML += `<span class="badge badge-btc">BTC ×${vmCounts.bitcoin}</span>`;
-        if (walletCount > 0) badgeHTML += `<span class="badge badge-wallets">$${formatUSD(state.portfolioValue)}</span>`;
-        badges.innerHTML = badgeHTML;
-      } else {
-        dot.className = 'status-dot off';
-        text.innerHTML = 'SDK not initialized';
-        badges.innerHTML = '';
-      }
-    }
+  // Wallets table
+  document.getElementById('wallets-table').innerHTML = state.wallets.length === 0
+    ? '<div style="color:var(--text-muted);font-size:10px;padding:8px">No wallets connected</div>'
+    : `<table class="data-table">
+        <tr><th>VM</th><th>ADDRESS</th><th>TYPE</th><th>CLASS</th><th>CHAIN</th></tr>
+        ${state.wallets.map(w => `
+          <tr>
+            <td><span class="vm-tag ${w.vm}">${w.vm.toUpperCase()}</span></td>
+            <td style="font-size:9px">${truncAddr(w.address)}</td>
+            <td>${w.type}</td>
+            <td style="color:${w.classification === 'hot' ? 'var(--warning)' : 'var(--accent-light)'}">${w.classification}</td>
+            <td style="color:var(--text-muted)">${w.chainId}</td>
+          </tr>
+        `).join('')}
+      </table>`;
 
-    function renderWallets() {
-      const grid = document.getElementById('walletGrid');
-      document.getElementById('walletCount').textContent = `${state.wallets.length} wallet${state.wallets.length !== 1 ? 's' : ''}`;
+  // Transaction Feed
+  document.getElementById('tx-feed').innerHTML = state.txFeed.length === 0
+    ? '<div style="color:var(--text-muted);font-size:10px;padding:8px">No transactions yet</div>'
+    : state.txFeed.slice(0, 15).map(tx => `
+      <div class="event-entry">
+        <span class="event-time">${tx.time}</span>
+        <span class="vm-tag ${tx.vm}" style="font-size:7px">${tx.vm}</span>
+        <span class="ev-tag tx">${tx.type}</span>
+        <span class="event-detail">${tx.value} ${tx.token} via ${tx.protocol}
+          <span style="color:${tx.status === 'confirmed' ? 'var(--success)' : 'var(--error)'}"> ${tx.status === 'confirmed' ? '\u2713' : '\u2717'}</span>
+        </span>
+      </div>
+    `).join('');
 
-      if (state.wallets.length === 0) {
-        grid.innerHTML = '<div class="empty-state"><div class="empty-icon">◈</div>No wallets connected</div>';
-        return;
-      }
+  // Chain Activity
+  document.getElementById('chain-activity').innerHTML = `
+    <table class="data-table">
+      <tr><th>CHAIN</th><th>EVENTS</th><th>TXNS</th><th>VALUE</th><th>SPARKLINE</th></tr>
+      ${Object.entries(state.chainActivity).map(([vm, d]) => `
+        <tr>
+          <td><span class="vm-tag ${vm}">${vm.toUpperCase()}</span></td>
+          <td>${d.events}</td>
+          <td>${d.txns}</td>
+          <td>${d.value.toFixed(2)}</td>
+          <td style="color:var(--accent-light)">${sparkline(d.spark, 10)}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `;
 
-      grid.innerHTML = state.wallets.map((w, i) => {
-        const vmLabel = { evm: 'EVM', svm: 'SVM', bitcoin: 'BTC' }[w.vm] || w.vm.toUpperCase();
-        const vmClass = w.vm === 'bitcoin' ? 'btc' : w.vm;
-        const addr = w.ens || truncAddr(w.address);
-        const chainName = getChainName(w.vm, w.chainId);
-        return `
-          <div class="wallet-card">
-            <div class="vm-icon ${vmClass}">${vmLabel}</div>
-            <div class="wallet-info">
-              <div class="wallet-addr">${addr}${w.ens ? ` <span style="color:var(--text-dim);font-size:0.65rem">(${truncAddr(w.address)})</span>` : ''}</div>
-              <div class="wallet-meta">
-                <span>${w.walletType}</span>
-                <span>•</span>
-                <span>${chainName}</span>
-                <span class="tag tag-${w.classification}">${w.classification}</span>
-                ${w.isPrimary ? '<span class="tag tag-primary">primary</span>' : ''}
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
+  // Whale Alerts
+  document.getElementById('whale-alerts').innerHTML = state.whaleAlerts.length === 0
+    ? '<div style="color:var(--text-muted);font-size:10px;padding:8px">No whale alerts</div>'
+    : state.whaleAlerts.slice(0, 8).map(w => `
+      <div class="whale-alert">
+        <span class="whale-amount">${fmtUSD(w.amount)}</span> ${w.token}
+        <span style="color:var(--text-muted)">${w.from} \u2192 ${w.to}</span>
+        <span style="color:var(--text-muted);float:right">${w.time}</span>
+      </div>
+    `).join('');
+}
+window._connectWallet = connectWallet;
 
-    function renderPortfolio() {
-      const container = document.getElementById('portfolioStats');
-      if (state.wallets.length === 0) {
-        container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">◎</div>Connect a wallet to view portfolio</div>';
-        return;
-      }
+// ── IDENTITY TAB ──
+function renderIdentity() {
+  const id = state.identity;
 
-      const evmValue = state.tokens.filter(t => t.vm === 'evm').reduce((s, t) => s + (t.usdValue || 0), 0);
-      const svmValue = state.tokens.filter(t => t.vm === 'svm').reduce((s, t) => s + (t.usdValue || 0), 0);
-      const btcValue = state.tokens.filter(t => t.vm === 'bitcoin').reduce((s, t) => s + (t.usdValue || 0), 0);
-      const defiValue = state.defiPositions.reduce((s, p) => s + (p.valueUSD || 0), 0);
-      state.portfolioValue = evmValue + svmValue + btcValue + defiValue;
+  // Identity Graph
+  document.getElementById('identity-graph').innerHTML = `<pre class="id-graph">${id.resolved ?
+`<span class="vertex">\u250C\u2500 IdentityCluster</span> <span style="color:var(--text-muted)">(${id.clusterSize} profiles merged)</span>
+<span class="edge">\u2502</span>
+<span class="edge">\u251C\u2500\u2500</span> <span class="vertex">User</span> <span class="value">${id.userId}</span>
+<span class="edge">\u2502   \u251C\u2500</span> email: <span class="value">${id.email}</span>
+<span class="edge">\u2502   \u251C\u2500</span> phone: <span class="value">${id.phone}</span>
+<span class="edge">\u2502   \u2514\u2500</span> oauth: <span class="value">google</span>
+<span class="edge">\u2502</span>
+<span class="edge">\u251C\u2500\u2500</span> <span class="vertex">Devices</span> <span style="color:var(--text-muted)">(${id.devices.length})</span>
+${id.devices.map((d, i) => `<span class="edge">\u2502   ${i === id.devices.length - 1 ? '\u2514' : '\u251C'}\u2500</span> <span class="value">${d}</span>`).join('\n')}
+<span class="edge">\u2502</span>
+<span class="edge">\u251C\u2500\u2500</span> <span class="vertex">Fingerprints</span>
+<span class="edge">\u2502   \u2514\u2500</span> <span class="value">sha256:a4f2c8...3b19</span> <span style="color:var(--success)">\u2713 matched</span>
+<span class="edge">\u2502</span>
+<span class="edge">\u2514\u2500\u2500</span> <span class="vertex">Wallets</span> <span style="color:var(--text-muted)">(${id.linkedWallets.length})</span>
+${id.linkedWallets.map((w, i) => `<span class="edge">    ${i === id.linkedWallets.length - 1 ? '\u2514' : '\u251C'}\u2500</span> <span class="value">${truncAddr(w)}</span>`).join('\n') || '<span class="edge">    \u2514\u2500</span> <span style="color:var(--text-muted)">none</span>'}` :
+`<span class="vertex">\u250C\u2500 AnonymousProfile</span>
+<span class="edge">\u2502</span>
+<span class="edge">\u251C\u2500\u2500</span> anonymousId: <span class="value">anon-${rand(1000, 9999)}</span>
+<span class="edge">\u251C\u2500\u2500</span> sessionId: <span class="value">sess-${rand(1000, 9999)}</span>
+<span class="edge">\u2514\u2500\u2500</span> <span style="color:var(--text-muted)">Click IDENTIFY USER to resolve</span>`
+  }</pre>`;
 
-      container.innerHTML = `
-        <div class="portfolio-stat">
-          <div class="label">Total Value</div>
-          <div class="value">$${formatUSD(state.portfolioValue)}</div>
-          <div class="sub">${state.wallets.length} wallets • ${state.tokens.length} tokens</div>
-        </div>
-        ${evmValue > 0 ? `<div class="portfolio-stat"><div class="label">EVM (Ethereum)</div><div class="value" style="color:var(--evm)">$${formatUSD(evmValue)}</div><div class="sub">${state.tokens.filter(t => t.vm === 'evm').length} tokens</div></div>` : ''}
-        ${svmValue > 0 ? `<div class="portfolio-stat"><div class="label">SVM (Solana)</div><div class="value" style="color:var(--svm)">$${formatUSD(svmValue)}</div><div class="sub">${state.tokens.filter(t => t.vm === 'svm').length} tokens</div></div>` : ''}
-        ${btcValue > 0 ? `<div class="portfolio-stat"><div class="label">Bitcoin</div><div class="value" style="color:var(--btc)">$${formatUSD(btcValue)}</div><div class="sub">1 token</div></div>` : ''}
-        ${defiValue > 0 ? `<div class="portfolio-stat"><div class="label">DeFi Positions</div><div class="value" style="color:var(--success)">$${formatUSD(defiValue)}</div><div class="sub">${state.defiPositions.length} positions</div></div>` : ''}
-      `;
-    }
+  // Resolution Signals
+  let html = '<div style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:9px;letter-spacing:1px;margin-bottom:6px">DETERMINISTIC SIGNALS</div>';
+  state.deterministicSignals.forEach(s => {
+    html += `<div class="signal-row">
+      <span class="signal-name">${s.name}</span>
+      <span class="signal-status ${s.matched ? 'ok' : 'fail'}">${s.matched ? '\u2713 MATCHED' : '\u25CB PENDING'}</span>
+      <span class="signal-val" style="color:var(--text-muted)">w=${s.weight.toFixed(2)}</span>
+    </div>`;
+  });
 
-    function renderTokens() {
-      const container = document.getElementById('tokenList');
-      if (state.tokens.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-icon">◈</div>No token balances yet</div>';
-        return;
-      }
+  html += '</div><div style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:9px;letter-spacing:1px;margin-bottom:6px">PROBABILISTIC SIGNALS</div>';
+  state.probabilisticSignals.forEach(s => {
+    const color = s.score > 0.7 ? 'var(--success)' : s.score > 0.4 ? 'var(--warning)' : 'var(--error)';
+    html += `<div class="signal-row">
+      <span class="signal-name">${s.name}</span>
+      <span class="signal-bar-track"><span class="signal-bar-fill" style="width:${s.score * 100}%;background:${color}"></span></span>
+      <span class="signal-val">${(s.score * 100).toFixed(0)}%</span>
+      <span class="signal-val" style="color:var(--text-muted)">w=${s.weight.toFixed(2)}</span>
+    </div>`;
+  });
 
-      const colors = { ETH: '#627EEA', USDC: '#2775CA', WETH: '#EC1C79', stETH: '#00A3FF', AAVE: '#B6509E', SOL: '#9945FF', JTO: '#31D0AA', mSOL: '#4DA8DA', BTC: '#F7931A' };
-      container.innerHTML = state.tokens.map(t => `
-        <div class="asset-row">
-          <div class="asset-icon" style="background:${colors[t.symbol] || '#555'}">${t.symbol.slice(0,2)}</div>
-          <div class="asset-info">
-            <div class="asset-name">${t.name}</div>
-            <div class="asset-detail">${t.vm.toUpperCase()} • ${t.standard}</div>
-          </div>
-          <div class="asset-value">
-            <div class="asset-amount">${t.balance} ${t.symbol}</div>
-            <div class="asset-usd">${t.usdValue ? '$' + formatUSD(t.usdValue) : '—'}</div>
-          </div>
-        </div>
-      `).join('');
-    }
+  // Composite score
+  const detScore = state.deterministicSignals.some(s => s.matched) ? 1.0 : 0;
+  const probScore = state.probabilisticSignals.reduce((sum, s) => sum + s.score * s.weight, 0);
+  const compositeScore = detScore > 0 ? 1.0 : probScore;
+  const decision = compositeScore >= 0.95 ? 'AUTO MERGE' : compositeScore >= 0.70 ? 'REVIEW' : 'NO MATCH';
+  const decColor = compositeScore >= 0.95 ? 'var(--success)' : compositeScore >= 0.70 ? 'var(--warning)' : 'var(--text-muted)';
 
-    function renderDeFi() {
-      const container = document.getElementById('defiList');
-      if (state.defiPositions.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-icon">◇</div>No DeFi positions yet</div>';
-        return;
-      }
+  html += `</div><div style="border-top:1px solid var(--border-dim);padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+    <span style="color:var(--text-muted);font-size:9px">COMPOSITE SCORE</span>
+    <span style="font-size:16px;font-weight:700;color:${decColor}">${(compositeScore * 100).toFixed(0)}%</span>
+    <span style="color:${decColor};font-size:10px;font-weight:600;border:1px solid ${decColor};padding:2px 8px">${decision}</span>
+  </div>`;
 
-      container.innerHTML = state.defiPositions.map(p => `
-        <div class="defi-position">
-          <div class="defi-header">
-            <span class="protocol-name">${p.protocol}</span>
-            <span class="protocol-cat">${p.category}</span>
-          </div>
-          <div class="defi-stats">
-            <div class="defi-stat"><span>Type:</span> ${p.positionType}</div>
-            <div class="defi-stat"><span>Value:</span> $${formatUSD(p.valueUSD || 0)}</div>
-            ${p.apy ? `<div class="defi-stat"><span>APY:</span> <span style="color:var(--success)">${p.apy}%</span></div>` : ''}
-            ${p.healthFactor ? `<div class="defi-stat"><span>Health:</span> <span style="color:${p.healthFactor > 1.5 ? 'var(--success)' : 'var(--warning)'}">${p.healthFactor}</span></div>` : ''}
-            ${p.leverage ? `<div class="defi-stat"><span>Leverage:</span> ${p.leverage}x</div>` : ''}
-            ${p.pnl !== undefined ? `<div class="defi-stat"><span>PnL:</span> <span style="color:${p.pnl >= 0 ? 'var(--success)' : 'var(--error)'}">$${p.pnl >= 0 ? '+' : ''}${formatUSD(p.pnl)}</span></div>` : ''}
-            <div class="defi-stat"><span>Chain:</span> ${p.vm.toUpperCase()}</div>
-          </div>
-          <div style="margin-top: 0.4rem; font-size: 0.65rem; color: var(--text-dim);">
-            Assets: ${p.assets.map(a => `${a.amount} ${a.symbol}${a.side ? ' (' + a.side + ')' : ''}`).join(', ')}
-          </div>
-        </div>
-      `).join('');
-    }
+  document.getElementById('resolution-signals').innerHTML = html;
 
-    function updateIdentityPanel() {
-      const identity = aether.getIdentity();
-      document.getElementById('identityPre').textContent = identity
-        ? JSON.stringify(identity, null, 2)
-        : 'Not initialized';
-    }
+  // Fraud Score
+  const score = Math.round(state.metrics.fraudScore);
+  const fColor = score < 30 ? 'var(--success)' : score < 60 ? 'var(--warning)' : 'var(--error)';
+  const gradient = `linear-gradient(90deg, var(--success) 0%, var(--warning) 50%, var(--error) 100%)`;
 
-    function updateConsentPanel() {
-      try {
-        const consent = aether.consent.getState();
-        document.getElementById('consentPre').textContent = JSON.stringify(consent, null, 2);
-      } catch { document.getElementById('consentPre').textContent = '-'; }
-    }
+  document.getElementById('fraud-score').innerHTML = `
+    <div class="fraud-meter">
+      <div class="fraud-score-display" style="color:${fColor}">${score}</div>
+      <div class="fraud-bar-container">
+        <div class="fraud-bar-track"><div class="fraud-bar-fill" style="width:${score}%;background:${gradient}"></div></div>
+        <div class="fraud-bar-labels"><span>SAFE</span><span>SUSPICIOUS</span><span>HIGH RISK</span></div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--text-muted);letter-spacing:1px;margin-bottom:6px">SIGNAL BREAKDOWN</div>
+    ${state.fraudSignals.map(s => {
+      const pct = (s.score * 100).toFixed(0);
+      const c = s.score < 0.2 ? 'var(--success)' : s.score < 0.5 ? 'var(--warning)' : 'var(--error)';
+      return `<div class="signal-row">
+        <span class="signal-name">${s.name}</span>
+        <span class="signal-bar-track"><span class="signal-bar-fill" style="width:${pct}%;background:${c}"></span></span>
+        <span class="signal-val">${pct}%</span>
+      </div>`;
+    }).join('')}
+  `;
 
-    function refreshAll() {
-      updateStatus();
-      renderWallets();
-      renderPortfolio();
-      renderTokens();
-      renderDeFi();
-      updateIdentityPanel();
-      updateConsentPanel();
-    }
+  // Device Fingerprint
+  const fp = [
+    ['Canvas Hash', 'sha256:7f2a9c...4e8b'],
+    ['WebGL Renderer', navigator.gpu ? 'GPU Available' : 'WebGL 2.0'],
+    ['Audio Context', 'BaseAudioContext: 44100Hz'],
+    ['Screen', `${screen.width}x${screen.height}@${devicePixelRatio}x`],
+    ['Timezone', Intl.DateTimeFormat().resolvedOptions().timeZone],
+    ['Language', navigator.language],
+    ['Platform', navigator.platform || navigator.userAgentData?.platform || 'Unknown'],
+    ['Cores', navigator.hardwareConcurrency || 'Unknown'],
+    ['Memory', navigator.deviceMemory ? navigator.deviceMemory + 'GB' : 'Unknown'],
+    ['Touch', navigator.maxTouchPoints > 0 ? `Yes (${navigator.maxTouchPoints} points)` : 'No'],
+    ['Color Depth', screen.colorDepth + 'bit'],
+    ['Fonts', '42 detected (hashed)'],
+    ['DNT', navigator.doNotTrack || 'unset'],
+    ['Cookies', navigator.cookieEnabled ? 'Enabled' : 'Disabled'],
+    ['Composite Hash', 'sha256:a4f2c8e1...3b19d7'],
+  ];
 
-    // =========================================================================
-    // HELPERS
-    // =========================================================================
-    function truncAddr(a) {
-      if (!a) return '—';
-      if (a.length <= 12) return a;
-      return a.slice(0, 6) + '...' + a.slice(-4);
-    }
-    function formatUSD(n) {
-      return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    function getChainName(vm, chainId) {
-      const names = { 1: 'Ethereum', 137: 'Polygon', 42161: 'Arbitrum', 10: 'Optimism', 8453: 'Base', 56: 'BSC' };
-      if (vm === 'evm') return names[chainId] || `Chain ${chainId}`;
-      if (vm === 'svm') return 'Solana';
-      if (vm === 'bitcoin') return 'Bitcoin';
-      return vm.toUpperCase();
-    }
-    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-    function now() { return new Date().toISOString(); }
-    /** Safely call an SDK method; return fallback on any error */
-    function safeCall(fn, fallback) { try { return fn() ?? fallback; } catch { return fallback; } }
+  document.getElementById('device-fingerprint').innerHTML = `
+    ${fp.map(([k, v]) => `<div class="fp-row"><span class="fp-label">${k}</span><span class="fp-value">${v}</span></div>`).join('')}
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-dim);display:flex;justify-content:space-between">
+      <span style="color:var(--text-muted);font-size:9px">UNIQUENESS RATING</span>
+      <span style="color:var(--accent-light);font-weight:600">98.7% unique</span>
+    </div>
+  `;
+}
 
-    // =========================================================================
-    // TAB SWITCHING
-    // =========================================================================
-    window.switchTab = (id) => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.getElementById(`tab-${id}`).classList.add('active');
-      // Find the tab button by text
-      document.querySelectorAll('.tab').forEach(t => {
-        if (t.textContent.trim().toLowerCase() === id.toLowerCase() || t.textContent.trim().toLowerCase().replace(' ', '') === id) {
-          t.classList.add('active');
-        }
-      });
+// ── EVENTS TAB ──
+window.renderEventLog = function() {
+  const filter = document.getElementById('event-filter').value;
+  const search = document.getElementById('event-search').value.toLowerCase();
+
+  let filtered = state.events;
+  if (filter !== 'all') filtered = filtered.filter(e => e.type === filter);
+  if (search) filtered = filtered.filter(e => e.detail.toLowerCase().includes(search));
+
+  document.getElementById('event-log-count').textContent = filtered.length;
+  document.getElementById('event-log').innerHTML = filtered.slice(0, 100).map(ev => `
+    <div class="event-entry">
+      <span class="event-time">${ev.time}</span>
+      <span class="ev-tag ${ev.type}">${ev.type.toUpperCase()}</span>
+      <span class="event-detail">${ev.detail}</span>
+    </div>
+  `).join('') || '<div style="color:var(--text-muted);padding:12px">No events match filter</div>';
+};
+
+window.clearEvents = function() {
+  state.events = [];
+  renderEventLog();
+};
+
+// ================================================================
+// SIMULATION START
+// ================================================================
+function startSimulation() {
+  // Init SDK immediately
+  initSDK();
+
+  // Generate initial data burst
+  for (let i = 0; i < 5; i++) generatePageView();
+  for (let i = 0; i < 3; i++) generateClick();
+  generateConversion();
+
+  // Start generators
+  function scheduleRandom(fn, minMs, maxMs) {
+    const run = () => {
+      fn();
+      renderAll();
+      const id = setTimeout(run, rand(minMs, maxMs));
+      state.simTimers.push(id);
     };
-
-    // =========================================================================
-    // SDK INIT
-    // =========================================================================
-    window.initSDK = () => {
-      if (state.initialized) {
-        appendLog('system', 'SDK already initialized — reset first');
-        return;
-      }
-
-      try {
-        aether.init({
-          apiKey: 'playground_demo_key',
-          debug: true,
-          endpoint: 'https://localhost:9999',
-          modules: {
-            autoDiscovery: true,
-            performanceTracking: true,
-            errorTracking: true,
-            experiments: true,
-            intentPrediction: true,
-            // Multi-VM Web3
-            walletTracking: true,
-            svmTracking: true,
-            bitcoinTracking: true,
-            // DeFi
-            tokenTracking: true,
-            nftDetection: true,
-            defiTracking: true,
-            portfolioTracking: true,
-            walletClassification: true,
-            whaleAlerts: true,
-            perpetualsTracking: true,
-            bridgeTracking: true,
-            cexTracking: true,
-          },
-          privacy: { maskSensitiveFields: true },
-          advanced: {
-            flushInterval: 600000,   // 10 min — no real backend, avoid retry storms
-            maxQueueSize: 9999,      // don't auto-flush
-            retry: { maxRetries: 0 }, // no retries against dummy endpoint
-          },
-        });
-
-        // Grant web3 consent for demo
-        aether.consent.grant(['analytics', 'marketing', 'web3']);
-
-        state.initialized = true;
-        appendLog('system', 'SDK v5.0.0 initialized — Multi-VM Web3 modules active');
-        appendLog('system', 'Consent granted: analytics, marketing, web3');
-        appendLog('system', 'Enabled: EVM + SVM + BTC tracking, DeFi, Portfolio, Whale Alerts');
-        refreshAll();
-      } catch (e) {
-        appendLog('system', `Init error: ${e.message}`);
-      }
-    };
-
-    // =========================================================================
-    // EVM WALLET CONNECTIONS
-    // =========================================================================
-    window.connectEVMWallet = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-
-      const w = DEMO.evm.metamask;
-      appendLog('wallet', `Connecting EVM wallet: ${w.type}...`);
-
-      // Call SDK — use optional chaining for v5 methods, fallback for v4
-      try { aether.wallet.connect(w.address, { type: w.type, chainId: w.chainId, ens: w.ens }); } catch {}
-
-      await sleep(300);
-
-      // Identify user with wallet
-      try {
-        aether.hydrateIdentity({
-          walletAddress: w.address, walletType: w.type,
-          chainId: w.chainId, ens: w.ens,
-        });
-      } catch {}
-
-      // Wallet classification — v5 API, fallback to 'hot'
-      const classification = safeCall(() => aether.wallet.classifyWallet(w.address, 'evm'), 'hot');
-
-      // Add to local state
-      state.wallets.push({
-        address: w.address, vm: 'evm', chainId: w.chainId,
-        walletType: w.type, displayName: w.ens || truncAddr(w.address),
-        classification, ens: w.ens, connectedAt: now(),
-        isConnected: true, isPrimary: state.wallets.length === 0,
-      });
-
-      // Add EVM tokens
-      state.tokens.push(...EVM_TOKENS);
-
-      appendLog('wallet', `✓ EVM wallet connected: ${w.ens} (${truncAddr(w.address)})`);
-      appendLog('wallet', `  Chain: Ethereum (1) • Type: ${w.type} • Class: ${classification}`);
-      appendLog('identity', `Identity hydrated with EVM wallet — ENS: ${w.ens}`);
-
-      // Simulate token balance events
-      await sleep(200);
-      for (const tok of EVM_TOKENS) {
-        appendLog('portfolio', `Token: ${tok.balance} ${tok.symbol} ($${formatUSD(tok.usdValue)})`);
-      }
-
-      refreshAll();
-    };
-
-    window.connectLedger = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-
-      const w = DEMO.evm.ledger;
-      appendLog('wallet', `Connecting hardware wallet: ${w.type}...`);
-
-      try { aether.wallet.connect(w.address, { type: w.type, chainId: w.chainId }); } catch {}
-
-      await sleep(500);
-
-      const classification = 'cold'; // Ledger is always cold
-
-      state.wallets.push({
-        address: w.address, vm: 'evm', chainId: w.chainId,
-        walletType: w.type, displayName: truncAddr(w.address),
-        classification, connectedAt: now(),
-        isConnected: true, isPrimary: false,
-      });
-
-      // Additional tokens on Ledger
-      const ledgerTokens = [
-        { symbol: 'UNI', name: 'Uniswap', contractAddress: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', balance: '250.00', decimals: 18, usdValue: 2125.00, vm: 'evm', chainId: 1, standard: 'erc20' },
-        { symbol: 'LINK', name: 'Chainlink', contractAddress: '0x514910771AF9Ca656af840dff83E8264EcF986CA', balance: '150.00', decimals: 18, usdValue: 2340.00, vm: 'evm', chainId: 1, standard: 'erc20' },
-      ];
-      state.tokens.push(...ledgerTokens);
-
-      appendLog('wallet', `✓ Hardware wallet connected: ${truncAddr(w.address)}`);
-      appendLog('wallet', `  Chain: Ethereum (1) • Type: ${w.type} • Class: cold`);
-      appendLog('system', `🔒 Cold storage wallet detected — enhanced security tracking`);
-
-      refreshAll();
-    };
-
-    // =========================================================================
-    // SOLANA WALLET CONNECTION
-    // =========================================================================
-    window.connectSolanaWallet = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-
-      const w = DEMO.svm.phantom;
-      appendLog('wallet', `Connecting SVM wallet: ${w.type}...`);
-
-      try { aether.wallet?.connectSVM?.(w.address, { type: w.type }); } catch {}
-
-      await sleep(300);
-
-      const classification = safeCall(() => aether.wallet.classifyWallet(w.address, 'svm'), 'hot');
-
-      state.wallets.push({
-        address: w.address, vm: 'svm', chainId: 'mainnet-beta',
-        walletType: w.type, displayName: truncAddr(w.address),
-        classification, connectedAt: now(),
-        isConnected: true, isPrimary: state.wallets.filter(w => w.vm === 'svm').length === 0,
-      });
-
-      state.tokens.push(...SVM_TOKENS);
-
-      appendLog('wallet', `✓ SVM wallet connected: ${truncAddr(w.address)}`);
-      appendLog('wallet', `  Chain: Solana (mainnet-beta) • Type: ${w.type} • Class: ${classification}`);
-
-      await sleep(200);
-      for (const tok of SVM_TOKENS) {
-        appendLog('portfolio', `Token: ${tok.balance} ${tok.symbol} ($${formatUSD(tok.usdValue)})`);
-      }
-
-      refreshAll();
-    };
-
-    // =========================================================================
-    // BITCOIN WALLET CONNECTION
-    // =========================================================================
-    window.connectBTCWallet = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-
-      const w = DEMO.btc.unisat;
-      appendLog('wallet', `Connecting Bitcoin wallet: ${w.type}...`);
-
-      try { aether.wallet?.connectBTC?.(w.address, { type: w.type }); } catch {}
-
-      await sleep(400);
-
-      state.wallets.push({
-        address: w.address, vm: 'bitcoin', chainId: 'mainnet',
-        walletType: w.type, displayName: truncAddr(w.address),
-        classification: 'hot', connectedAt: now(),
-        isConnected: true, isPrimary: state.wallets.filter(w => w.vm === 'bitcoin').length === 0,
-      });
-
-      state.tokens.push(...BTC_TOKENS);
-
-      appendLog('wallet', `✓ BTC wallet connected: ${truncAddr(w.address)}`);
-      appendLog('wallet', `  Chain: Bitcoin (mainnet) • Type: ${w.type} • Address: native_segwit`);
-      appendLog('portfolio', `Balance: ${BTC_TOKENS[0].balance} BTC ($${formatUSD(BTC_TOKENS[0].usdValue)})`);
-
-      refreshAll();
-    };
-
-    // =========================================================================
-    // EVM DeFi SIMULATIONS
-    // =========================================================================
-    window.simulateEVMSwap = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-      if (!state.wallets.find(w => w.vm === 'evm')) { appendLog('system', '⚠ Connect an EVM wallet first'); return; }
-
-      const txHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-
-      appendLog('tx', `Initiating Uniswap V3 swap...`);
-      appendLog('tx', `  Swap: 1.5 ETH → ~4,815 USDC`);
-      appendLog('tx', `  Router: 0x E592...3832 (Uniswap V3)`);
-
-      try { aether.wallet.transaction(txHash, {
-        chainId: 1, from: DEMO.evm.metamask.address,
-        to: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-        value: '1500000000000000000', type: 'swap', vm: 'evm',
-        protocol: 'Uniswap V3', defiCategory: 'dex',
-      }); } catch {}
-
-      try { aether.track('defi_interaction', {
-        protocol: 'Uniswap V3', category: 'dex', action: 'swap',
-        tokenIn: 'ETH', tokenOut: 'USDC', amountIn: '1.5', amountOut: '4815.23',
-        chainId: 1, vm: 'evm',
-      }); } catch {}
-
-      await sleep(600);
-
-      appendLog('tx', `✓ Swap confirmed — tx: ${truncAddr(txHash)}`);
-      appendLog('defi', `DeFi: Uniswap V3 swap — 1.5 ETH → 4,815.23 USDC`);
-      appendLog('defi', `  Gas: 152,847 gas • $8.42 • Priority: 2.1 gwei`);
-
-      // Add DeFi position if not exists
-      if (!state.defiPositions.find(p => p.protocol === 'Uniswap V3' && p.positionType === 'Swap History')) {
-        state.defiPositions.push({
-          protocol: 'Uniswap V3', category: 'dex', positionType: 'Swap History',
-          assets: [{ symbol: 'ETH', amount: '1.5', side: 'supply' }, { symbol: 'USDC', amount: '4815.23', side: 'borrow' }],
-          valueUSD: 4815.23, vm: 'evm', chainId: 1,
-        });
-      }
-
-      refreshAll();
-    };
-
-    window.simulateAAVESupply = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-      if (!state.wallets.find(w => w.vm === 'evm')) { appendLog('system', '⚠ Connect an EVM wallet first'); return; }
-
-      const txHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-
-      appendLog('tx', `Initiating AAVE V3 supply...`);
-      appendLog('tx', `  Supply: 5,000 USDC to AAVE V3 Lending Pool`);
-
-      try { aether.wallet.transaction(txHash, {
-        chainId: 1, from: DEMO.evm.metamask.address,
-        to: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
-        value: '0', type: 'stake', vm: 'evm',
-        protocol: 'AAVE V3', defiCategory: 'lending',
-      }); } catch {}
-
-      try { aether.track('defi_interaction', {
-        protocol: 'AAVE V3', category: 'lending', action: 'supply',
-        token: 'USDC', amount: '5000', apy: 4.82,
-        chainId: 1, vm: 'evm',
-      }); } catch {}
-
-      await sleep(500);
-
-      appendLog('tx', `✓ Supply confirmed — tx: ${truncAddr(txHash)}`);
-      appendLog('defi', `DeFi: AAVE V3 supply — 5,000 USDC at 4.82% APY`);
-      appendLog('defi', `  Health Factor: 2.45 • Collateral: enabled`);
-
-      state.defiPositions.push({
-        protocol: 'AAVE V3', category: 'lending', positionType: 'Supply',
-        assets: [{ symbol: 'USDC', amount: '5000', side: 'supply' }],
-        valueUSD: 5000, apy: 4.82, healthFactor: 2.45,
-        vm: 'evm', chainId: 1,
-      });
-
-      refreshAll();
-    };
-
-    // =========================================================================
-    // SOLANA DeFi SIMULATIONS
-    // =========================================================================
-    window.simulateJupiterSwap = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-      if (!state.wallets.find(w => w.vm === 'svm')) { appendLog('system', '⚠ Connect a Solana wallet first'); return; }
-
-      const sig = Array.from({length: 88}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789'[Math.floor(Math.random() * 58)]).join('');
-
-      appendLog('tx', `Initiating Jupiter aggregator swap...`);
-      appendLog('tx', `  Swap: 10 SOL → ~1,435 USDC (via Raydium + Orca route)`);
-      appendLog('tx', `  Program: JUP6L...Nt5U (Jupiter V6)`);
-
-      try { aether.wallet.transaction(sig, {
-        vm: 'svm', chainId: 'mainnet-beta',
-        from: DEMO.svm.phantom.address,
-        to: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
-        type: 'swap', protocol: 'Jupiter', defiCategory: 'router',
-      }); } catch {}
-
-      try { aether.track('defi_interaction', {
-        protocol: 'Jupiter', category: 'router', action: 'route_swap',
-        tokenIn: 'SOL', tokenOut: 'USDC', amountIn: '10', amountOut: '1435.67',
-        route: ['Raydium V4', 'Orca Whirlpool'], hops: 2,
-        computeUnits: 245000, chainId: 'mainnet-beta', vm: 'svm',
-      }); } catch {}
-
-      await sleep(500);
-
-      appendLog('tx', `✓ Swap confirmed — sig: ${sig.slice(0, 12)}...`);
-      appendLog('defi', `DeFi: Jupiter route swap — 10 SOL → 1,435.67 USDC`);
-      appendLog('defi', `  Route: Raydium V4 → Orca Whirlpool (2 hops)`);
-      appendLog('defi', `  Compute: 245,000 CU • Priority fee: 0.00005 SOL`);
-
-      if (!state.defiPositions.find(p => p.protocol === 'Jupiter')) {
-        state.defiPositions.push({
-          protocol: 'Jupiter', category: 'router', positionType: 'Aggregated Swap',
-          assets: [{ symbol: 'SOL', amount: '10' }, { symbol: 'USDC', amount: '1435.67' }],
-          valueUSD: 1435.67, vm: 'svm', chainId: 'mainnet-beta',
-        });
-      }
-
-      refreshAll();
-    };
-
-    window.simulateMarinadeStake = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-      if (!state.wallets.find(w => w.vm === 'svm')) { appendLog('system', '⚠ Connect a Solana wallet first'); return; }
-
-      const sig = Array.from({length: 88}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789'[Math.floor(Math.random() * 58)]).join('');
-
-      appendLog('tx', `Initiating Marinade liquid staking...`);
-      appendLog('tx', `  Stake: 25 SOL → 25 mSOL via Marinade Finance`);
-
-      try { aether.wallet.transaction(sig, {
-        vm: 'svm', chainId: 'mainnet-beta',
-        from: DEMO.svm.phantom.address,
-        to: 'MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD',
-        type: 'stake', protocol: 'Marinade', defiCategory: 'staking',
-      }); } catch {}
-
-      try { aether.track('defi_interaction', {
-        protocol: 'Marinade', category: 'staking', action: 'stake',
-        tokenIn: 'SOL', tokenOut: 'mSOL', amount: '25',
-        apy: 7.12, vm: 'svm', chainId: 'mainnet-beta',
-      }); } catch {}
-
-      await sleep(400);
-
-      appendLog('tx', `✓ Stake confirmed — sig: ${sig.slice(0, 12)}...`);
-      appendLog('defi', `DeFi: Marinade stake — 25 SOL → 25 mSOL (7.12% APY)`);
-      appendLog('defi', `  Protocol: Marinade Finance • Liquid staking`);
-
-      state.defiPositions.push({
-        protocol: 'Marinade Finance', category: 'staking', positionType: 'Liquid Stake',
-        assets: [{ symbol: 'mSOL', amount: '25', side: 'supply' }],
-        valueUSD: 3725.00, apy: 7.12,
-        vm: 'svm', chainId: 'mainnet-beta',
-      });
-
-      refreshAll();
-    };
-
-    // =========================================================================
-    // CROSS-CHAIN BRIDGE SIMULATION
-    // =========================================================================
-    window.simulateBridgeTransfer = async () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-      if (!state.wallets.find(w => w.vm === 'evm') || !state.wallets.find(w => w.vm === 'svm')) {
-        appendLog('system', '⚠ Connect both EVM and SVM wallets first');
-        return;
-      }
-
-      const txHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-
-      appendLog('tx', `Initiating Wormhole bridge transfer...`);
-      appendLog('tx', `  Bridge: 2 ETH from Ethereum → Solana`);
-      appendLog('tx', `  Protocol: Wormhole Portal Bridge`);
-
-      try { aether.wallet.transaction(txHash, {
-        chainId: 1, from: DEMO.evm.metamask.address,
-        to: '0x3ee18B2214AFF97000D974cf647E7C347E8fa585',
-        value: '2000000000000000000', type: 'bridge', vm: 'evm',
-        protocol: 'Wormhole', defiCategory: 'bridge',
-      }); } catch {}
-
-      try { aether.track('bridge_transfer', {
-        bridge: 'Wormhole', token: 'ETH', amount: '2.0',
-        sourceChain: { vm: 'evm', chainId: 1, name: 'Ethereum' },
-        destChain: { vm: 'svm', chainId: 'mainnet-beta', name: 'Solana' },
-        status: 'initiated', fee: '0.003',
-      }); } catch {}
-
-      await sleep(400);
-      appendLog('tx', `⏳ Bridge initiated — waiting for Wormhole guardians...`);
-
-      await sleep(1000);
-      appendLog('tx', `✓ Bridge confirmed on source chain — tx: ${truncAddr(txHash)}`);
-
-      await sleep(800);
-      appendLog('tx', `✓ Bridge completed on destination — 2 wETH arrived on Solana`);
-      appendLog('defi', `Bridge: Wormhole — 2 ETH (Ethereum) → 2 wETH (Solana)`);
-      appendLog('defi', `  Fee: 0.003 ETH • Time: ~2 min • Status: completed`);
-
-      state.defiPositions.push({
-        protocol: 'Wormhole', category: 'bridge', positionType: 'Cross-Chain Bridge',
-        assets: [{ symbol: 'ETH', amount: '2.0' }],
-        valueUSD: 6414.00, vm: 'evm', chainId: 1,
-      });
-
-      refreshAll();
-    };
-
-    // =========================================================================
-    // PORTFOLIO VIEW
-    // =========================================================================
-    window.viewPortfolio = () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-
-      const portfolio = safeCall(() => aether.wallet.getPortfolio(), null);
-      const wallets = safeCall(() => aether.wallet.getWallets(), []);
-
-      appendLog('portfolio', `Portfolio snapshot — ${state.wallets.length} wallets, $${formatUSD(state.portfolioValue)} total`);
-
-      // Log per-VM breakdown
-      const vms = [...new Set(state.wallets.map(w => w.vm))];
-      for (const vm of vms) {
-        const vmTokens = state.tokens.filter(t => t.vm === vm);
-        const vmValue = vmTokens.reduce((s, t) => s + (t.usdValue || 0), 0);
-        const vmWallets = state.wallets.filter(w => w.vm === vm);
-        appendLog('portfolio', `  ${vm.toUpperCase()}: ${vmWallets.length} wallet(s), ${vmTokens.length} tokens, $${formatUSD(vmValue)}`);
-      }
-
-      if (state.defiPositions.length > 0) {
-        const defiValue = state.defiPositions.reduce((s, p) => s + (p.valueUSD || 0), 0);
-        appendLog('portfolio', `  DeFi: ${state.defiPositions.length} positions, $${formatUSD(defiValue)}`);
-      }
-
-      switchTab('portfolio');
-      refreshAll();
-    };
-
-    // =========================================================================
-    // DISCONNECT
-    // =========================================================================
-    window.disconnectAll = () => {
-      if (!state.initialized) { appendLog('system', '⚠ Init SDK first'); return; }
-
-      const count = state.wallets.length;
-      try { aether.wallet.disconnect(); } catch {}
-
-      state.wallets = [];
-      state.tokens = [];
-      state.defiPositions = [];
-      state.portfolioValue = 0;
-
-      appendLog('wallet', `Disconnected ${count} wallet(s) — all balances cleared`);
-      refreshAll();
-    };
-
-    // =========================================================================
-    // RESET
-    // =========================================================================
-    window.resetSDK = () => {
-      if (state.initialized) {
-        aether.destroy();
-      }
-
-      state.initialized = false;
-      state.wallets = [];
-      state.tokens = [];
-      state.defiPositions = [];
-      state.portfolioValue = 0;
-      state.logs = [];
-
-      appendLog('system', 'SDK destroyed and reset');
-      refreshAll();
-    };
-  </script>
+    const id = setTimeout(run, rand(minMs, maxMs));
+    state.simTimers.push(id);
+  }
+
+  scheduleRandom(generatePageView, 800, 2000);
+  scheduleRandom(generateClick, 1500, 3000);
+  scheduleRandom(generateConversion, 5000, 15000);
+  scheduleRandom(generateFormEvent, 3000, 8000);
+  scheduleRandom(generateWalletEvent, 4000, 12000);
+  scheduleRandom(generateTransaction, 6000, 20000);
+  scheduleRandom(generateWhaleAlert, 15000, 45000);
+
+  // Metric updater every second
+  setInterval(() => {
+    updateMetrics();
+    renderAll();
+  }, 1000);
+
+  // Initial render
+  renderAll();
+}
+
+// Boot
+startSimulation();
+
+</script>
 </body>
 </html>

@@ -373,7 +373,13 @@ export type EventType =
   | 'staking_action'
   | 'insurance_action'
   | 'launchpad_action'
-  | 'payment_stream';
+  | 'payment_stream'
+  // Intelligence Graph events
+  | 'agent_task'
+  | 'agent_decision'
+  | 'payment'
+  | 'x402_payment'
+  | 'contract_action';
 
 export interface BaseEvent {
   id: string;
@@ -660,12 +666,14 @@ export interface ConsentState {
   analytics: boolean;
   marketing: boolean;
   web3: boolean;
+  agent: boolean;     // Intelligence Graph — agent behavioral tracking
+  commerce: boolean;  // Intelligence Graph — commerce/payment processing
   updatedAt: string;
   policyVersion: string;
 }
 
 export interface ConsentConfig {
-  purposes: ('analytics' | 'marketing' | 'web3')[];
+  purposes: ('analytics' | 'marketing' | 'web3' | 'agent' | 'commerce')[];
   policyUrl: string;
   policyVersion: string;
   bannerConfig?: ConsentBannerConfig;

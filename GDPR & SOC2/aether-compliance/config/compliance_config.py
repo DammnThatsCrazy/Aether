@@ -141,11 +141,13 @@ class ConsentPurpose(str, Enum):
     ANALYTICS = "analytics"
     MARKETING = "marketing"
     WEB3 = "web3"
+    AGENT = "agent"        # Intelligence Graph — agent behavioral tracking
+    COMMERCE = "commerce"  # Intelligence Graph — commerce/payment processing
 
 
 @dataclass(frozen=True)
 class ConsentConfig:
-    purposes: list = field(default_factory=lambda: ["analytics", "marketing", "web3"])
+    purposes: list = field(default_factory=lambda: ["analytics", "marketing", "web3", "agent", "commerce"])
     storage: str = "DynamoDB with immutable audit trail"
     audit_fields: list = field(default_factory=lambda: [
         "user_id", "tenant_id", "purpose", "granted", "timestamp",
@@ -398,6 +400,42 @@ PROCESSING_ACTIVITIES = [
         cross_border=True,
         retention="Per tenant config",
         safeguards="Wallet address pseudonymization + consent gating",
+    ),
+
+    # Intelligence Graph — 3 new processing activities
+
+    ProcessingActivity(
+        name="Agent Behavioral Tracking",
+        purpose="Track AI agent task lifecycle, decisions, state snapshots, and ground truth feedback",
+        legal_basis="Art. 6(1)(f) — Legitimate Interest",
+        data_categories=["agent_id", "task_data", "decision_records", "state_snapshots", "confidence_delta"],
+        data_subjects="AI agents operated by end users",
+        recipients=["Aether (processor)", "AWS (sub-processor)"],
+        cross_border=True,
+        retention="365 days",
+        safeguards="Agent ID pseudonymization + owner consent gating",
+    ),
+    ProcessingActivity(
+        name="Commerce Payment Processing",
+        purpose="Record payments between humans, agents, and services; compute fee elimination",
+        legal_basis="Art. 6(1)(b) — Contract",
+        data_categories=["payment_amounts", "transaction_hashes", "fee_computations", "payer/payee_ids"],
+        data_subjects="End users and AI agents making/receiving payments",
+        recipients=["Aether (processor)", "Blockchain networks (public settlement)"],
+        cross_border=True,
+        retention="7 years (financial records)",
+        safeguards="Payment ID pseudonymization + consent gating (commerce purpose)",
+    ),
+    ProcessingActivity(
+        name="On-Chain Action Intelligence",
+        purpose="Record smart contract deployments, calls, and upgrades; assess bytecode risk",
+        legal_basis="Art. 6(1)(f) — Legitimate Interest",
+        data_categories=["contract_addresses", "bytecode_hashes", "action_intents", "risk_scores"],
+        data_subjects="AI agents deploying/calling smart contracts",
+        recipients=["Aether (processor)", "QuickNode (sub-processor)", "Blockchain RPCs (public)"],
+        cross_border=True,
+        retention="Indefinite (on-chain data is public/immutable)",
+        safeguards="Agent ID pseudonymization + bytecode-only analysis (no private keys)",
     ),
 ]
 

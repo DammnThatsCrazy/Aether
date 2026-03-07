@@ -1,6 +1,7 @@
 """
 Aether Backend — Main Application
-Mounts all 15 services, applies middleware, and serves the unified API.
+Mounts 15 core services + up to 3 Intelligence Graph services (feature-flagged).
+Applies middleware and serves the unified API.
 
 Run:
     uvicorn main:app --reload --port 8000
@@ -175,7 +176,7 @@ def create_app() -> FastAPI:
     # ── Auth / Logging / Rate Limit / Error Handling Middleware ────
     register_middleware(app)
 
-    # ── Mount all 15 service routers ──────────────────────────────
+    # ── Mount all 15 core service routers ──────────────────────────
     app.include_router(gateway_router)
     app.include_router(ingestion_router)
     app.include_router(identity_router)
@@ -192,6 +193,24 @@ def create_app() -> FastAPI:
     app.include_router(rewards_router)
     app.include_router(oracle_router)
     app.include_router(automation_router)
+
+    # ── Intelligence Graph services (feature-flagged) ───────────
+    ig = settings.intelligence_graph
+
+    if ig.enable_commerce_layer:
+        from services.commerce.routes import router as commerce_router
+        app.include_router(commerce_router)
+        logger.info("Intelligence Graph: Commerce service (L3a) mounted")
+
+    if ig.enable_onchain_layer:
+        from services.onchain.routes import router as onchain_router
+        app.include_router(onchain_router)
+        logger.info("Intelligence Graph: On-Chain Action service (L0) mounted")
+
+    if ig.enable_x402_layer:
+        from services.x402.routes import router as x402_router
+        app.include_router(x402_router)
+        logger.info("Intelligence Graph: x402 Interceptor service (L3b) mounted")
 
     return app
 

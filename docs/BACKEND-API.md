@@ -437,6 +437,53 @@ Trigger a batch probabilistic matching job for the tenant.
 
 ---
 
+## Intelligence Graph Endpoints (Feature-Flagged)
+
+Three service groups are available when Intelligence Graph feature flags are enabled. All endpoints below return `403 FEATURE_DISABLED` unless the corresponding env var is set to `true`.
+
+> **Required env vars:** `IG_COMMERCE_LAYER=true`, `IG_ONCHAIN_LAYER=true`, `IG_X402_LAYER=true`
+
+### Commerce Service (L3a)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/commerce/payments` | Record payment + create `PAYS` edge in graph |
+| POST | `/v1/commerce/hires` | Record agent hire + create `HIRED` edge |
+| GET | `/v1/commerce/fees/report` | Fee elimination report for tenant |
+| GET | `/v1/commerce/agent/{id}/spend` | Agent spend history |
+
+### On-Chain Service (L0)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/onchain/actions` | Record an on-chain action |
+| GET | `/v1/onchain/actions/{agent_id}` | List agent's on-chain actions |
+| GET | `/v1/onchain/contracts/{address}` | Contract details + call graph |
+| POST | `/v1/onchain/listener/configure` | Configure chain event listener |
+| GET | `/v1/onchain/rpc/health` | RPC gateway health check |
+
+### x402 Service (L3b)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/x402/capture` | Ingest captured x402 payment |
+| GET | `/v1/x402/graph` | Economic graph snapshot |
+| GET | `/v1/x402/agent/{id}` | Agent x402 history |
+| POST | `/v1/x402/graph/snapshot` | Trigger graph snapshot rebuild |
+
+### Agent Extensions (added to /v1/agent/)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/agent/register` | Register agent in the Intelligence Graph |
+| POST | `/v1/agent/tasks/{id}/lifecycle` | Update task lifecycle state |
+| POST | `/v1/agent/tasks/{id}/decision` | Record an agent decision |
+| POST | `/v1/agent/tasks/{id}/feedback` | Submit feedback on task outcome |
+| GET | `/v1/agent/{id}/graph` | Agent's full graph neighborhood |
+| GET | `/v1/agent/{id}/trust` | Agent trust score + history |
+
+---
+
 ## Error Responses
 
 All endpoints return standard error format:

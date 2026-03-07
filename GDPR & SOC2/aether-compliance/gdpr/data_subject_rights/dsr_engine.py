@@ -199,6 +199,24 @@ class DSRExecutor:
             if store_name in dsr.stores_remaining:
                 dsr.stores_remaining.remove(store_name)
 
+        # Intelligence Graph — cascade erasure to new vertex types
+        ig_steps = [
+            ("Neptune (Graph DB) — Intelligence Graph",
+             f"DELETE AGENT vertices WHERE owner_user_id = '{dsr.user_id}' + LAUNCHED_BY/DELEGATES edges"),
+            ("Neptune (Graph DB) — Payments",
+             f"DELETE PAYMENT vertices WHERE payer_id = '{dsr.user_id}' + PAYS edges"),
+            ("Neptune (Graph DB) — Contracts",
+             f"ANONYMIZE CONTRACT vertices deployed by user's agents (on-chain = immutable, pseudonymize deployer_agent_id)"),
+            ("Neptune (Graph DB) — Actions",
+             f"PSEUDONYMIZE ACTION_RECORD entries (replace agent_id with SHA-256 hash, retain chain data for audit)"),
+            ("Neptune (Graph DB) — Commerce",
+             f"DELETE HIRED edges involving user's agents"),
+        ]
+
+        for store_name, operation in ig_steps:
+            dsr_log(f"    ✗ {store_name}: {operation}")
+            dsr.stores_processed.append(store_name)
+
         dsr_log(f"    ⏱ Backup purge scheduled: {dsr.user_id} (90-day window)")
         dsr_log(f"  Erasure complete: {len(dsr.stores_processed)} stores purged")
 

@@ -6,6 +6,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
+## [8.0.0] — 2026-03-06
+
+### Unified On-Chain Intelligence Graph
+
+### Added
+
+- **Intelligence Graph** with 8 layers, 3 relationship layers (H2H, H2A, A2A), 6 new vertex types (AGENT, PAYMENT, CONTRACT, ACTION_RECORD, TRUST_SCORE, BYTECODE_RISK), and 13 new edge types (LAUNCHED_BY, DEPLOYED, PAID, RECEIVED, EXECUTED, DECIDED, HIRED, ACTED_ON, SCORED, RISKED, H2H_LINK, H2A_LINK, A2A_LINK)
+- **Commerce service (L3a)** — payment recording, agent hiring, fee elimination with full payment lifecycle tracking
+- **On-Chain Action service (L0)** — ActionRecord schema for normalized on-chain events, chain listener for real-time block monitoring, RPC gateway for multi-chain read/write
+- **x402 Interceptor service (L3b)** — HTTP 402 payment header capture, economic graph construction from micropayment flows
+- **Trust Score composite** — 3-component weighted average (identity confidence, behavioral history, on-chain reputation) derived from existing ML models
+- **Bytecode Risk scorer** — rule-based static analysis scoring 10 patterns (reentrancy, selfdestruct, delegatecall, tx.origin, unchecked-send, uninitialized-storage, overflow, flash-loan, proxy-abuse, hidden-mint) on a 0.0-1.0 scale
+- **Anomaly Detection extension** — 6 new feature columns (agent_action_rate, payment_velocity, contract_deploy_frequency, x402_amount_zscore, cross_layer_hop_count, trust_score_delta) added to existing anomaly detection model
+- **Agent service extensions** — agent registration with capability declaration, lifecycle management (active/paused/terminated), autonomous decision recording with rationale capture, ground truth feedback loop for decision quality scoring
+- **2 new consent purposes** (`agent`, `commerce`) with CONSENT_MAP routing: `agent_task`/`agent_decision` -> `'agent'`, `payment`/`x402_payment` -> `'commerce'`, `contract_action` -> `'web3'`
+- **DSR cascade extended** to new vertex types — data subject access/erasure/portability requests now cascade through AGENT, PAYMENT, CONTRACT, and ACTION_RECORD vertices in addition to existing User, Wallet, Email, Phone, and DeviceFingerprint vertices
+- **10 new audit actions** for Intelligence Graph operations: `graph.vertex.created`, `graph.vertex.updated`, `graph.vertex.deleted`, `graph.edge.created`, `graph.edge.deleted`, `graph.trust_score.computed`, `graph.bytecode_risk.scored`, `graph.agent.registered`, `graph.agent.decision_recorded`, `graph.dsr.cascade_executed`
+- **3 new ROPA processing activities** — Agent Data Processing (lawful basis: legitimate interest), Commerce Payment Processing (lawful basis: contract performance), On-Chain Action Indexing (lawful basis: legitimate interest)
+- **Feature-flagged via IntelligenceGraphConfig** — 7 flags (`enableCommerceLayer`, `enableAgentLayer`, `enableOnChainActions`, `enableX402Interceptor`, `enableTrustScore`, `enableBytecodeRisk`, `enableAnomalyExtension`), all disabled by default for safe rollout
+- **QuickNodeConfig** for L6 infrastructure backbone — RPC endpoint management, chain-specific node configuration, and failover routing for multi-chain block data ingestion
+
+---
+
 ## [6.1.0] — 2026-03-04
 
 ### Web2 Analytics Modules & Multi-Chain Reward Automation
@@ -521,6 +544,7 @@ Initial release of the Aether platform with the Web SDK, React Native bridge, na
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [8.0.0](#800--2026-03-06) | 2026-03-06 | Unified On-Chain Intelligence Graph (8 layers, H2H/H2A/A2A), commerce service, on-chain actions, x402 interceptor, trust score, bytecode risk, agent extensions, 2 new consent purposes |
 | [6.1.0](#610--2026-03-04) | 2026-03-04 | Web2 analytics modules (ecommerce, forms, feature flags, feedback, heatmaps, funnels), multi-chain reward automation (7 VMs), smart contracts (Solana, SUI, NEAR, Cosmos) |
 | [6.0.0](#600--2026-03-04) | 2026-03-04 | Smart contract analytics integration, fraud engine, attribution, oracle bridge, automated rewards, on-chain claiming |
 | [5.2.0](#520--2026-03-04) | 2026-03-04 | Tiered semantic context, automatic traffic source tracking, ML optimization (quantization, distillation, pruning) |

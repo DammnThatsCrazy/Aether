@@ -305,3 +305,45 @@ All four SDKs expose the same core public API surface:
 | **Fraud gate** | If either profile has fraud score > 40, route to manual review regardless of identity confidence. |
 | **Undo capability** | `RESOLVED_AS` edges store full signal snapshots. Merges can be reversed by restoring the secondary profile. |
 | **Privacy** | All PII (email, phone, IP) stored as SHA-256 hashes only. Raw values never persisted in graph or audit trail. |
+
+## Unified On-Chain Intelligence Graph
+
+The Identity Graph above captures **who** a user is across devices and wallets. The Intelligence Graph extends it with three relationship layers that track **what** humans, agents, and protocols do — and how they interact with each other.
+
+### Layer 1 — H2H (Human-to-Human)
+
+The existing behavioral analytics layer, unchanged. Vertices: `User`, `Session`, `Device`, `Email`, `Wallet`, `IdentityCluster`. Seven ML models (intent prediction, bot detection, whale scoring, churn risk, conversion propensity, funnel dropout, traffic quality) continue to operate on this layer exclusively.
+
+### Layer 2 — H2A (Human-to-Agent)
+
+Tracks delegation and attribution between human users and autonomous agents. New edge types:
+
+| Edge | Direction | Purpose |
+|---|---|---|
+| `LAUNCHED_BY` | Agent → User | Which human deployed the agent |
+| `DELEGATES` | User → Agent | Explicit task delegation |
+| `INTERACTS_WITH` | User → Agent | Conversational or transactional touchpoint |
+
+Campaign Attribution is extended to attribute downstream conversions back through agent intermediaries to the originating human actor.
+
+### Layer 3 — A2A (Agent-to-Agent)
+
+Captures orchestration, hiring, payments, and protocol composition between autonomous agents. New edge types:
+
+| Edge | Direction | Purpose |
+|---|---|---|
+| `HIRED` | Agent → Agent | One agent hiring another for a subtask |
+| `PAYS` | Agent → Agent | X402 or on-chain payment between agents |
+| `CONSUMES` | Agent → Agent | API or data consumption |
+| `DEPLOYED` | Agent → Agent | Parent agent deploying a child agent |
+| `CALLED` | Agent → Agent | Synchronous protocol-level invocation |
+
+Anomaly Detection is extended to flag cyclic payment loops, abnormal hiring depth, and agent collusion patterns.
+
+### Data Flow
+
+All events — human and agent — flow through the existing Unified Pipeline via `classifyEvent()`. Four new event categories are introduced: `AgentBehavioral`, `Commerce`, `X402Payment`, and `OnChainAction`. The pipeline routes each category to the appropriate graph layer for vertex/edge upsert and model inference.
+
+### Feature Flags
+
+All Intelligence Graph layers are **disabled by default** behind feature flags (`intelligence_graph.h2a.enabled`, `intelligence_graph.a2a.enabled`). See `docs/INTELLIGENCE-GRAPH.md` for the full specification, edge schemas, and rollout guide.

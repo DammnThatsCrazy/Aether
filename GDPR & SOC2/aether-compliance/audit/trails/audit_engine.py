@@ -38,6 +38,18 @@ class AuditAction(str, Enum):
     LOGIN = "login"
     PERMISSION_CHANGE = "permission_change"
 
+    # Intelligence Graph — Agent/Commerce/On-Chain audit actions
+    AGENT_REGISTERED = "agent_registered"
+    AGENT_DELEGATED = "agent_delegated"
+    AGENT_HIRED = "agent_hired"
+    PAYMENT_RECORDED = "payment_recorded"
+    X402_CAPTURED = "x402_captured"
+    CONTRACT_DEPLOYED = "contract_deployed"
+    TRUST_SCORE_COMPUTED = "trust_score_computed"
+    BYTECODE_RISK_ASSESSED = "bytecode_risk_assessed"
+    GROUND_TRUTH_SUBMITTED = "ground_truth_submitted"
+    CONFIDENCE_DELTA_COMPUTED = "confidence_delta_computed"
+
 
 @dataclass
 class AuditEntry:
