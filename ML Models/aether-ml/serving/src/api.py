@@ -9,7 +9,9 @@ Deployed as: ECS Fargate service behind ALB, or SageMaker endpoint.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -19,9 +21,34 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("aether.serving")
+
+# ---------------------------------------------------------------------------
+# Extraction defense — lazy import to avoid hard dependency
+# ---------------------------------------------------------------------------
+_defense_layer = None
+
+
+def _get_defense_layer():
+    """Lazy-init the extraction defense layer from env config."""
+    global _defense_layer
+    if _defense_layer is not None:
+        return _defense_layer
+
+    if os.getenv("ENABLE_EXTRACTION_DEFENSE", "false").lower() != "true":
+        return None
+
+    try:
+        from security.model_extraction_defense import ExtractionDefenseLayer
+        _defense_layer = ExtractionDefenseLayer.from_env()
+        logger.info("Extraction defense layer loaded")
+    except ImportError:
+        logger.debug("Extraction defense module not available — skipping")
+        _defense_layer = None
+    return _defense_layer
 
 
 # =============================================================================
@@ -453,6 +480,92 @@ async def add_latency_header(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def extraction_defense_middleware(request: Request, call_next):
+    """Pre-request extraction defense checks (rate limit, canary, risk scoring).
+
+    Only activates when ``ENABLE_EXTRACTION_DEFENSE=true``.  Stores the
+    risk assessment on ``request.state`` so post-response perturbation
+    can be applied by individual endpoints.
+    """
+    defense = _get_defense_layer()
+    if defense is None or not request.url.path.startswith("/v1/predict"):
+        return await call_next(request)
+
+    api_key = request.headers.get("X-API-Key", request.headers.get("Authorization", "anon"))
+    ip_address = request.client.host if request.client else "0.0.0.0"
+
+    # Parse features from the request body (read once, stash for endpoint)
+    body_bytes = await request.body()
+    features: dict = {}
+    batch_size = 1
+    try:
+        body = json.loads(body_bytes) if body_bytes else {}
+        features = body.get("features", {})
+        if "instances" in body:
+            batch_size = len(body["instances"])
+            features = body["instances"][0] if body["instances"] else {}
+    except (json.JSONDecodeError, IndexError, TypeError):
+        pass
+
+    model_name = request.url.path.rsplit("/", 1)[-1]
+
+    pre_result = defense.pre_request(
+        api_key=api_key,
+        ip_address=ip_address,
+        features=features,
+        model_name=model_name,
+        batch_size=batch_size,
+    )
+
+    if pre_result.blocked:
+        status = 429 if "rate limit" in pre_result.block_reason.lower() else 403
+        headers = {}
+        if pre_result.retry_after_seconds:
+            headers["Retry-After"] = str(pre_result.retry_after_seconds)
+        return JSONResponse(
+            status_code=status,
+            content={
+                "error": {
+                    "code": status,
+                    "message": pre_result.block_reason,
+                }
+            },
+            headers=headers,
+        )
+
+    # Stash risk info for post-response perturbation
+    request.state.extraction_risk = (
+        pre_result.risk_assessment.risk_score
+        if pre_result.risk_assessment
+        else 0.0
+    )
+    request.state.extraction_features = features
+
+    return await call_next(request)
+
+
+# =============================================================================
+# EXTRACTION DEFENSE — POST-RESPONSE HELPER
+# =============================================================================
+
+
+def _apply_output_defense(request: Request, value: float, features: dict) -> float:
+    """Apply extraction defense perturbation + watermark to a scalar output.
+
+    Returns the original value unchanged when the defense layer is disabled
+    or unavailable, so callers need no conditional logic.
+    """
+    defense = _get_defense_layer()
+    if defense is None:
+        return value
+
+    risk_score = getattr(request.state, "extraction_risk", 0.0)
+    api_key = request.headers.get("X-API-Key", "anon")
+    result = defense.post_response(api_key, value, features, risk_score=risk_score)
+    return result.output
+
+
 # =============================================================================
 # HEALTH & METADATA
 # =============================================================================
@@ -481,7 +594,7 @@ async def list_models() -> list[ModelInfo]:
 
 
 @app.post("/v1/predict/intent", response_model=IntentPredictionResponse)
-async def predict_intent(req: IntentPredictionRequest) -> IntentPredictionResponse:
+async def predict_intent(req: IntentPredictionRequest, request: Request) -> IntentPredictionResponse:
     """Real-time intent prediction for a browsing session.
 
     Predicts the next most likely user action, exit risk, and conversion
@@ -501,6 +614,11 @@ async def predict_intent(req: IntentPredictionRequest) -> IntentPredictionRespon
     )
     exit_risk = float(result.get("exit_risk", [0.0])[0])
     conversion_prob = float(result.get("conversion_proba", [0.0])[0])
+
+    # Apply extraction defense perturbation to probability outputs
+    confidence = _apply_output_defense(request, confidence, req.features)
+    exit_risk = _apply_output_defense(request, exit_risk, req.features)
+    conversion_prob = _apply_output_defense(request, conversion_prob, req.features)
 
     # Derive journey stage from conversion probability thresholds.
     if conversion_prob > 0.7:
@@ -523,7 +641,7 @@ async def predict_intent(req: IntentPredictionRequest) -> IntentPredictionRespon
 
 
 @app.post("/v1/predict/bot", response_model=BotDetectionResponse)
-async def predict_bot(req: BotDetectionRequest) -> BotDetectionResponse:
+async def predict_bot(req: BotDetectionRequest, request: Request) -> BotDetectionResponse:
     """Classify a session as bot or human.
 
     Returns a boolean classification, confidence score, and bot type label
@@ -536,18 +654,20 @@ async def predict_bot(req: BotDetectionRequest) -> BotDetectionResponse:
     prediction = model.predict(df)[0]
     proba = model.predict_proba(df)[0]
 
+    confidence = _apply_output_defense(request, float(np.max(proba)), req.features)
+
     latency_ms = (time.perf_counter() - t0) * 1000
     return BotDetectionResponse(
         session_id=req.session_id,
         is_bot=bool(prediction),
-        confidence=round(float(np.max(proba)), 4),
+        confidence=round(confidence, 4),
         bot_type="bot" if prediction else "human",
         latency_ms=round(latency_ms, 2),
     )
 
 
 @app.post("/v1/predict/session-score", response_model=SessionScoreResponse)
-async def predict_session_score(req: SessionScoreRequest) -> SessionScoreResponse:
+async def predict_session_score(req: SessionScoreRequest, request: Request) -> SessionScoreResponse:
     """Score session engagement level.
 
     Produces an integer engagement score (0--100), conversion probability,
@@ -561,6 +681,8 @@ async def predict_session_score(req: SessionScoreRequest) -> SessionScoreRespons
 
     engagement = int(result.get("engagement_score", [0])[0])
     conversion = float(result.get("conversion_proba", [0.0])[0])
+
+    conversion = _apply_output_defense(request, conversion, req.features)
 
     # Determine intervention based on conversion probability and engagement.
     if conversion > 0.6:
@@ -583,7 +705,7 @@ async def predict_session_score(req: SessionScoreRequest) -> SessionScoreRespons
 
 
 @app.post("/v1/predict/churn", response_model=ChurnPredictionResponse)
-async def predict_churn(req: ChurnPredictionRequest) -> ChurnPredictionResponse:
+async def predict_churn(req: ChurnPredictionRequest, request: Request) -> ChurnPredictionResponse:
     """Predict churn risk for a known identity.
 
     If ``features`` are omitted the server will attempt to fetch them from
@@ -603,6 +725,7 @@ async def predict_churn(req: ChurnPredictionRequest) -> ChurnPredictionResponse:
     result = model.predict_with_factors(df)
 
     churn_prob = float(result["churn_probability"].iloc[0])
+    churn_prob = _apply_output_defense(request, churn_prob, features)
 
     # Map probability to a human-readable risk segment.
     if churn_prob > 0.7:
@@ -629,7 +752,7 @@ async def predict_churn(req: ChurnPredictionRequest) -> ChurnPredictionResponse:
 
 
 @app.post("/v1/predict/ltv", response_model=LTVPredictionResponse)
-async def predict_ltv(req: LTVPredictionRequest) -> LTVPredictionResponse:
+async def predict_ltv(req: LTVPredictionRequest, request: Request) -> LTVPredictionResponse:
     """Predict lifetime value for a known identity.
 
     If ``features`` are omitted the server will attempt to fetch them from
@@ -648,10 +771,12 @@ async def predict_ltv(req: LTVPredictionRequest) -> LTVPredictionResponse:
     df = pd.DataFrame([features])
     prediction = model.predict(df)
 
+    ltv = _apply_output_defense(request, float(prediction[0]), features)
+
     latency_ms = (time.perf_counter() - t0) * 1000
     return LTVPredictionResponse(
         identity_id=req.identity_id,
-        predicted_ltv=round(float(prediction[0]), 2),
+        predicted_ltv=round(ltv, 2),
         latency_ms=round(latency_ms, 2),
     )
 
