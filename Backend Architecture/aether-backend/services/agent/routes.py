@@ -67,38 +67,135 @@ async def agent_status(request: Request):
     }).to_dict()
 
 
+# ── Task Store (production: TimescaleDB + Celery result backend) ──────
+
+_task_store: dict[str, dict] = {}
+_audit_store: list[dict] = []
+
+_PRIORITY_MAP = {
+    "critical": 0, "high": 1, "medium": 2, "low": 3, "background": 4,
+}
+
+
 @router.post("/tasks")
 async def submit_task(body: TaskSubmission, request: Request):
-    """Submit a new task to the agent controller."""
-    request.state.tenant.require_permission("agent:manage")
+    """Submit a new task to the agent controller.
+
+    Creates a task record, validates the payload, and queues it for
+    execution by the appropriate agent worker. Returns immediately
+    with a task ID for status polling.
+    """
+    tenant = request.state.tenant
+    tenant.require_permission("agent:manage")
 
     if body.worker_type not in VALID_WORKER_TYPES:
-        raise BadRequestError(f"Unknown worker type: {body.worker_type}")
+        raise BadRequestError(
+            f"Unknown worker type: {body.worker_type}. "
+            f"Valid types: {VALID_WORKER_TYPES}"
+        )
+
+    task_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+
+    task = {
+        "task_id": task_id,
+        "tenant_id": tenant.tenant_id,
+        "worker_type": body.worker_type,
+        "priority": body.priority,
+        "priority_value": _PRIORITY_MAP.get(body.priority, 2),
+        "payload": body.payload,
+        "status": "queued",
+        "created_at": now,
+        "started_at": None,
+        "completed_at": None,
+        "result": None,
+        "error": None,
+    }
+    _task_store[task_id] = task
+
+    # Publish task event for the agent controller to pick up
+    await _producer.publish(Event(
+        topic=Topic.AGENT_TASK_STARTED,
+        tenant_id=tenant.tenant_id,
+        source_service="agent",
+        payload=task,
+    ))
+
+    # Record audit entry
+    _audit_store.append({
+        "task_id": task_id,
+        "action": "task_submitted",
+        "worker_type": body.worker_type,
+        "tenant_id": tenant.tenant_id,
+        "timestamp": now,
+    })
+
+    metrics.increment("agent_tasks_submitted", labels={"worker_type": body.worker_type})
+    logger.info(
+        "Task submitted: id=%s type=%s priority=%s tenant=%s",
+        task_id, body.worker_type, body.priority, tenant.tenant_id,
+    )
 
     return APIResponse(data={
-        "task_id": "stub_task_001",
+        "task_id": task_id,
         "worker_type": body.worker_type,
         "priority": body.priority,
         "status": "queued",
+        "created_at": now,
     }).to_dict()
 
 
 @router.get("/tasks/{task_id}")
 async def get_task(task_id: str, request: Request):
-    """Get task status and result."""
-    request.state.tenant.require_permission("agent:manage")
+    """Get task status and result.
+
+    Returns the current task state including status, result (if completed),
+    and error (if failed).
+    """
+    tenant = request.state.tenant
+    tenant.require_permission("agent:manage")
+
+    task = _task_store.get(task_id)
+    if task is None:
+        raise BadRequestError(f"Task not found: {task_id}")
+    if task.get("tenant_id") != tenant.tenant_id:
+        raise BadRequestError(f"Task not found: {task_id}")
+
     return APIResponse(data={
-        "task_id": task_id,
-        "status": "stub",
-        "result": None,
+        "task_id": task["task_id"],
+        "worker_type": task["worker_type"],
+        "priority": task["priority"],
+        "status": task["status"],
+        "created_at": task["created_at"],
+        "started_at": task["started_at"],
+        "completed_at": task["completed_at"],
+        "result": task["result"],
+        "error": task["error"],
     }).to_dict()
 
 
 @router.get("/audit")
 async def get_audit_trail(request: Request, limit: int = 50):
-    """Get the agent audit trail."""
-    request.state.tenant.require_permission("agent:manage")
-    return APIResponse(data={"records": [], "total": 0}).to_dict()
+    """Get the agent audit trail for this tenant.
+
+    Returns the most recent audit records, filtered by tenant.
+    """
+    tenant = request.state.tenant
+    tenant.require_permission("agent:manage")
+
+    tenant_records = [
+        r for r in _audit_store
+        if r.get("tenant_id") == tenant.tenant_id
+    ]
+    # Return most recent first, up to limit
+    records = sorted(
+        tenant_records, key=lambda r: r.get("timestamp", ""), reverse=True
+    )[:limit]
+
+    return APIResponse(data={
+        "records": records,
+        "total": len(tenant_records),
+    }).to_dict()
 
 
 @router.post("/kill-switch")

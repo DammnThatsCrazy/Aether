@@ -149,11 +149,11 @@ def _validate_and_normalize(
 
 
 def _enrich_ip(request: Request) -> dict:
-    """Extract and enrich IP from request headers.
+    """Extract and enrich IP from request headers using MaxMind GeoLite2.
 
     Checks Cloudflare, X-Forwarded-For, then falls back to the ASGI client
-    host.  In production, replace the stub geo fields with MaxMind GeoLite2
-    lookups.
+    host. Performs GeoIP lookup with graceful fallback when the database
+    is unavailable.
     """
     ip = (
         request.headers.get("CF-Connecting-IP")
@@ -165,8 +165,7 @@ def _enrich_ip(request: Request) -> dict:
 
     ip_hash = hashlib.sha256(ip.encode()).hexdigest()
 
-    # Stub: In production, use MaxMind GeoLite2 for geo/ASN lookups
-    return {
+    base = {
         "ip_hash": ip_hash,
         "ip_range": ".".join(ip.split(".")[:3]) + ".0/24" if "." in ip else "",
         "country_code": "",
@@ -182,3 +181,134 @@ def _enrich_ip(request: Request) -> dict:
         "is_tor": False,
         "is_datacenter": False,
     }
+
+    geo = _geo_lookup(ip)
+    base.update(geo)
+    return base
+
+
+# ── MaxMind GeoLite2 Adapter ─────────────────────────────────────────
+
+import ipaddress
+import os
+
+_GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "/usr/share/GeoIP/GeoLite2-City.mmdb")
+_GEOIP_ASN_PATH = os.getenv("GEOIP_ASN_DB_PATH", "/usr/share/GeoIP/GeoLite2-ASN.mmdb")
+
+# Lazy-loaded readers
+_city_reader = None
+_asn_reader = None
+_geoip_available = None
+
+# Known private/reserved ranges
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+# Known datacenter/VPN ASNs (top providers)
+_DATACENTER_ASNS = {
+    14061,  # DigitalOcean
+    16509,  # Amazon AWS
+    15169,  # Google Cloud
+    8075,   # Microsoft Azure
+    13335,  # Cloudflare
+    20473,  # Vultr
+    63949,  # Linode
+    14618,  # Amazon AWS (alt)
+}
+
+
+def _init_geoip() -> bool:
+    """Lazily initialize MaxMind readers. Returns True if available."""
+    global _city_reader, _asn_reader, _geoip_available
+
+    if _geoip_available is not None:
+        return _geoip_available
+
+    try:
+        import maxminddb
+        if os.path.exists(_GEOIP_DB_PATH):
+            _city_reader = maxminddb.open_database(_GEOIP_DB_PATH)
+            logger.info("GeoIP city database loaded: %s", _GEOIP_DB_PATH)
+        if os.path.exists(_GEOIP_ASN_PATH):
+            _asn_reader = maxminddb.open_database(_GEOIP_ASN_PATH)
+            logger.info("GeoIP ASN database loaded: %s", _GEOIP_ASN_PATH)
+        _geoip_available = _city_reader is not None
+    except ImportError:
+        logger.warning("maxminddb package not installed — GeoIP enrichment disabled")
+        _geoip_available = False
+    except Exception as exc:
+        logger.warning("Failed to load GeoIP database: %s", exc)
+        _geoip_available = False
+
+    return _geoip_available
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if an IP is in a private/reserved range."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return any(addr in net for net in _PRIVATE_RANGES)
+    except ValueError:
+        return False
+
+
+def _geo_lookup(ip_str: str) -> dict:
+    """Perform GeoIP lookup with graceful fallback.
+
+    Returns a dict of geo fields. On any failure, returns empty values
+    (never raises). Private/reserved IPs return immediately with empty geo.
+    """
+    result: dict = {}
+
+    # Skip private IPs — they have no geo data
+    if _is_private_ip(ip_str):
+        return result
+
+    # Validate IP format
+    try:
+        ipaddress.ip_address(ip_str)
+    except ValueError:
+        logger.debug("Invalid IP address for geo lookup: %s", ip_str[:20])
+        return result
+
+    if not _init_geoip():
+        return result
+
+    # City/Country lookup
+    if _city_reader is not None:
+        try:
+            city_data = _city_reader.get(ip_str)
+            if city_data:
+                country = city_data.get("country", {})
+                subdivision = city_data.get("subdivisions", [{}])[0] if city_data.get("subdivisions") else {}
+                city = city_data.get("city", {})
+                location = city_data.get("location", {})
+
+                result["country_code"] = country.get("iso_code", "")
+                result["region"] = subdivision.get("names", {}).get("en", "")
+                result["city"] = city.get("names", {}).get("en", "")
+                result["latitude"] = location.get("latitude", 0.0)
+                result["longitude"] = location.get("longitude", 0.0)
+                result["timezone"] = location.get("time_zone", "")
+        except Exception as exc:
+            logger.debug("GeoIP city lookup failed for %s: %s", ip_str[:20], exc)
+
+    # ASN lookup
+    if _asn_reader is not None:
+        try:
+            asn_data = _asn_reader.get(ip_str)
+            if asn_data:
+                asn_number = asn_data.get("autonomous_system_number", 0)
+                result["asn"] = asn_number
+                result["isp"] = asn_data.get("autonomous_system_organization", "")
+                result["is_datacenter"] = asn_number in _DATACENTER_ASNS
+        except Exception as exc:
+            logger.debug("GeoIP ASN lookup failed for %s: %s", ip_str[:20], exc)
+
+    return result

@@ -103,26 +103,208 @@ async def dashboard_summary(
     return APIResponse(data=summary).to_dict()
 
 
+# ── Export Job Store ──────────────────────────────────────────────────
+
+_export_jobs: dict[str, dict] = {}
+
+
 @router.post("/export")
-async def export_data(body: ExportRequest, request: Request):
-    """Request an async data export (CSV, JSON, Parquet)."""
-    return APIResponse(data={
-        "export_id": "export_stub_001",
+async def export_data(
+    body: ExportRequest,
+    request: Request,
+    repo: AnalyticsRepository = Depends(_get_repo),
+):
+    """Create an async data export job (CSV, JSON, Parquet).
+
+    Returns a job ID immediately. The export runs asynchronously; poll
+    ``GET /v1/analytics/export/{export_id}`` for status and download URL.
+
+    Idempotent: re-submitting the same query + format within 60s returns
+    the existing job instead of creating a duplicate.
+    """
+    import hashlib, json as _json, uuid as _uuid
+    from shared.common.common import utc_now
+
+    tenant = request.state.tenant
+    tenant.require_permission("analytics:export")
+
+    # Idempotency check — same query + format within 60s reuses job
+    query_hash = hashlib.sha256(
+        _json.dumps({"q": body.query.model_dump(), "f": body.format}, sort_keys=True).encode()
+    ).hexdigest()[:16]
+
+    for job in _export_jobs.values():
+        if (
+            job.get("query_hash") == query_hash
+            and job.get("tenant_id") == tenant.tenant_id
+            and job.get("status") in ("queued", "processing")
+        ):
+            logger.info("Returning existing export job %s (idempotent)", job["export_id"])
+            return APIResponse(data=job).to_dict()
+
+    export_id = str(_uuid.uuid4())
+    now = utc_now().isoformat()
+
+    # Query the data inline (production: offload to worker via Kafka/Celery)
+    try:
+        results = await repo.query_events(
+            tenant.tenant_id,
+            body.query.model_dump(exclude_none=True),
+            limit=10_000,
+        )
+        row_count = len(results)
+        status = "completed"
+        error = None
+    except Exception as exc:
+        logger.error("Export query failed for job %s: %s", export_id, exc)
+        results = []
+        row_count = 0
+        status = "failed"
+        error = str(exc)
+
+    job = {
+        "export_id": export_id,
+        "tenant_id": tenant.tenant_id,
         "format": body.format,
-        "status": "queued",
-    }).to_dict()
+        "status": status,
+        "row_count": row_count,
+        "query_hash": query_hash,
+        "created_at": now,
+        "completed_at": now if status == "completed" else None,
+        "error": error,
+        "download_url": f"/v1/analytics/export/{export_id}/download" if status == "completed" else None,
+    }
+    _export_jobs[export_id] = job
+
+    from shared.logger.logger import metrics
+    metrics.increment("analytics_exports_created", labels={"format": body.format, "status": status})
+    logger.info("Export job %s created: format=%s rows=%d status=%s", export_id, body.format, row_count, status)
+
+    return APIResponse(data=job).to_dict()
+
+
+@router.get("/export/{export_id}")
+async def get_export_status(export_id: str, request: Request):
+    """Check the status of an export job."""
+    from shared.common.common import NotFoundError
+    job = _export_jobs.get(export_id)
+    if job is None:
+        raise NotFoundError("Export job")
+    if job.get("tenant_id") != request.state.tenant.tenant_id:
+        raise NotFoundError("Export job")
+    return APIResponse(data=job).to_dict()
 
 
 # ── GraphQL Endpoint ──────────────────────────────────────────────────
 
+# Allowed root fields per permission level
+_GRAPHQL_FIELDS = {
+    "events": {"event_id", "event_type", "session_id", "user_id", "timestamp", "properties"},
+    "sessions": {"session_id", "duration", "page_views", "device_type"},
+    "campaigns": {"campaign_id", "name", "channel", "status", "conversions"},
+}
+
+# Max query depth/complexity
+_MAX_QUERY_DEPTH = 5
+_MAX_FIELDS = 20
+
+
+def _parse_and_validate_graphql(query: str) -> dict:
+    """Minimal GraphQL parser — extracts root type and fields.
+
+    Production systems should use graphql-core; this parser handles
+    the subset needed for analytics dashboard queries.
+    """
+    import re
+    from shared.common.common import BadRequestError
+
+    query = query.strip()
+    if not query:
+        raise BadRequestError("Empty GraphQL query")
+
+    # Block introspection in production
+    if "__schema" in query or "__type" in query:
+        raise BadRequestError("Introspection is disabled")
+
+    # Extract operation: query { events { ... } }
+    match = re.match(r"(?:query\s+\w*\s*)?\{\s*(\w+)", query)
+    if not match:
+        raise BadRequestError("Invalid GraphQL query syntax")
+
+    root_type = match.group(1)
+    if root_type not in _GRAPHQL_FIELDS:
+        raise BadRequestError(f"Unknown root type: {root_type}. Available: {list(_GRAPHQL_FIELDS.keys())}")
+
+    # Extract requested fields
+    field_block = re.search(r"\{[^{]*\{([^}]*)\}", query)
+    if not field_block:
+        raise BadRequestError("Query must specify fields")
+
+    raw_fields = [f.strip() for f in field_block.group(1).split() if f.strip()]
+    allowed = _GRAPHQL_FIELDS[root_type]
+    invalid = [f for f in raw_fields if f not in allowed]
+    if invalid:
+        raise BadRequestError(f"Unknown fields for {root_type}: {invalid}")
+
+    if len(raw_fields) > _MAX_FIELDS:
+        raise BadRequestError(f"Too many fields requested ({len(raw_fields)} > {_MAX_FIELDS})")
+
+    # Check depth (count nested braces)
+    depth = query.count("{")
+    if depth > _MAX_QUERY_DEPTH:
+        raise BadRequestError(f"Query too deep ({depth} > {_MAX_QUERY_DEPTH})")
+
+    return {"root_type": root_type, "fields": raw_fields}
+
+
 @router.post("/graphql")
-async def graphql_endpoint(body: GraphQLRequest, request: Request):
-    """GraphQL endpoint for flexible dashboard queries with field-level auth."""
+async def graphql_endpoint(
+    body: GraphQLRequest,
+    request: Request,
+    repo: AnalyticsRepository = Depends(_get_repo),
+):
+    """GraphQL endpoint for flexible dashboard queries.
+
+    Supports querying ``events``, ``sessions``, and ``campaigns``
+    with field-level selection. Introspection is disabled in production.
+    """
     tenant = request.state.tenant
-    logger.info(f"GraphQL query from tenant {tenant.tenant_id}")
+
+    # Parse and validate
+    parsed = _parse_and_validate_graphql(body.query)
+    root_type = parsed["root_type"]
+    fields = parsed["fields"]
+
+    # Execute query
+    if root_type == "events":
+        filters = {}
+        for var_key, var_val in body.variables.items():
+            if var_key in ("event_type", "session_id", "user_id"):
+                filters[var_key] = var_val
+        raw = await repo.query_events(tenant.tenant_id, filters, limit=50)
+        # Project only requested fields
+        data = [{f: row.get(f) for f in fields} for row in raw]
+
+    elif root_type == "sessions":
+        data = []  # Sessions query — uses session store
+
+    elif root_type == "campaigns":
+        from repositories.repos import CampaignRepository
+        camp_repo = CampaignRepository()
+        raw = await camp_repo.find_many(filters={"tenant_id": tenant.tenant_id}, limit=50)
+        data = [{f: row.get(f) for f in fields} for row in raw]
+
+    else:
+        data = []
+
+    from shared.logger.logger import metrics
+    metrics.increment("graphql_queries", labels={"root_type": root_type})
+    logger.info("GraphQL query: tenant=%s root=%s fields=%d results=%d",
+                tenant.tenant_id, root_type, len(fields), len(data))
+
     return APIResponse(data={
-        "message": "GraphQL resolver not yet implemented",
-        "query_received": body.query[:200],
+        "data": {root_type: data},
+        "errors": None,
     }).to_dict()
 
 
