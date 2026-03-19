@@ -27,7 +27,9 @@ from shared.events.events import Event, EventProducer, Topic
 from shared.graph.graph import Edge, EdgeType, GraphClient, Vertex, VertexType
 from shared.graph.relationship_layers import get_cross_layer_paths, get_layer_subgraph, RelationshipLayer
 from shared.logger.logger import get_logger, metrics
+from shared.observability import trace_request, emit_latency
 from shared.scoring.trust_score import TrustScoreComposite
+from shared.store import get_store
 
 logger = get_logger("aether.service.agent")
 router = APIRouter(prefix="/v1/agent", tags=["Agent"])
@@ -67,13 +69,10 @@ async def agent_status(request: Request):
     }).to_dict()
 
 
-# ── Task Store (production: TimescaleDB + Celery result backend) ──────
+# ── Durable Task & Audit Stores ───────────────────────────────────────
 
-import threading
-
-_task_store: dict[str, dict] = {}
-_audit_store: list[dict] = []
-_task_lock = threading.Lock()
+_task_store = get_store("agent_tasks")
+_audit_store = get_store("agent_audit")
 
 _PRIORITY_MAP = {
     "critical": 0, "high": 1, "medium": 2, "low": 3, "background": 4,
@@ -114,8 +113,7 @@ async def submit_task(body: TaskSubmission, request: Request):
         "result": None,
         "error": None,
     }
-    with _task_lock:
-        _task_store[task_id] = task
+    await _task_store.set(task_id, task)
 
     # Publish task event for the agent controller to pick up
     await _producer.publish(Event(
@@ -125,15 +123,17 @@ async def submit_task(body: TaskSubmission, request: Request):
         payload=task,
     ))
 
-    # Record audit entry (thread-safe)
-    with _task_lock:
-        _audit_store.append({
+    # Record audit entry
+    await _audit_store.append_list(
+        tenant.tenant_id,
+        {
             "task_id": task_id,
             "action": "task_submitted",
             "worker_type": body.worker_type,
             "tenant_id": tenant.tenant_id,
             "timestamp": now,
-        })
+        },
+    )
 
     metrics.increment("agent_tasks_submitted", labels={"worker_type": body.worker_type})
     logger.info(
@@ -160,8 +160,7 @@ async def get_task(task_id: str, request: Request):
     tenant = request.state.tenant
     tenant.require_permission("agent:manage")
 
-    with _task_lock:
-        task = _task_store.get(task_id)
+    task = await _task_store.get(task_id)
     if task is None or task.get("tenant_id") != tenant.tenant_id:
         raise NotFoundError("Task")
 
@@ -187,12 +186,8 @@ async def get_audit_trail(request: Request, limit: int = 50):
     tenant = request.state.tenant
     tenant.require_permission("agent:manage")
 
-    with _task_lock:
-        tenant_records = [
-            r for r in _audit_store
-            if r.get("tenant_id") == tenant.tenant_id
-        ]
-    # Return most recent first, up to limit
+    tenant_records = await _audit_store.get_list(tenant.tenant_id, limit=limit)
+    # Return most recent first
     records = sorted(
         tenant_records, key=lambda r: r.get("timestamp", ""), reverse=True
     )[:limit]

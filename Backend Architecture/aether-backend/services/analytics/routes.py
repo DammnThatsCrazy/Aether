@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json as _json
 import re
-import threading
 import uuid as _uuid
 from typing import Any, Optional
 
@@ -23,6 +22,8 @@ from shared.common.common import (
 from shared.cache.cache import CacheClient
 from shared.auth.auth import JWTHandler, APIKeyValidator
 from shared.logger.logger import get_logger, metrics
+from shared.observability import trace_request, emit_latency, record_graphql_query, record_graphql_rejection
+from shared.store import get_store
 from dependencies.providers import get_cache, get_registry
 from repositories.repos import AnalyticsRepository
 
@@ -113,10 +114,9 @@ async def dashboard_summary(
     return APIResponse(data=summary).to_dict()
 
 
-# ── Export Job Store ──────────────────────────────────────────────────
+# ── Durable Export Job Store ──────────────────────────────────────────
 
-_export_jobs: dict[str, dict] = {}
-_export_lock = threading.Lock()
+_export_store = get_store("analytics_exports")
 
 
 @router.post("/export")
@@ -133,24 +133,23 @@ async def export_data(
     Idempotent: re-submitting the same query + format within 60s returns
     the existing job instead of creating a duplicate.
     """
+    ctx = trace_request(request, service="analytics")
     tenant = request.state.tenant
     tenant.require_permission("analytics:export")
 
-    # Idempotency check — same query + format within 60s reuses job
+    # Idempotency check — same query + format reuses existing job
     query_hash = hashlib.sha256(
         _json.dumps({"q": body.query.model_dump(), "f": body.format}, sort_keys=True).encode()
     ).hexdigest()[:16]
 
-    with _export_lock:
-        for job in _export_jobs.values():
-            if (
-                job.get("query_hash") == query_hash
-                and job.get("tenant_id") == tenant.tenant_id
-                and job.get("status") in ("queued", "processing", "completed")
-            ):
-                logger.info("Returning existing export job %s (idempotent)", job["export_id"])
-                metrics.increment("analytics_exports_idempotent")
-                return APIResponse(data=_sanitize_export_job(job)).to_dict()
+    existing = await _export_store.find(
+        query_hash=query_hash, tenant_id=tenant.tenant_id,
+    )
+    for job in existing:
+        if job.get("status") in ("queued", "processing", "completed"):
+            logger.info("Returning existing export job %s (idempotent)", job["export_id"])
+            metrics.increment("analytics_exports_idempotent")
+            return APIResponse(data=_sanitize_export_job(job)).to_dict()
 
     export_id = str(_uuid.uuid4())
     now = utc_now().isoformat()
@@ -184,9 +183,9 @@ async def export_data(
         "download_url": f"/v1/analytics/export/{export_id}/download" if status == "completed" else None,
     }
 
-    with _export_lock:
-        _export_jobs[export_id] = job
+    await _export_store.set(export_id, job)
 
+    emit_latency("analytics_export", ctx.elapsed_ms(), labels={"format": body.format})
     metrics.increment("analytics_exports_created", labels={"format": body.format, "status": status})
     logger.info("Export job %s: format=%s rows=%d status=%s", export_id, body.format, row_count, status)
 
@@ -196,8 +195,7 @@ async def export_data(
 @router.get("/export/{export_id}")
 async def get_export_status(export_id: str, request: Request):
     """Check the status of an export job (tenant-scoped)."""
-    with _export_lock:
-        job = _export_jobs.get(export_id)
+    job = await _export_store.get(export_id)
     if job is None or job.get("tenant_id") != request.state.tenant.tenant_id:
         raise NotFoundError("Export job")
     metrics.increment("analytics_exports_polled")
@@ -279,6 +277,7 @@ async def graphql_endpoint(
     Supports querying ``events``, ``sessions``, and ``campaigns``
     with field-level selection. Introspection is disabled in production.
     """
+    ctx = trace_request(request, service="analytics")
     tenant = request.state.tenant
 
     # Parse and validate
@@ -308,7 +307,8 @@ async def graphql_endpoint(
     else:
         data = []
 
-    metrics.increment("graphql_queries", labels={"root_type": root_type})
+    record_graphql_query(root_type, len(fields), tenant.tenant_id)
+    emit_latency("graphql_query", ctx.elapsed_ms(), labels={"root_type": root_type})
     logger.info("GraphQL query: tenant=%s root=%s fields=%d results=%d",
                 tenant.tenant_id, root_type, len(fields), len(data))
 

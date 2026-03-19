@@ -5,7 +5,6 @@ Campaign management, attribution calculation, and reporting.
 
 from __future__ import annotations
 
-import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -19,6 +18,8 @@ from shared.common.common import (
 )
 from shared.events.events import Event, EventProducer, Topic
 from shared.logger.logger import get_logger, metrics
+from shared.observability import trace_request, emit_latency
+from shared.store import get_store
 from dependencies.providers import get_producer
 from repositories.repos import CampaignRepository
 
@@ -64,10 +65,10 @@ class TouchpointCreate(BaseModel):
     properties: dict[str, Any] = Field(default_factory=dict)
 
 
-# ── Thread-Safe Touchpoint Store ─────────────────────────────────────
+# ── Durable Touchpoint Store ──────────────────────────────────────────
+# Uses Redis when available, falls back to in-memory for single-instance.
 
-_touchpoint_store: dict[str, list[dict]] = {}
-_touchpoint_lock = threading.Lock()
+_touchpoint_store = get_store("campaign_touchpoints")
 
 
 # ── CRUD Routes ──────────────────────────────────────────────────────
@@ -157,12 +158,12 @@ async def get_attribution(
             f"Valid: {sorted(VALID_ATTRIBUTION_MODELS)}"
         )
 
+    ctx = trace_request(request, service="campaign")
     campaign = await _repo.find_by_id(campaign_id)
     if campaign is None or campaign.get("tenant_id") != tenant.tenant_id:
         raise NotFoundError("Campaign")
 
-    with _touchpoint_lock:
-        touchpoints = list(_touchpoint_store.get(campaign_id, []))
+    touchpoints = await _touchpoint_store.get_list(campaign_id)
 
     if start_date or end_date:
         touchpoints = [
@@ -176,6 +177,7 @@ async def get_attribution(
     attributed = _compute_attribution(touchpoints, conversions, model)
 
     metrics.increment("campaign_attribution_computed", labels={"model": model})
+    emit_latency("campaign_attribution", ctx.elapsed_ms(), labels={"model": model})
     logger.info(
         "Attribution computed: campaign=%s model=%s conversions=%d",
         campaign_id, model, len(conversions),
@@ -221,8 +223,7 @@ async def record_touchpoint(
         "properties": body.properties,
     }
 
-    with _touchpoint_lock:
-        _touchpoint_store.setdefault(campaign_id, []).append(touchpoint)
+    await _touchpoint_store.append_list(campaign_id, touchpoint)
 
     await producer.publish(Event(
         topic=Topic.TOUCHPOINT_RECORDED,

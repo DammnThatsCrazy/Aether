@@ -99,7 +99,10 @@ class TestCampaignAttributionE2E:
         import sys
         sys.path.insert(0, "Backend Architecture/aether-backend")
         from services.campaign import routes
-        routes._touchpoint_store.clear()
+        # Clear durable store internal state
+        if hasattr(routes._touchpoint_store, '_data'):
+            routes._touchpoint_store._data.clear()
+            routes._touchpoint_store._lists.clear()
         routes._repo._store.clear()
         yield
 
@@ -122,7 +125,7 @@ class TestCampaignAttributionE2E:
             "status": "active",
         })
 
-        # Step 2: Record touchpoints
+        # Step 2: Record touchpoints via DurableStore
         touchpoints = [
             {"channel": "email", "event_type": "open", "is_conversion": False, "revenue_usd": 0},
             {"channel": "email", "event_type": "click", "is_conversion": False, "revenue_usd": 0},
@@ -136,10 +139,10 @@ class TestCampaignAttributionE2E:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 **tp_data,
             }
-            _touchpoint_store.setdefault(campaign_id, []).append(tp)
+            await _touchpoint_store.append_list(campaign_id, tp)
 
         # Step 3: Compute attribution
-        stored = _touchpoint_store[campaign_id]
+        stored = await _touchpoint_store.get_list(campaign_id)
         conversions = [tp for tp in stored if tp.get("is_conversion")]
         result = _compute_attribution(list(stored), conversions, "multi_touch")
 
@@ -210,12 +213,14 @@ class TestAnalyticsExportE2E:
         import sys
         sys.path.insert(0, "Backend Architecture/aether-backend")
         from services.analytics import routes
-        routes._export_jobs.clear()
+        if hasattr(routes._export_store, '_data'):
+            routes._export_store._data.clear()
         yield
 
-    def test_export_idempotency(self):
+    @pytest.mark.asyncio
+    async def test_export_idempotency(self):
         """Same query + format should reuse existing job."""
-        from services.analytics.routes import _export_jobs, _export_lock
+        from services.analytics.routes import _export_store
 
         job_id = str(uuid.uuid4())
         job = {
@@ -226,19 +231,15 @@ class TestAnalyticsExportE2E:
             "query_hash": "abc123",
             "row_count": 100,
         }
-        with _export_lock:
-            _export_jobs[job_id] = job
+        await _export_store.set(job_id, job)
 
         # Simulate idempotency check
-        with _export_lock:
-            matches = [
-                j for j in _export_jobs.values()
-                if j.get("query_hash") == "abc123"
-                and j.get("tenant_id") == "test-tenant"
-                and j.get("status") in ("queued", "processing", "completed")
-            ]
-        assert len(matches) == 1
-        assert matches[0]["export_id"] == job_id
+        matches = await _export_store.find(
+            query_hash="abc123", tenant_id="test-tenant",
+        )
+        completed = [j for j in matches if j.get("status") in ("queued", "processing", "completed")]
+        assert len(completed) == 1
+        assert completed[0]["export_id"] == job_id
 
     def test_export_job_sanitization(self):
         """Sanitized export should not contain internal fields."""
@@ -256,16 +257,15 @@ class TestAnalyticsExportE2E:
         assert "query_hash" not in sanitized
         assert sanitized["export_id"] == "ex-001"
 
-    def test_export_tenant_isolation(self):
+    @pytest.mark.asyncio
+    async def test_export_tenant_isolation(self):
         """Export job retrieval should enforce tenant matching."""
-        from services.analytics.routes import _export_jobs, _export_lock
+        from services.analytics.routes import _export_store
 
         job = {"export_id": "ex-002", "tenant_id": "tenant-A", "status": "completed"}
-        with _export_lock:
-            _export_jobs["ex-002"] = job
+        await _export_store.set("ex-002", job)
 
-        # Wrong tenant should not find the job
-        retrieved = _export_jobs.get("ex-002")
+        retrieved = await _export_store.get("ex-002")
         assert retrieved["tenant_id"] != "tenant-B"
 
 
@@ -354,13 +354,17 @@ class TestAgentTaskBridgeE2E:
         import sys
         sys.path.insert(0, "Backend Architecture/aether-backend")
         from services.agent import routes
-        routes._task_store.clear()
-        routes._audit_store.clear()
+        if hasattr(routes._task_store, '_data'):
+            routes._task_store._data.clear()
+        if hasattr(routes._audit_store, '_data'):
+            routes._audit_store._data.clear()
+            routes._audit_store._lists.clear()
         yield
 
-    def test_task_creation_and_lookup(self):
+    @pytest.mark.asyncio
+    async def test_task_creation_and_lookup(self):
         """Created task should be retrievable with correct state."""
-        from services.agent.routes import _task_store, _task_lock, _audit_store
+        from services.agent.routes import _task_store
 
         task_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
@@ -374,46 +378,47 @@ class TestAgentTaskBridgeE2E:
             "created_at": now,
         }
 
-        with _task_lock:
-            _task_store[task_id] = task
-
-        with _task_lock:
-            retrieved = _task_store.get(task_id)
+        await _task_store.set(task_id, task)
+        retrieved = await _task_store.get(task_id)
 
         assert retrieved is not None
         assert retrieved["task_id"] == task_id
         assert retrieved["status"] == "queued"
 
-    def test_task_tenant_isolation(self):
+    @pytest.mark.asyncio
+    async def test_task_tenant_isolation(self):
         """Task from wrong tenant should not be accessible."""
-        from services.agent.routes import _task_store, _task_lock
+        from services.agent.routes import _task_store
 
         task_id = str(uuid.uuid4())
-        with _task_lock:
-            _task_store[task_id] = {
-                "task_id": task_id,
-                "tenant_id": "tenant-A",
-                "status": "queued",
-            }
+        await _task_store.set(task_id, {
+            "task_id": task_id,
+            "tenant_id": "tenant-A",
+            "status": "queued",
+        })
 
-        with _task_lock:
-            task = _task_store.get(task_id)
+        task = await _task_store.get(task_id)
         assert task["tenant_id"] != "tenant-B"
 
-    def test_audit_trail_records(self):
-        """Audit entries should be filterable by tenant."""
-        from services.agent.routes import _audit_store, _task_lock
+    @pytest.mark.asyncio
+    async def test_audit_trail_records(self):
+        """Audit entries should be retrievable per tenant."""
+        from services.agent.routes import _audit_store
 
-        entries = [
-            {"task_id": "t1", "tenant_id": "tenant-A", "action": "submitted", "timestamp": "2025-01-01T00:00:00Z"},
-            {"task_id": "t2", "tenant_id": "tenant-B", "action": "submitted", "timestamp": "2025-01-01T00:01:00Z"},
-            {"task_id": "t3", "tenant_id": "tenant-A", "action": "completed", "timestamp": "2025-01-01T00:02:00Z"},
-        ]
+        await _audit_store.append_list("tenant-A", {
+            "task_id": "t1", "tenant_id": "tenant-A",
+            "action": "submitted", "timestamp": "2025-01-01T00:00:00Z",
+        })
+        await _audit_store.append_list("tenant-B", {
+            "task_id": "t2", "tenant_id": "tenant-B",
+            "action": "submitted", "timestamp": "2025-01-01T00:01:00Z",
+        })
+        await _audit_store.append_list("tenant-A", {
+            "task_id": "t3", "tenant_id": "tenant-A",
+            "action": "completed", "timestamp": "2025-01-01T00:02:00Z",
+        })
 
-        with _task_lock:
-            _audit_store.extend(entries)
-            tenant_a = [r for r in _audit_store if r["tenant_id"] == "tenant-A"]
-
+        tenant_a = await _audit_store.get_list("tenant-A")
         assert len(tenant_a) == 2
 
     def test_invalid_worker_type_validation(self):
@@ -500,35 +505,30 @@ class TestGeoEnrichmentE2E:
 
 
 class TestConcurrencySafety:
-    """Verify thread-safe stores under concurrent access."""
+    """Verify DurableStore thread safety under concurrent access."""
 
     @pytest.fixture(autouse=True)
     def setup(self):
         import sys
         sys.path.insert(0, "Backend Architecture/aether-backend")
-        from services.campaign import routes as camp
-        from services.analytics import routes as analytics
-        from services.agent import routes as agent
-        camp._touchpoint_store.clear()
-        analytics._export_jobs.clear()
-        agent._task_store.clear()
-        agent._audit_store.clear()
         yield
 
-    def test_concurrent_touchpoint_writes(self):
-        """Concurrent touchpoint appends should not lose data."""
-        from services.campaign.routes import _touchpoint_store, _touchpoint_lock
+    def test_concurrent_in_memory_store_writes(self):
+        """InMemoryStore should handle concurrent writes without data loss."""
+        from shared.store import InMemoryStore
 
-        campaign_id = "camp-concurrent"
+        store = InMemoryStore("test-concurrent")
         n_threads = 10
         writes_per_thread = 50
 
         def writer():
+            import asyncio
+            loop = asyncio.new_event_loop()
             for i in range(writes_per_thread):
-                with _touchpoint_lock:
-                    _touchpoint_store.setdefault(campaign_id, []).append(
-                        {"id": str(uuid.uuid4())}
-                    )
+                loop.run_until_complete(
+                    store.append_list("campaign-1", {"id": str(uuid.uuid4())})
+                )
+            loop.close()
 
         threads = [threading.Thread(target=writer) for _ in range(n_threads)]
         for t in threads:
@@ -536,38 +536,27 @@ class TestConcurrencySafety:
         for t in threads:
             t.join()
 
-        assert len(_touchpoint_store[campaign_id]) == n_threads * writes_per_thread
+        import asyncio
+        loop = asyncio.new_event_loop()
+        items = loop.run_until_complete(store.get_list("campaign-1", limit=10000))
+        loop.close()
+        assert len(items) == n_threads * writes_per_thread
 
-    def test_concurrent_export_job_creation(self):
-        """Concurrent export job writes should not lose data."""
-        from services.analytics.routes import _export_jobs, _export_lock
+    def test_concurrent_store_set_get(self):
+        """Concurrent set/get should be consistent."""
+        from shared.store import InMemoryStore
 
-        n_threads = 10
-
-        def writer(idx):
-            job_id = f"export-{idx}"
-            with _export_lock:
-                _export_jobs[job_id] = {"export_id": job_id, "status": "completed"}
-
-        threads = [threading.Thread(target=writer, args=(i,)) for i in range(n_threads)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        assert len(_export_jobs) == n_threads
-
-    def test_concurrent_task_creation(self):
-        """Concurrent task store writes should not lose data."""
-        from services.agent.routes import _task_store, _audit_store, _task_lock
-
+        store = InMemoryStore("test-setget")
         n_threads = 20
 
         def writer(idx):
-            task_id = f"task-{idx}"
-            with _task_lock:
-                _task_store[task_id] = {"task_id": task_id, "status": "queued"}
-                _audit_store.append({"task_id": task_id, "action": "created"})
+            import asyncio
+            loop = asyncio.new_event_loop()
+            key = f"key-{idx}"
+            loop.run_until_complete(store.set(key, {"idx": idx}))
+            result = loop.run_until_complete(store.get(key))
+            assert result["idx"] == idx
+            loop.close()
 
         threads = [threading.Thread(target=writer, args=(i,)) for i in range(n_threads)]
         for t in threads:
@@ -575,5 +564,8 @@ class TestConcurrencySafety:
         for t in threads:
             t.join()
 
-        assert len(_task_store) == n_threads
-        assert len(_audit_store) == n_threads
+        import asyncio
+        loop = asyncio.new_event_loop()
+        count = loop.run_until_complete(store.count())
+        loop.close()
+        assert count == n_threads
