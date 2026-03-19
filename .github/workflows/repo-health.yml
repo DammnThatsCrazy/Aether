@@ -30,7 +30,18 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest numpy pydantic requests
+          pip install \
+            pytest \
+            numpy \
+            pandas \
+            scikit-learn \
+            xgboost \
+            pyarrow \
+            fastapi \
+            httpx \
+            pydantic \
+            requests \
+            joblib
 
       - name: Regenerate generated docs
         run: python scripts/sync_docs.py
