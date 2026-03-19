@@ -8,6 +8,11 @@
 - Fixed timezone mismatches in identity feature aggregation that caused tz-aware vs tz-naive subtraction failures.
 - Hardened the serving API test/dev path with deterministic fallback models and corrected response-contract mismatches for `/models`, batch prediction errors, and missing feature validation.
 - Expanded repository health automation so CI covers both the root test suite and the ML subproject suite.
+- Ignored local Gradle caches so Android build metadata does not create false-positive untracked repo changes.
+
+### Changed
+
+- Documented the required `main` branch protection settings so `Repo Health / validate` is enforced instead of advisory only.
 
 ## v8.3.1 — Model Extraction Defense Layer (2026-03-18)
 

@@ -14,6 +14,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Fixed timezone mismatches in identity feature aggregation that caused tz-aware vs tz-naive subtraction failures.
 - Hardened the serving API test/dev path with deterministic fallback models and corrected response-contract mismatches for `/models`, batch prediction errors, and missing feature validation.
 - Expanded repository health automation so CI covers both the root test suite and the ML subproject suite.
+- Ignored local Gradle caches so Android developer artifacts no longer show up as untracked repository changes.
+
+### Changed
+
+- Documented branch-protection requirements in the generated automation policy so GitHub's unprotected-`main` warning has a repeatable remediation path and the `Repo Health / validate` check can be enforced.
 
 ## [8.3.1] — 2026-03-18
 
