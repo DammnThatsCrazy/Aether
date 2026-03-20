@@ -71,6 +71,12 @@ class Topic(str, Enum):
     AGENT_STATE_SNAPSHOT = "aether.agent.state.snapshot"
     AGENT_GROUND_TRUTH = "aether.agent.ground_truth"
 
+    # Intelligence Graph — Agent-to-Human (A2H)
+    AGENT_NOTIFICATION_SENT = "aether.agent.notification.sent"
+    AGENT_RECOMMENDATION_MADE = "aether.agent.recommendation.made"
+    AGENT_RESULT_DELIVERED = "aether.agent.result.delivered"
+    AGENT_ESCALATION_RAISED = "aether.agent.escalation.raised"
+
     # Intelligence Graph — Commerce (L3a)
     PAYMENT_SENT = "aether.commerce.payment.sent"
     AGENT_HIRED = "aether.commerce.agent.hired"

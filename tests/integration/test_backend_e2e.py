@@ -7,6 +7,7 @@ Tests full cross-service flows:
   3. GraphQL: query validation → resolver → authorization enforcement
   4. Agent: task creation → lifecycle tracking → audit trail
   5. Ingestion: IP enrichment → geo normalization → output validation
+  6. A2H: Agent-to-Human relationship layer (graph edges, classification, events)
 
 These tests exercise the actual service code without HTTP transport
 by calling route handler functions directly with mocked request state.
@@ -562,3 +563,155 @@ class TestConcurrencySafety:
         count = loop.run_until_complete(store.count())
         loop.close()
         assert count == n_threads
+
+
+# =========================================================================
+# 7. A2H (Agent-to-Human) Relationship Layer E2E
+# =========================================================================
+
+
+class TestA2HRelationshipLayerE2E:
+    """Full flow: A2H edge types, classification, graph traversal, events."""
+
+    def test_a2h_edge_types_exist(self):
+        """All four A2H edge types should be defined."""
+        from shared.graph.graph import EdgeType
+
+        assert EdgeType.NOTIFIES == "NOTIFIES"
+        assert EdgeType.RECOMMENDS == "RECOMMENDS"
+        assert EdgeType.DELIVERS_TO == "DELIVERS_TO"
+        assert EdgeType.ESCALATES_TO == "ESCALATES_TO"
+
+    def test_a2h_relationship_layer_exists(self):
+        """A2H should be a valid RelationshipLayer enum member."""
+        from shared.graph.relationship_layers import RelationshipLayer
+
+        assert RelationshipLayer.A2H == "A2H"
+        assert RelationshipLayer.A2H.value == "A2H"
+        # Ensure all four layers exist
+        layers = {l.value for l in RelationshipLayer}
+        assert layers == {"H2H", "H2A", "A2H", "A2A"}
+
+    def test_a2h_edges_classified_correctly(self):
+        """A2H edge types should classify into the A2H layer."""
+        from shared.graph.graph import EdgeType
+        from shared.graph.relationship_layers import classify_edge_type, RelationshipLayer
+
+        a2h_edges = [
+            EdgeType.NOTIFIES,
+            EdgeType.RECOMMENDS,
+            EdgeType.DELIVERS_TO,
+            EdgeType.ESCALATES_TO,
+        ]
+        for edge_type in a2h_edges:
+            assert classify_edge_type(edge_type) == RelationshipLayer.A2H
+
+    def test_h2a_edges_still_classified_correctly(self):
+        """Existing H2A edges should remain unaffected."""
+        from shared.graph.graph import EdgeType
+        from shared.graph.relationship_layers import classify_edge_type, RelationshipLayer
+
+        assert classify_edge_type(EdgeType.LAUNCHED_BY) == RelationshipLayer.H2A
+        assert classify_edge_type(EdgeType.DELEGATES) == RelationshipLayer.H2A
+
+    def test_a2a_edges_still_classified_correctly(self):
+        """Existing A2A edges should remain unaffected."""
+        from shared.graph.graph import EdgeType
+        from shared.graph.relationship_layers import classify_edge_type, RelationshipLayer
+
+        assert classify_edge_type(EdgeType.HIRED) == RelationshipLayer.A2A
+        assert classify_edge_type(EdgeType.DEPLOYED) == RelationshipLayer.A2A
+
+    def test_layer_stats_includes_a2h(self):
+        """get_layer_stats should count A2H edges."""
+        from shared.graph.graph import Edge, EdgeType
+        from shared.graph.relationship_layers import get_layer_stats
+
+        edges = [
+            Edge(edge_type=EdgeType.NOTIFIES, from_vertex_id="agent-1", to_vertex_id="user-1"),
+            Edge(edge_type=EdgeType.DELIVERS_TO, from_vertex_id="agent-1", to_vertex_id="user-2"),
+            Edge(edge_type=EdgeType.DELEGATES, from_vertex_id="user-1", to_vertex_id="agent-1"),
+            Edge(edge_type=EdgeType.HIRED, from_vertex_id="agent-1", to_vertex_id="agent-2"),
+        ]
+        stats = get_layer_stats(edges)
+        assert stats["A2H"] == 2
+        assert stats["H2A"] == 1
+        assert stats["A2A"] == 1
+        assert stats["H2H"] == 0
+
+    @pytest.mark.asyncio
+    async def test_a2h_graph_edge_creation(self):
+        """A2H edges should be creatable in the graph client."""
+        from shared.graph.graph import Edge, EdgeType, GraphClient, Vertex, VertexType
+
+        graph = GraphClient()
+        await graph.connect()
+
+        await graph.add_vertex(Vertex(vertex_type=VertexType.AGENT, vertex_id="agent-a2h"))
+        await graph.add_vertex(Vertex(vertex_type=VertexType.USER, vertex_id="user-a2h"))
+
+        await graph.add_edge(Edge(
+            edge_type=EdgeType.NOTIFIES,
+            from_vertex_id="agent-a2h",
+            to_vertex_id="user-a2h",
+            properties={"content_summary": "Task completed"},
+        ))
+
+        neighbors = await graph.get_neighbors("agent-a2h", edge_type=EdgeType.NOTIFIES, direction="out")
+        assert len(neighbors) == 1
+        assert neighbors[0].vertex_id == "user-a2h"
+
+        await graph.close()
+
+    @pytest.mark.asyncio
+    async def test_a2h_subgraph_query(self):
+        """get_layer_subgraph should return A2H-layer vertices."""
+        from shared.graph.graph import GraphClient, Vertex, Edge, EdgeType, VertexType
+        from shared.graph.relationship_layers import get_layer_subgraph, RelationshipLayer
+
+        graph = GraphClient()
+        await graph.connect()
+
+        await graph.add_vertex(Vertex(vertex_type=VertexType.AGENT, vertex_id="agent-sub"))
+        await graph.add_vertex(Vertex(vertex_type=VertexType.USER, vertex_id="user-sub"))
+        await graph.add_edge(Edge(
+            edge_type=EdgeType.DELIVERS_TO,
+            from_vertex_id="agent-sub",
+            to_vertex_id="user-sub",
+        ))
+
+        subgraph = await get_layer_subgraph(graph, "agent-sub", RelationshipLayer.A2H)
+        assert subgraph["layer"] == "A2H"
+        assert subgraph["vertex_count"] >= 1
+        assert EdgeType.DELIVERS_TO in subgraph["edge_types"]
+
+        await graph.close()
+
+    def test_a2h_event_topics_exist(self):
+        """A2H event topics should be defined."""
+        from shared.events.events import Topic
+
+        assert Topic.AGENT_NOTIFICATION_SENT.value == "aether.agent.notification.sent"
+        assert Topic.AGENT_RECOMMENDATION_MADE.value == "aether.agent.recommendation.made"
+        assert Topic.AGENT_RESULT_DELIVERED.value == "aether.agent.result.delivered"
+        assert Topic.AGENT_ESCALATION_RAISED.value == "aether.agent.escalation.raised"
+
+    def test_a2h_valid_interaction_types(self):
+        """Agent routes should expose valid A2H interaction types."""
+        from services.agent.routes import VALID_A2H_TYPES
+
+        assert VALID_A2H_TYPES == {"notification", "recommendation", "delivery", "escalation"}
+
+    def test_a2h_edge_map_complete(self):
+        """Every A2H interaction type should map to an edge type."""
+        from services.agent.routes import _A2H_EDGE_MAP, VALID_A2H_TYPES
+
+        for interaction_type in VALID_A2H_TYPES:
+            assert interaction_type in _A2H_EDGE_MAP
+
+    def test_a2h_topic_map_complete(self):
+        """Every A2H interaction type should map to an event topic."""
+        from services.agent.routes import _A2H_TOPIC_MAP, VALID_A2H_TYPES
+
+        for interaction_type in VALID_A2H_TYPES:
+            assert interaction_type in _A2H_TOPIC_MAP

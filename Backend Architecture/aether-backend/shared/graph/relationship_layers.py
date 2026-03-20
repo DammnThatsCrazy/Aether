@@ -1,8 +1,9 @@
 """
 Aether Shared — @aether/graph/relationship_layers
-Classifies graph edges into three relationship layers:
+Classifies graph edges into four relationship layers:
   H2H (Human-to-Human)  — existing behavioral analytics
   H2A (Human-to-Agent)   — delegation, attribution, reward passthrough
+  A2H (Agent-to-Human)   — notifications, recommendations, deliveries, escalations
   A2A (Agent-to-Agent)    — orchestration, hiring, payments, protocol composition
 
 Used by: Analytics, Agent, Commerce, On-Chain services.
@@ -26,6 +27,7 @@ logger = get_logger("aether.graph.layers")
 class RelationshipLayer(str, Enum):
     H2H = "H2H"   # Human-to-Human
     H2A = "H2A"   # Human-to-Agent
+    A2H = "A2H"   # Agent-to-Human
     A2A = "A2A"   # Agent-to-Agent
 
 
@@ -54,6 +56,12 @@ _EDGE_LAYER_MAP: dict[str, RelationshipLayer] = {
     EdgeType.DELEGATES: RelationshipLayer.H2A,
     EdgeType.INTERACTS_WITH: RelationshipLayer.H2A,
     EdgeType.ATTRIBUTED_TO: RelationshipLayer.H2A,
+
+    # A2H — Agent-to-Human edges
+    EdgeType.NOTIFIES: RelationshipLayer.A2H,
+    EdgeType.RECOMMENDS: RelationshipLayer.A2H,
+    EdgeType.DELIVERS_TO: RelationshipLayer.A2H,
+    EdgeType.ESCALATES_TO: RelationshipLayer.A2H,
 
     # A2A — Agent-to-Agent / protocol edges
     EdgeType.PAYS: RelationshipLayer.A2A,
@@ -107,6 +115,10 @@ H2A_VERTEX_TYPES = frozenset({
     VertexType.CAMPAIGN,
 })
 
+A2H_VERTEX_TYPES = frozenset({
+    VertexType.AGENT, VertexType.USER, VertexType.SERVICE,
+})
+
 A2A_VERTEX_TYPES = frozenset({
     VertexType.AGENT, VertexType.SERVICE, VertexType.CONTRACT,
     VertexType.PROTOCOL, VertexType.PAYMENT, VertexType.ACTION_RECORD,
@@ -129,6 +141,7 @@ async def get_layer_subgraph(
     allowed_vertex_types = {
         RelationshipLayer.H2H: H2H_VERTEX_TYPES,
         RelationshipLayer.H2A: H2A_VERTEX_TYPES,
+        RelationshipLayer.A2H: A2H_VERTEX_TYPES,
         RelationshipLayer.A2A: A2A_VERTEX_TYPES,
     }[layer]
 
@@ -161,8 +174,8 @@ async def get_cross_layer_paths(
     user_id: str,
 ) -> list[dict]:
     """
-    Find cross-layer paths: Human → Agent → Agent chains.
-    Traces H2A delegation into A2A orchestration.
+    Find cross-layer paths: Human → Agent → Agent and Agent → Human chains.
+    Traces H2A delegation into A2A orchestration and A2H delivery back to humans.
     """
     paths: list[dict] = []
 
@@ -175,7 +188,7 @@ async def get_cross_layer_paths(
     )
     all_agents = {a.vertex_id: a for a in agents + launched}
 
-    # Step 2: For each agent, find A2A connections
+    # Step 2: For each agent, find A2A and A2H connections
     for agent_id, agent in all_agents.items():
         hired = await graph_client.get_neighbors(
             agent_id, edge_type=EdgeType.HIRED, direction="out"
@@ -187,8 +200,19 @@ async def get_cross_layer_paths(
             agent_id, edge_type=EdgeType.DEPLOYED, direction="out"
         )
 
-        if hired or consumed or deployed:
-            paths.append({
+        # A2H: agent-initiated interactions back to humans
+        notified = await graph_client.get_neighbors(
+            agent_id, edge_type=EdgeType.NOTIFIES, direction="out"
+        )
+        delivered = await graph_client.get_neighbors(
+            agent_id, edge_type=EdgeType.DELIVERS_TO, direction="out"
+        )
+        escalated = await graph_client.get_neighbors(
+            agent_id, edge_type=EdgeType.ESCALATES_TO, direction="out"
+        )
+
+        if hired or consumed or deployed or notified or delivered or escalated:
+            path_entry: dict = {
                 "user_id": user_id,
                 "agent_id": agent_id,
                 "agent_type": agent.properties.get("model_name", "unknown"),
@@ -198,7 +222,13 @@ async def get_cross_layer_paths(
                     "consumed_services": [c.vertex_id for c in consumed],
                     "deployed_contracts": [d.vertex_id for d in deployed],
                 },
-            })
+                "a2h_connections": {
+                    "notified_users": [n.vertex_id for n in notified],
+                    "delivered_to_users": [d.vertex_id for d in delivered],
+                    "escalated_to_users": [e.vertex_id for e in escalated],
+                },
+            }
+            paths.append(path_entry)
 
     return paths
 

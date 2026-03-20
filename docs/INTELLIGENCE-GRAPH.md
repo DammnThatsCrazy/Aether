@@ -7,7 +7,7 @@ The Unified On-Chain Intelligence Graph extends the Aether platform with an 8-la
 - **Additive extension** — all 9 existing ML models remain unchanged; no retraining required
 - **Feature-flagged** — every layer activates independently via environment variables (all default to `false`)
 - **GDPR + SOC 2 compliant** — 2 new consent purposes, DSR cascade for agent/payment vertices, 10 new audit actions
-- **Graph-native** — 6 new node types, 13 new edge types layered onto the existing Identity Graph
+- **Graph-native** — 6 new node types, 17 new edge types layered onto the existing Identity Graph
 
 ## Architecture Layers
 
@@ -20,7 +20,7 @@ The Unified On-Chain Intelligence Graph extends the Aether platform with an 8-la
 | **L3a** | Commerce | Payment tracking, agent hiring, fee analysis | Payment records, hire events, fee elimination reports |
 | **L3b** | x402 Interceptor | HTTP 402-based micropayment capture | Payment headers, economic graph edges, per-call cost tracking |
 | **L4** | ML Intelligence | Scoring and anomaly detection | 9 existing models + Trust Score composite + Bytecode Risk scorer |
-| **L5** | Unified Graph | Cross-layer relationship store | 6 node types, 13 edge types, ClickHouse + graph DB dual write |
+| **L5** | Unified Graph | Cross-layer relationship store | 6 node types, 17 edge types, ClickHouse + graph DB dual write |
 
 ## Relationship Layers
 
@@ -39,6 +39,14 @@ Tracks delegation from humans to autonomous agents and attribution of agent acti
 - **Edges:** `LAUNCHED_BY` (user->agent), `DELEGATES` (user->agent+scope), `INTERACTS_WITH` (user<->agent)
 - **Behaviors:** Delegation scope enforcement, reward passthrough to launching user, trust inheritance
 - **Attribution:** All agent-generated events carry `originUserId` for analytics rollup
+
+### A2H (Agent-to-Human)
+
+Tracks agent-initiated interactions back to human users — the reverse direction of H2A. While H2A captures human delegation *to* agents, A2H captures agent-initiated contact *back to* humans.
+
+- **Edges:** `NOTIFIES` (agent->user), `RECOMMENDS` (agent->user), `DELIVERS_TO` (agent->user), `ESCALATES_TO` (agent->user)
+- **Behaviors:** Notification delivery, proactive recommendations, task result handoff, human-in-the-loop escalation
+- **Privacy:** All A2H edges respect the `agent` consent purpose; users can revoke agent notification permissions
 
 ### A2A (Agent-to-Agent)
 
@@ -61,13 +69,17 @@ Captures orchestration, hiring, payments, and protocol composition between auton
 | `PAYMENT` | Payment event (fiat or crypto) | `paymentId`, `from`, `to`, `amount`, `currency`, `method`, `x402` |
 | `ACTION_RECORD` | On-chain action log entry | `actionId`, `agentId`, `chain`, `txHash`, `type`, `blockNumber` |
 
-### Edge Types (13 new)
+### Edge Types (17 new)
 
 | Category | Edge | From -> To | Properties |
 |----------|------|------------|------------|
 | **H2A** | `LAUNCHED_BY` | Agent -> User | `timestamp`, `config` |
 | **H2A** | `DELEGATES` | User -> Agent | `scope[]`, `expiresAt`, `revoked` |
 | **H2A** | `INTERACTS_WITH` | User <-> Agent | `sessionId`, `channel`, `count` |
+| **A2H** | `NOTIFIES` | Agent -> User | `content_summary`, `task_id`, `timestamp` |
+| **A2H** | `RECOMMENDS` | Agent -> User | `content_summary`, `confidence`, `task_id` |
+| **A2H** | `DELIVERS_TO` | Agent -> User | `task_id`, `content_summary`, `confidence` |
+| **A2H** | `ESCALATES_TO` | Agent -> User | `task_id`, `content_summary`, `urgency` |
 | **Economic** | `HIRED` | Agent -> Agent | `taskId`, `terms`, `sla` |
 | **Economic** | `PAYS` | Agent/User -> Agent/User | `paymentId`, `amount`, `currency` |
 | **Economic** | `CONSUMES` | Agent -> Service | `callCount`, `totalCost`, `lastCalledAt` |
@@ -156,6 +168,7 @@ New columns: `agent_task_frequency`, `avg_confidence_delta`, `hiring_depth`, `x4
 | `POST` | `/v1/agent/tasks/{id}/feedback` | Submit ground truth feedback and compute `confidence_delta` |
 | `GET` | `/v1/agent/{id}/graph` | Full subgraph for an agent (nodes, edges, action records) |
 | `GET` | `/v1/agent/{id}/trust` | Current trust score with component breakdown |
+| `POST` | `/v1/agent/{id}/a2h` | Record an agent-to-human interaction (notification, recommendation, delivery, escalation) |
 
 ## Configuration
 
@@ -206,9 +219,9 @@ When a Data Subject Request is received:
 - `CONTRACT` vertices: **pseudonymized** (deployer field hashed; on-chain data is immutable)
 - All existing H2H vertices: handled by existing DSR cascade (unchanged)
 
-### Audit Actions (10 new)
+### Audit Actions (14 new)
 
-`AGENT_REGISTERED`, `AGENT_TASK_STARTED`, `AGENT_TASK_COMPLETED`, `AGENT_DECISION_LOGGED`, `AGENT_FEEDBACK_RECEIVED`, `PAYMENT_RECORDED`, `HIRE_RECORDED`, `CONTRACT_INGESTED`, `BYTECODE_SCORED`, `X402_CAPTURED`
+`AGENT_REGISTERED`, `AGENT_TASK_STARTED`, `AGENT_TASK_COMPLETED`, `AGENT_DECISION_LOGGED`, `AGENT_FEEDBACK_RECEIVED`, `AGENT_NOTIFICATION_SENT`, `AGENT_RECOMMENDATION_MADE`, `AGENT_RESULT_DELIVERED`, `AGENT_ESCALATION_RAISED`, `PAYMENT_RECORDED`, `HIRE_RECORDED`, `CONTRACT_INGESTED`, `BYTECODE_SCORED`, `X402_CAPTURED`
 
 ### ROPA Processing Activities (3 new)
 

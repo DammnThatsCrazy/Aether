@@ -9,6 +9,7 @@ Intelligence Graph extensions (L2 — Agent Behavioral):
   - Decision records (roads not taken)
   - Ground truth feedback loop with confidence_delta
   - Agent subgraph and trust score queries
+  - A2H interactions (notifications, recommendations, deliveries, escalations)
 """
 
 from __future__ import annotations
@@ -416,7 +417,7 @@ async def get_agent_graph(agent_id: str, request: Request, layer: str = "all"):
         try:
             rel_layer = RelationshipLayer(layer)
         except ValueError:
-            raise BadRequestError(f"Invalid layer: {layer}. Use H2H, H2A, A2A, or all")
+            raise BadRequestError(f"Invalid layer: {layer}. Use H2H, H2A, A2H, A2A, or all")
         subgraph = await get_layer_subgraph(_graph, agent_id, rel_layer)
     else:
         # Get all connected vertices
@@ -452,3 +453,106 @@ async def get_agent_trust(agent_id: str, request: Request):
     )
 
     return APIResponse(data=score.to_dict()).to_dict()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# INTELLIGENCE GRAPH — Agent-to-Human (A2H)
+# ═══════════════════════════════════════════════════════════════════════════
+
+VALID_A2H_TYPES = {"notification", "recommendation", "delivery", "escalation"}
+
+_A2H_EDGE_MAP = {
+    "notification": EdgeType.NOTIFIES,
+    "recommendation": EdgeType.RECOMMENDS,
+    "delivery": EdgeType.DELIVERS_TO,
+    "escalation": EdgeType.ESCALATES_TO,
+}
+
+_A2H_TOPIC_MAP = {
+    "notification": Topic.AGENT_NOTIFICATION_SENT,
+    "recommendation": Topic.AGENT_RECOMMENDATION_MADE,
+    "delivery": Topic.AGENT_RESULT_DELIVERED,
+    "escalation": Topic.AGENT_ESCALATION_RAISED,
+}
+
+
+class A2HInteraction(BaseModel):
+    """Record an agent-to-human interaction (notification, recommendation, delivery, escalation)."""
+    agent_id: str
+    target_user_id: str
+    interaction_type: str = Field(..., description="One of: notification, recommendation, delivery, escalation")
+    content_summary: str = ""
+    task_id: Optional[str] = None
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/{agent_id}/a2h")
+async def record_a2h_interaction(agent_id: str, body: A2HInteraction, request: Request):
+    """Record an agent-to-human interaction and create A2H edge in the graph.
+
+    Supports four interaction types:
+    - **notification**: Agent sends an alert or status update to a user
+    - **recommendation**: Agent proactively suggests an action to a user
+    - **delivery**: Agent delivers a completed task result to a user
+    - **escalation**: Agent escalates a decision to a human for review
+    """
+    if not settings.intelligence_graph.enable_agent_layer:
+        raise BadRequestError("Intelligence Graph agent layer is not enabled")
+    tenant = request.state.tenant
+    tenant.require_permission("agent:manage")
+    body.agent_id = agent_id
+
+    if body.interaction_type not in VALID_A2H_TYPES:
+        raise BadRequestError(
+            f"Invalid A2H interaction type: {body.interaction_type}. "
+            f"Valid: {sorted(VALID_A2H_TYPES)}"
+        )
+
+    edge_type = _A2H_EDGE_MAP[body.interaction_type]
+    topic = _A2H_TOPIC_MAP[body.interaction_type]
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Create A2H edge: Agent → User
+    await _graph.add_edge(Edge(
+        edge_type=edge_type,
+        from_vertex_id=agent_id,
+        to_vertex_id=body.target_user_id,
+        properties={
+            "content_summary": body.content_summary,
+            "task_id": body.task_id or "",
+            "confidence": str(body.confidence),
+            "tenant_id": tenant.tenant_id,
+            **body.properties,
+        },
+    ))
+
+    # Publish A2H event
+    await _producer.publish(Event(
+        topic=topic,
+        tenant_id=tenant.tenant_id,
+        source_service="agent",
+        payload={
+            "agent_id": agent_id,
+            "target_user_id": body.target_user_id,
+            "interaction_type": body.interaction_type,
+            "content_summary": body.content_summary,
+            "task_id": body.task_id,
+            "confidence": body.confidence,
+            "timestamp": now,
+        },
+    ))
+
+    metrics.increment("agent_a2h_interactions", labels={"type": body.interaction_type})
+    logger.info(
+        "A2H interaction: agent=%s type=%s target=%s",
+        agent_id, body.interaction_type, body.target_user_id,
+    )
+
+    return APIResponse(data={
+        "agent_id": agent_id,
+        "target_user_id": body.target_user_id,
+        "interaction_type": body.interaction_type,
+        "edge_type": edge_type,
+        "timestamp": now,
+    }).to_dict()

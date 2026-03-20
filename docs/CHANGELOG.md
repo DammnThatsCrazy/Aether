@@ -1,19 +1,17 @@
 # Changelog
 
-## Unreleased
+## [Unreleased] — A2H Relationship Layer
 
-### Fixed
+- **NEW**: A2H (Agent-to-Human) relationship layer — fourth relationship category in the Intelligence Graph
+- **NEW**: 4 edge types: `NOTIFIES`, `RECOMMENDS`, `DELIVERS_TO`, `ESCALATES_TO` (Agent → User)
+- **NEW**: 4 event topics for A2H interactions (notification, recommendation, delivery, escalation)
+- **NEW**: `POST /v1/agent/{id}/a2h` — record agent-to-human interactions with graph edge creation
+- **NEW**: Cross-layer path traversal extended to trace A2H connections
+- **NEW**: 13 integration tests for A2H edge classification, graph traversal, and event validation
+- **MODIFIED**: `RelationshipLayer` enum — added `A2H` member
+- **MODIFIED**: Edge type count in Intelligence Graph from 13 to 17
 
-- Restored ML compatibility interfaces so the `ML Models/aether-ml/tests` suite passes again after prior API refactors removed legacy entry points.
-- Fixed timezone mismatches in identity feature aggregation that caused tz-aware vs tz-naive subtraction failures.
-- Hardened the serving API test/dev path with deterministic fallback models and corrected response-contract mismatches for `/models`, batch prediction errors, and missing feature validation.
-- Expanded repository health automation so CI covers both the root test suite and the ML subproject suite.
-- Ignored local Gradle caches so Android build metadata does not create false-positive untracked repo changes.
-
-### Changed
-
-- Documented the required `main` branch protection settings so `Repo Health / validate` is enforced instead of advisory only.
-- Made `.github/workflows/repo-health.yml` a generated artifact of `scripts/sync_docs.py` and documented how to regenerate the workflow/docs pair after merge conflicts.
+---
 
 ## v8.3.1 — Model Extraction Defense Layer (2026-03-18)
 

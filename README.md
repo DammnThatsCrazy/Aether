@@ -84,7 +84,7 @@ import { AetherProvider } from '@aether/react-native-sdk';
 
 ## Unified On-Chain Intelligence Graph
 
-8-layer architecture for tracking behavioral and financial relationships across human-to-human, human-to-agent, and agent-to-agent interactions. Built on top of the existing Neptune identity graph.
+8-layer architecture for tracking behavioral and financial relationships across human-to-human, human-to-agent, agent-to-human, and agent-to-agent interactions. Built on top of the existing Neptune identity graph.
 
 ### Relationship Layers
 
@@ -92,6 +92,7 @@ import { AetherProvider } from '@aether/react-native-sdk';
 |---|---|
 | **H2H** (Human-to-Human) | Referral chains, shared-wallet co-signers, social graph edges derived from on-chain transfers |
 | **H2A** (Human-to-Agent) | User interactions with autonomous agents — delegation events, tool invocations, approval flows |
+| **A2H** (Agent-to-Human) | Agent-initiated interactions back to humans — notifications, recommendations, result deliveries, escalations |
 | **A2A** (Agent-to-Agent) | Inter-agent message passing, x402 payment channels, orchestration dependencies |
 
 ### By the Numbers
@@ -102,7 +103,7 @@ import { AetherProvider } from '@aether/react-native-sdk';
 | ML Models | 9 | Intent, bot, session (edge); identity resolution, journey, churn, LTV, anomaly, attribution (server) |
 | Streams | 5 | Wallet tx, SDK events, agent logs, x402 receipts, oracle callbacks |
 | Node Types | 6 | Agent, Service, Contract, Protocol, Payment, ActionRecord (new; layered onto existing Identity Graph) |
-| Edge Types | 13 | LAUNCHED_BY, DELEGATES, INTERACTS_WITH, HIRED, PAYS, CONSUMES, EARNS_FROM, DEPLOYED, CALLED, USES_PROTOCOL, PRODUCED, REFERENCES, TRIGGERED_BY |
+| Edge Types | 17 | LAUNCHED_BY, DELEGATES, INTERACTS_WITH, NOTIFIES, RECOMMENDS, DELIVERS_TO, ESCALATES_TO, HIRED, PAYS, CONSUMES, EARNS_FROM, DEPLOYED, CALLED, USES_PROTOCOL, PRODUCED, REFERENCES, TRIGGERED_BY |
 | Stores | 5 | Neptune, TimescaleDB, Redis, S3, Kafka |
 
 ### New Services (Feature-Flagged)

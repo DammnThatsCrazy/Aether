@@ -90,6 +90,12 @@ class EdgeType:
     GOVERNED_BY = "GOVERNED_BY"           # Protocol → Contract (governance)
     DEPENDS_ON = "DEPENDS_ON"             # Agent → Agent (dependency)
 
+    # Intelligence Graph — Agent-to-Human (A2H)
+    NOTIFIES = "NOTIFIES"                 # Agent → User (alerts, status updates)
+    RECOMMENDS = "RECOMMENDS"             # Agent → User (agent-initiated suggestions)
+    DELIVERS_TO = "DELIVERS_TO"           # Agent → User (task result delivery)
+    ESCALATES_TO = "ESCALATES_TO"         # Agent → User (human-in-the-loop escalation)
+
     # Intelligence Graph — Action tracking
     PERFORMED_ACTION = "PERFORMED_ACTION"  # Agent → ActionRecord
 

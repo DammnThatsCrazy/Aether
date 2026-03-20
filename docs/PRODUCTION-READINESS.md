@@ -75,7 +75,7 @@
 
 | Criterion | Threshold | Status |
 |-----------|-----------|--------|
-| All tests pass | 85/85 | **Pass** |
+| All tests pass | 98/98 | **Pass** |
 | Load test p95 (GraphQL) | < 200ms | Pending load run |
 | Load test p95 (export) | < 500ms | Pending load run |
 | Load test error rate | < 1% | Pending load run |

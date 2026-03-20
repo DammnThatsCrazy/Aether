@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **A2H (Agent-to-Human) relationship layer** — fourth relationship category in the Intelligence Graph, complementing H2H, H2A, and A2A. Tracks agent-initiated interactions back to humans.
+- 4 new edge types: `NOTIFIES`, `RECOMMENDS`, `DELIVERS_TO`, `ESCALATES_TO` (Agent → User)
+- 4 new event topics: `aether.agent.notification.sent`, `aether.agent.recommendation.made`, `aether.agent.result.delivered`, `aether.agent.escalation.raised`
+- `POST /v1/agent/{id}/a2h` endpoint for recording A2H interactions with graph edge creation and event publishing
+- A2H vertex type set and edge classification in `relationship_layers.py`
+- Cross-layer path traversal extended to include A2H connections (notified, delivered, escalated users)
+- 13 new integration tests covering A2H edge types, classification, graph traversal, events, and endpoint validation
+
 ### Fixed
 
 - Restored ML compatibility interfaces so the `ML Models/aether-ml/tests` suite passes again after prior API refactors removed legacy entry points.

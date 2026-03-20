@@ -510,6 +510,7 @@ Three service groups are available when Intelligence Graph feature flags are ena
 | POST | `/v1/agent/tasks/{id}/feedback` | Submit feedback on task outcome |
 | GET | `/v1/agent/{id}/graph` | Agent's full graph neighborhood |
 | GET | `/v1/agent/{id}/trust` | Agent trust score + history |
+| POST | `/v1/agent/{id}/a2h` | Record agent-to-human interaction (notification, recommendation, delivery, escalation) |
 
 ### Diagnostics Service (Admin Only)
 

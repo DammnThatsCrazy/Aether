@@ -370,7 +370,7 @@ All protections are gated behind `ENABLE_EXTRACTION_DEFENSE` (default off). See 
 
 ## Unified On-Chain Intelligence Graph
 
-The Identity Graph above captures **who** a user is across devices and wallets. The Intelligence Graph extends it with three relationship layers that track **what** humans, agents, and protocols do — and how they interact with each other.
+The Identity Graph above captures **who** a user is across devices and wallets. The Intelligence Graph extends it with four relationship layers that track **what** humans, agents, and protocols do — and how they interact with each other.
 
 ### Layer 1 — H2H (Human-to-Human)
 
@@ -387,6 +387,17 @@ Tracks delegation and attribution between human users and autonomous agents. New
 | `INTERACTS_WITH` | User → Agent | Conversational or transactional touchpoint |
 
 Campaign Attribution is extended to attribute downstream conversions back through agent intermediaries to the originating human actor.
+
+### Layer 2b — A2H (Agent-to-Human)
+
+Tracks agent-initiated interactions back to human users — the reverse direction of H2A. New edge types:
+
+| Edge | Direction | Purpose |
+|---|---|---|
+| `NOTIFIES` | Agent → User | Agent sends alert or status update |
+| `RECOMMENDS` | Agent → User | Agent-initiated suggestion or recommendation |
+| `DELIVERS_TO` | Agent → User | Task result delivery back to user |
+| `ESCALATES_TO` | Agent → User | Human-in-the-loop escalation for decisions |
 
 ### Layer 3 — A2A (Agent-to-Agent)
 
@@ -408,4 +419,4 @@ All events — human and agent — flow through the existing Unified Pipeline vi
 
 ### Feature Flags
 
-All Intelligence Graph layers are **disabled by default** behind feature flags (`intelligence_graph.h2a.enabled`, `intelligence_graph.a2a.enabled`). See `docs/INTELLIGENCE-GRAPH.md` for the full specification, edge schemas, and rollout guide.
+All Intelligence Graph layers are **disabled by default** behind feature flags (`intelligence_graph.h2a.enabled`, `intelligence_graph.a2h.enabled`, `intelligence_graph.a2a.enabled`). See `docs/INTELLIGENCE-GRAPH.md` for the full specification, edge schemas, and rollout guide.
