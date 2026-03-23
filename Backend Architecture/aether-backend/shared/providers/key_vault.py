@@ -2,13 +2,15 @@
 Aether Shared -- BYOK Key Vault
 
 Encrypted storage for tenant-provided API keys.
-Uses Fernet symmetric encryption (AES-128-CBC).
-Stub uses in-memory dict; production swaps to DynamoDB + KMS.
+Uses Fernet symmetric encryption (AES-128-CBC via cryptography library).
+
+In-memory store for local dev; production should persist to DynamoDB/Redis.
 """
 
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -17,9 +19,22 @@ from shared.logger.logger import get_logger
 
 logger = get_logger("aether.providers.key_vault")
 
+# Optional Fernet import — falls back to base64 only in LOCAL mode
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+    FERNET_AVAILABLE = True
+except ImportError:
+    Fernet = None  # type: ignore[misc, assignment]
+    InvalidToken = Exception  # type: ignore[misc, assignment]
+    FERNET_AVAILABLE = False
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_local_env() -> bool:
+    return os.getenv("AETHER_ENV", "local").lower() == "local"
 
 
 @dataclass
@@ -41,13 +56,42 @@ class BYOKKeyVault:
     """
     Manages BYOK API keys with encryption at rest.
 
-    Stub uses in-memory dict + base64 encoding.
-    Production: DynamoDB table + AWS KMS (Fernet wrapper).
+    Encryption:
+    - Production: Fernet symmetric encryption (AES-128-CBC).
+      Set BYOK_ENCRYPTION_KEY env var to a Fernet key
+      (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+    - Local dev: Falls back to base64 if cryptography not installed or key not set.
     """
 
     def __init__(self, encryption_key: str = "") -> None:
-        self._encryption_key = encryption_key
-        # "{tenant_id}:{provider_name}" -> StoredKey
+        self._encryption_key = encryption_key or os.getenv("BYOK_ENCRYPTION_KEY", "")
+        self._fernet: Optional[Any] = None
+
+        if self._encryption_key and FERNET_AVAILABLE:
+            try:
+                self._fernet = Fernet(self._encryption_key.encode())
+                logger.info("BYOK vault initialized with Fernet encryption")
+            except Exception as e:
+                if not _is_local_env():
+                    raise RuntimeError(
+                        f"Invalid BYOK_ENCRYPTION_KEY: {e}. "
+                        "Generate with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+                    )
+                logger.warning(f"Invalid encryption key, falling back to base64: {e}")
+        elif not _is_local_env():
+            if not FERNET_AVAILABLE:
+                raise RuntimeError(
+                    "cryptography package required for production. "
+                    "Install with: pip install cryptography>=42.0"
+                )
+            raise RuntimeError(
+                "BYOK_ENCRYPTION_KEY not set. Required in non-local environments. "
+                "Generate with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+            )
+        else:
+            logger.warning("BYOK vault using base64 encoding (LOCAL mode only)")
+
+        # In-memory store — production should swap to DynamoDB/Redis
         self._store: dict[str, StoredKey] = {}
 
     @staticmethod
@@ -55,17 +99,20 @@ class BYOKKeyVault:
         return f"{tenant_id}:{provider_name}"
 
     def _encrypt(self, plaintext: str) -> str:
-        """Encrypt a plaintext API key.  Stub: base64.  Production: Fernet."""
-        if self._encryption_key:
-            # Production: Fernet(self._encryption_key).encrypt(plaintext.encode()).decode()
-            pass
+        """Encrypt a plaintext API key."""
+        if self._fernet:
+            return self._fernet.encrypt(plaintext.encode()).decode()
+        # Local-only fallback: base64 (NOT secure)
         return base64.urlsafe_b64encode(plaintext.encode()).decode()
 
     def _decrypt(self, ciphertext: str) -> str:
         """Decrypt an encrypted API key."""
-        if self._encryption_key:
-            # Production: Fernet(self._encryption_key).decrypt(ciphertext.encode()).decode()
-            pass
+        if self._fernet:
+            try:
+                return self._fernet.decrypt(ciphertext.encode()).decode()
+            except InvalidToken:
+                raise ValueError("Failed to decrypt BYOK key — encryption key may have been rotated")
+        # Local-only fallback
         return base64.urlsafe_b64decode(ciphertext.encode()).decode()
 
     async def store_key(
@@ -96,7 +143,7 @@ class BYOKKeyVault:
         return record
 
     async def get_key(self, tenant_id: str, provider_name: str) -> Optional[str]:
-        """Retrieve and decrypt a BYOK key.  Returns None if not found."""
+        """Retrieve and decrypt a BYOK key. Returns None if not found."""
         vk = self._vault_key(tenant_id, provider_name)
         record = self._store.get(vk)
         if record is None or not record.enabled:

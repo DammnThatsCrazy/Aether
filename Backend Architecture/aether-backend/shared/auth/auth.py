@@ -139,47 +139,114 @@ class JWTHandler:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# API KEY VALIDATOR (stub — look up keys in DynamoDB / Redis)
+# API KEY VALIDATOR
 # ═══════════════════════════════════════════════════════════════════════════
+
+# Stub keys for LOCAL development only
+_LOCAL_STUB_KEYS: dict[str, dict] = {
+    "ak_test_123": {
+        "tenant_id": "tenant_001",
+        "tier": "pro",
+        "role": "editor",
+        "permissions": [
+            "read", "write", "analytics", "ml:inference",
+            "agent:manage", "campaign:manage", "consent:manage",
+            "admin", "billing", "x402:read", "x402:write",
+        ],
+    },
+}
+
 
 class APIKeyValidator:
     """
     Validates API keys and returns tenant context.
-    In production, keys are hashed and stored in DynamoDB with metadata.
+
+    Production: keys are SHA-256 hashed and stored in Redis (via CacheClient)
+    with tenant metadata. Use `register_api_key()` to provision keys.
+
+    Local: stub keys allowed for development without infrastructure.
     """
 
-    _STUB_KEYS: dict[str, dict] = {
-        "ak_test_123": {
-            "tenant_id": "tenant_001",
-            "tier": "pro",
-            "role": "editor",
-            "permissions": [
-                "read", "write", "analytics", "ml:inference",
-                "agent:manage", "campaign:manage", "consent:manage",
-                "admin", "billing",
-            ],
-        },
-    }
-
-    def __init__(self, environment: Optional[str] = None):
+    def __init__(self, environment: Optional[str] = None, cache: Optional[Any] = None):
         from config.settings import Environment
         self._environment = environment or settings.env
+        self._cache = cache  # CacheClient instance, injected at startup
+
+    @staticmethod
+    def hash_key(api_key: str) -> str:
+        """Hash an API key for storage/lookup. Never store raw keys."""
+        return hashlib.sha256(api_key.encode()).hexdigest()
+
+    async def register_api_key(
+        self,
+        api_key: str,
+        tenant_id: str,
+        role: str = "viewer",
+        tier: str = "free",
+        permissions: Optional[list[str]] = None,
+    ) -> str:
+        """Register a new API key. Returns the key hash for reference."""
+        key_hash = self.hash_key(api_key)
+        key_data = {
+            "tenant_id": tenant_id,
+            "role": role,
+            "tier": tier,
+            "permissions": permissions or ["read"],
+            "created_at": utc_now(),
+        }
+        if self._cache:
+            from shared.cache.cache import CacheKey, TTL
+            cache_key = CacheKey.api_key(key_hash)
+            await self._cache.set_json(cache_key, key_data, ttl=TTL.DAY)
+        return key_hash
 
     def validate(self, api_key: str) -> TenantContext:
+        """Synchronous validation — checks stub keys in LOCAL mode."""
         from config.settings import Environment
 
-        # Only allow stub keys in LOCAL environment
-        if self._environment != Environment.LOCAL:
-            # In non-local environments, stub keys must not be used
-            if api_key in self._STUB_KEYS:
-                raise UnauthorizedError("Stub API keys are not allowed in non-local environments")
-            # In production, look up keys from DynamoDB/Redis (stub: reject all)
-            raise UnauthorizedError("Invalid API key")
+        if self._environment == Environment.LOCAL:
+            key_data = _LOCAL_STUB_KEYS.get(api_key)
+            if key_data:
+                return self._build_context(key_data)
 
-        key_data = self._STUB_KEYS.get(api_key)
+        # Non-local: stub keys are forbidden
+        if api_key in _LOCAL_STUB_KEYS:
+            raise UnauthorizedError("Stub API keys are not allowed in non-local environments")
+
+        # For sync validation without cache, reject
+        # Use validate_async() for production key lookup
+        raise UnauthorizedError("Invalid API key — use validate_async() for production")
+
+    async def validate_async(self, api_key: str) -> TenantContext:
+        """Async validation — looks up hashed key in Redis cache."""
+        from config.settings import Environment
+
+        # LOCAL mode: allow stub keys
+        if self._environment == Environment.LOCAL:
+            key_data = _LOCAL_STUB_KEYS.get(api_key)
+            if key_data:
+                return self._build_context(key_data)
+
+        # Reject stub keys outside LOCAL
+        if api_key in _LOCAL_STUB_KEYS:
+            raise UnauthorizedError("Stub API keys are not allowed in non-local environments")
+
+        # Production: lookup hashed key in Redis
+        if not self._cache:
+            raise UnauthorizedError("API key validation unavailable — cache not configured")
+
+        from shared.cache.cache import CacheKey
+        key_hash = self.hash_key(api_key)
+        cache_key = CacheKey.api_key(key_hash)
+        key_data = await self._cache.get_json(cache_key)
+
         if not key_data:
             raise UnauthorizedError("Invalid API key")
 
+        return self._build_context(key_data)
+
+    @staticmethod
+    def _build_context(key_data: dict) -> TenantContext:
         return TenantContext(
             tenant_id=key_data["tenant_id"],
             role=Role(key_data.get("role", "viewer")),

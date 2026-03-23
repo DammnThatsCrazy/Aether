@@ -2,12 +2,16 @@
 Aether Shared — @aether/cache
 Redis client wrapper, cache key conventions, TTL management, cache invalidation.
 Used by all services with caching needs.
+
+Production: connects to Redis via REDIS_HOST/REDIS_PORT env vars.
+Local/dev: falls back to in-memory dict when AETHER_ENV=local.
 """
 
 from __future__ import annotations
 
 import json
 import hashlib
+import os
 import time
 from dataclasses import dataclass
 from enum import IntEnum
@@ -16,6 +20,14 @@ from typing import Any, Optional
 from shared.logger.logger import get_logger
 
 logger = get_logger("aether.cache")
+
+# Optional Redis import — graceful degradation if not installed
+try:
+    import redis.asyncio as aioredis
+    REDIS_AVAILABLE = True
+except ImportError:
+    aioredis = None  # type: ignore[assignment]
+    REDIS_AVAILABLE = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -75,36 +87,42 @@ class CacheKey:
         return f"aether:custom:{key}"
 
     @staticmethod
+    def api_key(key_hash: str) -> str:
+        """Cache key for API key validation lookups."""
+        return f"aether:auth:apikey:{key_hash}"
+
+    @staticmethod
     def hash_query(query: str) -> str:
         return hashlib.sha256(query.encode()).hexdigest()[:16]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# REDIS CLIENT WRAPPER (stub — swap with redis.asyncio)
+# ENVIRONMENT HELPERS
 # ═══════════════════════════════════════════════════════════════════════════
 
-class CacheClient:
-    """
-    Async Redis wrapper with TTL expiration.
-    Stub implementation uses in-memory dict with expiry checking.
-    Replace with redis.asyncio.Redis in production.
-    """
+def _is_local_env() -> bool:
+    return os.getenv("AETHER_ENV", "local").lower() == "local"
+
+
+def _redis_url() -> str:
+    host = os.getenv("REDIS_HOST", "localhost")
+    port = os.getenv("REDIS_PORT", "6379")
+    db = os.getenv("REDIS_DB", "0")
+    password = os.getenv("REDIS_PASSWORD", "")
+    if password:
+        return f"redis://:{password}@{host}:{port}/{db}"
+    return f"redis://{host}:{port}/{db}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# IN-MEMORY BACKEND (local/dev only)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _InMemoryBackend:
+    """Dict-based cache for local development. NOT for production."""
 
     def __init__(self) -> None:
-        # {key: (value, expires_at_unix | None)}
         self._store: dict[str, tuple[str, Optional[float]]] = {}
-        self._connected = False
-
-    async def connect(self) -> None:
-        """Initialize the connection pool."""
-        self._connected = True
-        logger.info("Cache client connected (in-memory stub)")
-
-    async def close(self) -> None:
-        """Close the connection pool."""
-        self._store.clear()
-        self._connected = False
-        logger.info("Cache client closed")
 
     def _is_expired(self, key: str) -> bool:
         entry = self._store.get(key)
@@ -122,24 +140,14 @@ class CacheClient:
         entry = self._store.get(key)
         return entry[0] if entry else None
 
-    async def get_json(self, key: str) -> Optional[Any]:
-        raw = await self.get(key)
-        if raw is None:
-            return None
-        return json.loads(raw)
-
     async def set(self, key: str, value: str, ttl: int = TTL.MEDIUM) -> None:
         expires_at = time.time() + ttl if ttl > 0 else None
         self._store[key] = (value, expires_at)
-
-    async def set_json(self, key: str, data: Any, ttl: int = TTL.MEDIUM) -> None:
-        await self.set(key, json.dumps(data, default=str), ttl)
 
     async def delete(self, key: str) -> None:
         self._store.pop(key, None)
 
     async def delete_pattern(self, pattern: str) -> int:
-        """Delete all keys matching a prefix pattern (e.g. 'aether:identity:*')."""
         prefix = pattern.rstrip("*")
         keys_to_delete = [k for k in self._store if k.startswith(prefix)]
         for k in keys_to_delete:
@@ -150,7 +158,6 @@ class CacheClient:
         return not self._is_expired(key)
 
     async def incr(self, key: str, ttl: int = 60) -> int:
-        """Atomic increment — used for rate limiting counters."""
         if self._is_expired(key):
             expires_at = time.time() + ttl if ttl > 0 else None
             self._store[key] = ("1", expires_at)
@@ -160,6 +167,190 @@ class CacheClient:
         self._store[key] = (str(new_val), entry[1])
         return new_val
 
+    async def ping(self) -> bool:
+        return True
+
+    async def close(self) -> None:
+        self._store.clear()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REDIS BACKEND (production)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _RedisBackend:
+    """Real Redis backend using redis.asyncio."""
+
+    def __init__(self, url: str) -> None:
+        if not REDIS_AVAILABLE:
+            raise RuntimeError(
+                "redis package not installed. Install with: pip install redis>=5.0"
+            )
+        self._url = url
+        self._client: Optional[aioredis.Redis] = None  # type: ignore[name-defined]
+
+    async def _ensure_connected(self) -> aioredis.Redis:  # type: ignore[name-defined]
+        if self._client is None:
+            self._client = aioredis.from_url(  # type: ignore[union-attr]
+                self._url,
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True,
+            )
+        return self._client
+
+    async def get(self, key: str) -> Optional[str]:
+        client = await self._ensure_connected()
+        return await client.get(key)
+
+    async def set(self, key: str, value: str, ttl: int = TTL.MEDIUM) -> None:
+        client = await self._ensure_connected()
+        if ttl > 0:
+            await client.setex(key, ttl, value)
+        else:
+            await client.set(key, value)
+
+    async def delete(self, key: str) -> None:
+        client = await self._ensure_connected()
+        await client.delete(key)
+
+    async def delete_pattern(self, pattern: str) -> int:
+        client = await self._ensure_connected()
+        count = 0
+        async for key in client.scan_iter(match=pattern, count=100):
+            await client.delete(key)
+            count += 1
+        return count
+
+    async def exists(self, key: str) -> bool:
+        client = await self._ensure_connected()
+        return bool(await client.exists(key))
+
+    async def incr(self, key: str, ttl: int = 60) -> int:
+        client = await self._ensure_connected()
+        pipe = client.pipeline()
+        pipe.incr(key)
+        if ttl > 0:
+            pipe.expire(key, ttl)
+        results = await pipe.execute()
+        return results[0]
+
+    async def ping(self) -> bool:
+        try:
+            client = await self._ensure_connected()
+            return await client.ping()
+        except Exception:
+            return False
+
+    async def close(self) -> None:
+        if self._client:
+            await self._client.close()
+            self._client = None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CACHE CLIENT (public API — auto-selects backend)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CacheClient:
+    """
+    Async cache client with TTL expiration.
+
+    Backend selection:
+    - AETHER_ENV=local → in-memory dict (no Redis required)
+    - AETHER_ENV=staging/production → Redis (fails if unavailable)
+    """
+
+    def __init__(self) -> None:
+        self._backend: Optional[_InMemoryBackend | _RedisBackend] = None
+        self._connected = False
+        self._mode = "uninitialized"
+
+    async def connect(self) -> None:
+        """Initialize the cache backend based on environment."""
+        if _is_local_env() or not REDIS_AVAILABLE:
+            if not _is_local_env() and not REDIS_AVAILABLE:
+                logger.warning(
+                    "Redis package not installed — using in-memory cache. "
+                    "This is NOT safe for production."
+                )
+            self._backend = _InMemoryBackend()
+            self._mode = "in-memory"
+            logger.info("Cache client connected (in-memory, local mode)")
+        else:
+            url = _redis_url()
+            self._backend = _RedisBackend(url)
+            # Verify connectivity
+            if not await self._backend.ping():
+                if _is_local_env():
+                    logger.warning("Redis not reachable — falling back to in-memory")
+                    self._backend = _InMemoryBackend()
+                    self._mode = "in-memory"
+                else:
+                    raise RuntimeError(
+                        f"Redis not reachable at {url}. "
+                        "Set AETHER_ENV=local for in-memory fallback."
+                    )
+            else:
+                self._mode = "redis"
+                logger.info(f"Cache client connected (Redis at {url})")
+        self._connected = True
+
+    async def close(self) -> None:
+        if self._backend:
+            await self._backend.close()
+        self._connected = False
+        logger.info("Cache client closed")
+
+    async def get(self, key: str) -> Optional[str]:
+        if self._backend is None:
+            await self.connect()
+        return await self._backend.get(key)  # type: ignore[union-attr]
+
+    async def get_json(self, key: str) -> Optional[Any]:
+        raw = await self.get(key)
+        if raw is None:
+            return None
+        return json.loads(raw)
+
+    async def set(self, key: str, value: str, ttl: int = TTL.MEDIUM) -> None:
+        if self._backend is None:
+            await self.connect()
+        await self._backend.set(key, value, ttl)  # type: ignore[union-attr]
+
+    async def set_json(self, key: str, data: Any, ttl: int = TTL.MEDIUM) -> None:
+        await self.set(key, json.dumps(data, default=str), ttl)
+
+    async def delete(self, key: str) -> None:
+        if self._backend is None:
+            await self.connect()
+        await self._backend.delete(key)  # type: ignore[union-attr]
+
+    async def delete_pattern(self, pattern: str) -> int:
+        if self._backend is None:
+            await self.connect()
+        return await self._backend.delete_pattern(pattern)  # type: ignore[union-attr]
+
+    async def exists(self, key: str) -> bool:
+        if self._backend is None:
+            await self.connect()
+        return await self._backend.exists(key)  # type: ignore[union-attr]
+
+    async def incr(self, key: str, ttl: int = 60) -> int:
+        if self._backend is None:
+            await self.connect()
+        return await self._backend.incr(key, ttl)  # type: ignore[union-attr]
+
     async def health_check(self) -> bool:
         """Check if cache is reachable."""
-        return self._connected or len(self._store) >= 0
+        if self._backend is None:
+            return False
+        try:
+            return await self._backend.ping()
+        except Exception:
+            return False
+
+    @property
+    def mode(self) -> str:
+        return self._mode
