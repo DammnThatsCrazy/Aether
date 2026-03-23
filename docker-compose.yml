@@ -6,13 +6,26 @@
 #   docker compose up redis kafka  Start infrastructure only
 #   docker compose logs -f         Follow logs
 #   docker compose down            Stop everything
-#
-# For ML model serving with GPU, use the ML Models Makefile instead:
-#   cd "ML Models/aether-ml" && make docker-up
 # =============================================================================
 
 services:
   # ── Infrastructure ────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: aether
+      POSTGRES_USER: aether
+      POSTGRES_PASSWORD: aether_dev_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aether"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -44,7 +57,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
@@ -72,14 +85,21 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
         condition: service_healthy
     env_file: .env
     environment:
+      AETHER_ENV: staging
+      DATABASE_URL: postgresql://aether:aether_dev_password@postgres:5432/aether
       REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_BROKERS: kafka:9092
+      ML_SERVING_URL: http://ml-serving:8080
     command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   ml-serving:
@@ -93,24 +113,9 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
+      AETHER_ENV: staging
       REDIS_HOST: redis
     command: uvicorn serving.src.api:app --host 0.0.0.0 --port 8080
-
-  data-ingestion:
-    build:
-      context: "Data Ingestion Layer"
-      dockerfile: docker/Dockerfile
-    ports:
-      - "3001:3001"
-    depends_on:
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    env_file: .env
-    environment:
-      REDIS_URL: redis://redis:6379
-      KAFKA_BROKERS: kafka:9092
 
   # ── Monitoring ────────────────────────────────────────────────────
 
@@ -122,6 +127,7 @@ services:
       - prometheus_data:/prometheus
 
 volumes:
+  postgres_data:
   redis_data:
   clickhouse_data:
   prometheus_data:

@@ -9,7 +9,9 @@ from services.oracle.base_signer import (
     BaseProofSigner,
     BaseRewardProof,
 )
-from services.oracle.signer import OracleSigner, ProofConfig, RewardProof
+from services.oracle.signer import OracleProofSigner, ProofConfig, RewardProof
+# Backward compatibility alias
+OracleSigner = OracleProofSigner
 from services.oracle.multichain_signer import (
     ChainConfig,
     MultiChainProofConfig,

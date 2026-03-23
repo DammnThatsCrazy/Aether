@@ -46,6 +46,15 @@ class ResourceRegistry:
         await self.cache.connect()
         await self.graph.connect()
         await self.producer.connect()
+        await self.rate_limiter.connect()
+        # Inject cache into API key validator for async lookups
+        self.api_key_validator._cache = self.cache
+        # Initialize database connection pool
+        try:
+            from repositories.repos import get_pool
+            await get_pool()
+        except Exception as e:
+            logger.warning(f"Database pool initialization: {e}")
         self._started = True
         logger.info("All shared resources initialized")
 
@@ -55,12 +64,30 @@ class ResourceRegistry:
         await self.producer.close()
         await self.graph.close()
         await self.cache.close()
+        try:
+            from repositories.repos import close_pool
+            await close_pool()
+        except Exception:
+            pass
         self._started = False
         logger.info("All shared resources closed")
 
     async def health_check(self) -> dict[str, Any]:
         """Probe all dependencies and return status map."""
         checks: dict[str, Any] = {}
+
+        # Check database
+        try:
+            from repositories.repos import get_pool
+            pool = await get_pool()
+            if pool:
+                await pool.fetchval("SELECT 1")
+                checks["database"] = {"status": "ok", "backend": "postgresql"}
+            else:
+                checks["database"] = {"status": "ok", "backend": "in-memory"}
+        except Exception as e:
+            checks["database"] = {"status": "error", "error": str(e)}
+
         for name, check_fn in [
             ("cache", self.cache.health_check),
             ("graph", self.graph.health_check),

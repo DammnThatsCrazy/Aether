@@ -41,6 +41,14 @@ async def health_check():
     }
 
 
+@router.get("/v1/metrics")
+async def prometheus_metrics():
+    """Prometheus metrics endpoint for /metrics scraping."""
+    from fastapi.responses import PlainTextResponse
+    data = metrics.prometheus_export()
+    return PlainTextResponse(content=data.decode("utf-8"), media_type="text/plain; charset=utf-8")
+
+
 @router.get("/")
 async def root():
     return {
@@ -48,6 +56,7 @@ async def root():
         "version": "v1",
         "docs": "/docs",
         "health": "/v1/health",
+        "metrics": "/v1/metrics",
     }
 
 

@@ -125,7 +125,7 @@ def register_middleware(app: FastAPI) -> None:
         if request.url.path not in _PUBLIC_PATHS:
             try:
                 registry = get_registry()
-                context = _authenticate(
+                context = await _authenticate_async(
                     request, registry.jwt_handler, registry.api_key_validator
                 )
             except AetherError as e:
@@ -136,12 +136,12 @@ def register_middleware(app: FastAPI) -> None:
                 tenant_id=context.tenant_id,
             )
 
-            # --- Rate limiting ---
+            # --- Rate limiting (async for Redis distributed limiting) ---
             api_key = (
                 request.headers.get("X-API-Key", "")
                 or request.headers.get("Authorization", "").replace("Bearer ", "")
             )
-            rl_result = registry.rate_limiter.check(api_key, context.api_key_tier)
+            rl_result = await registry.rate_limiter.check_async(api_key, context.api_key_tier)
             if not rl_result.allowed:
                 metrics.increment("http_rate_limited")
                 return JSONResponse(
@@ -240,15 +240,15 @@ def register_middleware(app: FastAPI) -> None:
         return response
 
 
-def _authenticate(
+async def _authenticate_async(
     request: Request,
     jwt_handler: JWTHandler,
     api_key_validator: APIKeyValidator,
 ) -> TenantContext:
-    """Try API key first, then JWT bearer token."""
+    """Try API key first (async Redis lookup in production), then JWT bearer token."""
     api_key = request.headers.get("X-API-Key")
     if api_key:
-        return api_key_validator.validate(api_key)
+        return await api_key_validator.validate_async(api_key)
 
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):

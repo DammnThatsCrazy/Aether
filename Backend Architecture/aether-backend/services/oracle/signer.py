@@ -1,29 +1,44 @@
 """
-Aether Backend — Oracle Proof Signer (EVM-only)
+Aether Backend — Oracle Proof Signer (EVM)
 
 Generates cryptographic proofs for reward eligibility that are verifiable
-on-chain via EIP-712 typed data or raw keccak256 message signing.
+on-chain via keccak256 message signing with secp256k1 ECDSA.
 
-Supports multi-chain EVM deployment (Ethereum, Polygon, Arbitrum, Base, etc.)
+Uses eth_account for real cryptographic operations:
+- keccak256 hashing (matching Solidity's abi.encodePacked)
+- secp256k1 ECDSA signing via Account.signHash
+- ecrecover-compatible signature verification
+- Real Ethereum address derivation from private key
 
-Demo implementation:
-    Uses ``hashlib`` (SHA-256 + HMAC) to simulate the signing flow.
-    In production, replace the marked sections with ``eth_account`` /
-    ``web3.py`` calls for real secp256k1 ECDSA signatures and keccak256
-    hashing.
+Requires: eth-account>=0.11.0 (included in backend extras)
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 import struct
 import time
 from dataclasses import dataclass
 
-from services.oracle.base_signer import BaseProofSigner
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.service.oracle.signer")
+
+# eth_account for real secp256k1 ECDSA
+try:
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+    from eth_hash.auto import keccak
+    ETH_ACCOUNT_AVAILABLE = True
+except ImportError:
+    ETH_ACCOUNT_AVAILABLE = False
+    Account = None  # type: ignore[misc, assignment]
+    keccak = None  # type: ignore[assignment]
+
+
+def _is_local_env() -> bool:
+    return os.getenv("AETHER_ENV", "local").lower() == "local"
 
 
 # ======================================================================
@@ -32,40 +47,16 @@ logger = get_logger("aether.service.oracle.signer")
 
 @dataclass(frozen=True)
 class ProofConfig:
-    """
-    Configuration for the oracle signer.
-
-    Attributes:
-        signer_private_key:   Hex-encoded private key (from env).
-        contract_address:     Reward-distribution contract on the target chain.
-        chain_id:             EVM chain identifier (1 = mainnet).
-        proof_expiry_seconds: Seconds until a generated proof expires.
-    """
-
+    """Configuration for the oracle signer."""
     signer_private_key: str
     contract_address: str
     chain_id: int = 1
-    proof_expiry_seconds: int = 3_600  # 1 h
+    proof_expiry_seconds: int = 3600
 
 
-@dataclass
+@dataclass(frozen=True)
 class RewardProof:
-    """
-    A signed proof that a user is entitled to claim a specific reward
-    amount on-chain.
-
-    Attributes:
-        user:              Checksummed wallet address of the claimant.
-        action_type:       The qualifying event type (e.g. ``conversion``).
-        amount_wei:        Reward amount denominated in wei.
-        nonce:             Random 32-byte hex nonce (replay protection).
-        expiry:            Unix timestamp after which the proof is invalid.
-        chain_id:          Target chain identifier.
-        contract_address:  The reward contract this proof targets.
-        signature:         Hex-encoded signature over the message hash.
-        message_hash:      Hex-encoded hash of the canonical message.
-    """
-
+    """A cryptographic proof verifiable on-chain."""
     user: str
     action_type: str
     amount_wei: int
@@ -80,7 +71,7 @@ class RewardProof:
         return {
             "user": self.user,
             "action_type": self.action_type,
-            "amount_wei": self.amount_wei,
+            "amount_wei": str(self.amount_wei),
             "nonce": self.nonce,
             "expiry": self.expiry,
             "chain_id": self.chain_id,
@@ -89,53 +80,44 @@ class RewardProof:
             "message_hash": self.message_hash,
         }
 
-    @classmethod
-    def from_dict(cls, data: dict) -> RewardProof:
-        return cls(
-            user=data["user"],
-            action_type=data["action_type"],
-            amount_wei=data["amount_wei"],
-            nonce=data["nonce"],
-            expiry=data["expiry"],
-            chain_id=data["chain_id"],
-            contract_address=data["contract_address"],
-            signature=data["signature"],
-            message_hash=data["message_hash"],
-        )
-
 
 # ======================================================================
-# ORACLE SIGNER
+# ORACLE PROOF SIGNER
 # ======================================================================
 
-class OracleSigner(BaseProofSigner):
+class OracleProofSigner:
     """
-    Generates and verifies EVM-compatible reward proofs.
+    Generates and verifies cryptographic proofs for on-chain reward claims.
 
-    Inherits shared HMAC signing, input validation, and nonce generation
-    from ``BaseProofSigner``.
-
-    Production notes:
-        - Replace ``_build_message_hash`` with ``Web3.keccak`` over ABI-packed data.
-        - Replace ``_simulate_sign`` with ``Account.sign_message``.
-        - Replace ``_simulate_recover`` with ``Account.recover_message``.
+    Production: uses eth_account for real secp256k1 ECDSA signing.
+    Local fallback: uses SHA-256 + HMAC simulation (NOT valid on-chain).
     """
 
     def __init__(self, config: ProofConfig) -> None:
-        super().__init__(config.signer_private_key)
         self._config = config
-        self._signer_address = self._derive_address(config.signer_private_key)
-        logger.info(
-            f"OracleSigner initialised: chain_id={config.chain_id} "
-            f"contract={config.contract_address} signer={self._signer_address}"
-        )
+        self._use_real_crypto = ETH_ACCOUNT_AVAILABLE
 
-    # -- public API ------------------------------------------------------
+        if not _is_local_env() and not ETH_ACCOUNT_AVAILABLE:
+            raise RuntimeError(
+                "eth-account required for production oracle signing. "
+                "Install with: pip install eth-account>=0.11.0"
+            )
+
+        if self._use_real_crypto:
+            acct = Account.from_key(config.signer_private_key)
+            self._signer_address = acct.address
+            logger.info(f"Oracle signer initialized (secp256k1, address={self._signer_address})")
+        else:
+            # Local-only fallback
+            key_bytes = bytes.fromhex(config.signer_private_key.removeprefix("0x"))
+            self._signer_address = f"0x{hashlib.sha256(key_bytes).hexdigest()[:40]}"
+            logger.warning("Oracle signer using SHA-256 simulation (LOCAL mode only)")
 
     @property
     def signer_address(self) -> str:
-        """Return the public address of the oracle signer."""
         return self._signer_address
+
+    # -- proof generation ------------------------------------------------
 
     async def generate_proof(
         self,
@@ -143,38 +125,20 @@ class OracleSigner(BaseProofSigner):
         action_type: str,
         amount_wei: int,
     ) -> RewardProof:
-        """
-        Build a signed proof authorising ``user`` to claim ``amount_wei``.
+        """Generate a cryptographic proof for a reward claim."""
+        nonce = os.urandom(32).hex()
+        expiry = int(time.time()) + self._config.proof_expiry_seconds
 
-        Steps:
-            1. Generate a cryptographically random 32-byte nonce.
-            2. Compute the expiry timestamp.
-            3. Build the canonical message hash.
-            4. Sign the hash with the oracle private key.
-        """
-        self._validate_proof_inputs(user, amount_wei)
-
-        nonce, expiry = self._generate_nonce_and_expiry(
-            self._config.proof_expiry_seconds,
-        )
-
-        # In production:  keccak256(abi.encodePacked(user, actionType, amountWei, nonce, expiry, chainId, contractAddress))
         message_hash = self._build_message_hash(
-            user=user,
-            action_type=action_type,
-            amount_wei=amount_wei,
-            nonce=nonce,
-            expiry=expiry,
+            user, action_type, amount_wei, nonce, expiry,
         )
-
-        # In production:  Account.signHash(message_hash, private_key)
-        signature = self._simulate_sign(message_hash)
+        signature = self._sign(message_hash)
 
         proof = RewardProof(
             user=user,
             action_type=action_type,
             amount_wei=amount_wei,
-            nonce=f"0x{nonce}",
+            nonce=nonce,
             expiry=expiry,
             chain_id=self._config.chain_id,
             contract_address=self._config.contract_address,
@@ -190,25 +154,15 @@ class OracleSigner(BaseProofSigner):
         return proof
 
     async def verify_proof(self, proof: RewardProof) -> bool:
-        """
-        Verify a proof by recovering the signer from the signature and
-        checking it matches the expected oracle address.
-
-        Also validates that the proof has not expired.
-        """
-        # Check expiry
+        """Verify a proof by recovering the signer from the signature."""
         if int(time.time()) > proof.expiry:
             logger.warning(f"Proof expired: user={proof.user} expiry={proof.expiry}")
             return False
 
-        # Strip 0x prefix for internal operations
         msg_hash = proof.message_hash.removeprefix("0x")
         sig = proof.signature.removeprefix("0x")
 
-        # In production:  Account.recoverHash(msg_hash, signature=sig)
-        recovered = self._simulate_recover(
-            msg_hash, sig, expected_address=self._signer_address,
-        )
+        recovered = self._recover_signer(msg_hash, sig)
         valid = recovered.lower() == self._signer_address.lower()
 
         if not valid:
@@ -223,7 +177,7 @@ class OracleSigner(BaseProofSigner):
         )
         return valid
 
-    # -- message construction -------------------------------------------
+    # -- crypto primitives -----------------------------------------------
 
     def _build_message_hash(
         self,
@@ -233,38 +187,57 @@ class OracleSigner(BaseProofSigner):
         nonce: str,
         expiry: int,
     ) -> str:
-        """
-        Compute a deterministic hash of the proof payload.
-
-        Production:
-            ``keccak256(abi.encodePacked(user, actionType, uint256(amountWei),
-            bytes32(nonce), uint256(expiry), uint256(chainId), contractAddress))``
-
-        Demo:
-            SHA-256 over the packed fields.
-        """
+        """Compute keccak256(abi.encodePacked(...)) matching Solidity."""
         packed = b"".join([
             bytes.fromhex(user.removeprefix("0x").lower()),
             action_type.encode("utf-8"),
-            amount_wei.to_bytes(32, "big"),            # uint256 (full 256-bit range)
-            bytes.fromhex(nonce),                      # 32 bytes
-            expiry.to_bytes(32, "big"),                 # uint256
-            self._config.chain_id.to_bytes(32, "big"),  # uint256
+            amount_wei.to_bytes(32, "big"),
+            bytes.fromhex(nonce),
+            expiry.to_bytes(32, "big"),
+            self._config.chain_id.to_bytes(32, "big"),
             bytes.fromhex(self._config.contract_address.removeprefix("0x").lower()),
         ])
-        # Production: return Web3.keccak(packed).hex()
+
+        if self._use_real_crypto:
+            return keccak(packed).hex()
+
+        # Local fallback
         return hashlib.sha256(packed).hexdigest()
 
-    # -- address derivation ---------------------------------------------
+    def _sign(self, message_hash: str) -> str:
+        """Sign a message hash with secp256k1 ECDSA."""
+        if self._use_real_crypto:
+            msg_bytes = bytes.fromhex(message_hash)
+            signed = Account.signHash(msg_bytes, self._config.signer_private_key)
+            return signed.signature.hex()
 
-    @staticmethod
-    def _derive_address(private_key_hex: str) -> str:
-        """
-        Derive a pseudo-address from the private key (demo only).
+        # Local fallback: HMAC-SHA256 (NOT valid on-chain)
+        import hmac as _hmac
+        return _hmac.new(
+            key=self._config.signer_private_key.encode(),
+            msg=bytes.fromhex(message_hash),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
 
-        Production replacement:
-            ``Account.from_key(private_key_hex).address``
-        """
-        key_bytes = bytes.fromhex(private_key_hex.removeprefix("0x"))
-        addr_hash = hashlib.sha256(key_bytes).hexdigest()[:40]
-        return f"0x{addr_hash}"
+    def _recover_signer(self, message_hash: str, signature: str) -> str:
+        """Recover the signer address from a signature (ecrecover)."""
+        if self._use_real_crypto:
+            msg_bytes = bytes.fromhex(message_hash)
+            sig_bytes = bytes.fromhex(signature)
+            recovered = Account.recoverHash(msg_bytes, signature=sig_bytes)
+            return recovered
+
+        # Local fallback: re-sign and compare
+        import hmac as _hmac
+        expected = _hmac.new(
+            key=self._config.signer_private_key.encode(),
+            msg=bytes.fromhex(message_hash),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        if _hmac.compare_digest(expected, signature):
+            return self._signer_address
+        return "0x0000000000000000000000000000000000000000"
+
+
+# Backward compatibility alias
+OracleSigner = OracleProofSigner

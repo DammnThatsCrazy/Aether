@@ -163,8 +163,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         f"Aether Backend started | env={settings.env.value} "
         f"| debug={settings.debug} | version={settings.api.version}"
     )
-    yield
 
+    yield  # --- app runs here ---
+
+    # Graceful shutdown: drain connections and close backends
+    logger.info("Initiating graceful shutdown...")
     if provider_gateway:
         await provider_gateway.shutdown()
     await registry.shutdown()
