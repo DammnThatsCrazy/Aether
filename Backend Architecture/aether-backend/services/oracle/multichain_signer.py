@@ -14,8 +14,8 @@ Each VM family uses its own message format and signing scheme:
     - TVM:     keccak256 + secp256k1 ECDSA (TRON, EVM-compatible)
     - Cosmos:  SHA-256 + secp256k1 ECDSA (Amino signing)
 
-Demo implementation uses hashlib + HMAC to simulate signing.
-Production: replace with chain-specific crypto libraries.
+Production: uses eth_account for secp256k1 ECDSA with chain-specific
+hashing (keccak256, SHA3-256, SHA-256d). Local fallback uses HMAC-SHA256.
 """
 
 from __future__ import annotations
@@ -583,11 +583,7 @@ class MultiChainSigner(BaseProofSigner):
         chain_id: int,
         contract_address: str,
     ) -> str:
-        """
-        Simulate ``keccak256(abi.encodePacked(...))`` for EVM chains.
-
-        Production: use ``Web3.keccak`` with ABI-encoded packed data.
-        """
+        """Compute keccak256(abi.encodePacked(...)) for EVM chains."""
         packed = b"".join([
             bytes.fromhex(user.removeprefix("0x").lower().zfill(40)),
             action_type.encode("utf-8"),
@@ -597,7 +593,7 @@ class MultiChainSigner(BaseProofSigner):
             struct.pack(">Q", chain_id),
             bytes.fromhex(contract_address.removeprefix("0x").lower().zfill(40)),
         ])
-        return hashlib.sha256(packed).hexdigest()
+        return self._hash_keccak256(packed)
 
     # -- SVM (Solana) message hash -----------------------------------------
 
@@ -634,7 +630,7 @@ class MultiChainSigner(BaseProofSigner):
             struct.pack("<Q", expiry),
             program_bytes,
         ])
-        return hashlib.sha256(packed).hexdigest()
+        return self._hash_sha256(packed)
 
     # -- Bitcoin message hash ----------------------------------------------
 
@@ -665,8 +661,7 @@ class MultiChainSigner(BaseProofSigner):
 
         full_message = prefix + msg_len + payload_bytes
 
-        first_hash = hashlib.sha256(full_message).digest()
-        return hashlib.sha256(first_hash).hexdigest()
+        return self._hash_sha256d(full_message)
 
     # -- MoveVM (SUI) message hash -----------------------------------------
 
@@ -708,7 +703,7 @@ class MultiChainSigner(BaseProofSigner):
             struct.pack("<Q", expiry),
             module_bytes,
         ])
-        return hashlib.sha3_256(packed).hexdigest()
+        return self._hash_sha3_256(packed)
 
     # -- NEAR message hash -------------------------------------------------
 
@@ -746,7 +741,7 @@ class MultiChainSigner(BaseProofSigner):
             struct.pack("<I", len(contract_id)),
             contract_id,
         ])
-        return hashlib.sha256(packed).hexdigest()
+        return self._hash_sha256(packed)
 
     # -- TVM (TRON) message hash -------------------------------------------
 
@@ -777,7 +772,7 @@ class MultiChainSigner(BaseProofSigner):
             struct.pack(">Q", chain_id),
             bytes.fromhex(contract_hex.zfill(40)),
         ])
-        return hashlib.sha256(packed).hexdigest()
+        return self._hash_keccak256(packed)  # TVM is EVM-compatible
 
     # -- Cosmos message hash -----------------------------------------------
 
@@ -821,7 +816,7 @@ class MultiChainSigner(BaseProofSigner):
             "sequence": "0",
         }
         canonical = json.dumps(sign_doc, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return self._hash_sha256(canonical.encode("utf-8"))
 
     # -- address derivation ------------------------------------------------
 
