@@ -432,6 +432,73 @@ class TestAgentTaskBridgeE2E:
         assert "web_crawler" in VALID_WORKER_TYPES
         assert "invalid_type" not in VALID_WORKER_TYPES
 
+    @pytest.mark.asyncio
+    async def test_agent_trust_route_uses_runtime_records(self):
+        from services.agent import routes
+
+        tenant = FakeTenant()
+        request = FakeRequest(tenant)
+
+        await routes._registered_agents.insert(
+            f"{tenant.tenant_id}:agent-trust-1",
+            {
+                "tenant_id": tenant.tenant_id,
+                "agent_id": "agent-trust-1",
+                "owner_user_id": "user-1",
+                "model_name": "gpt",
+                "model_version": "1.0",
+                "capabilities": ["research", "notify"],
+                "permissions": ["agent:manage"],
+                "status": "active",
+            },
+        )
+        await routes._lifecycle_events.insert(
+            "trust-evt-1",
+            {
+                "tenant_id": tenant.tenant_id,
+                "task_id": "task-1",
+                "agent_id": "agent-trust-1",
+                "event_type": "completed",
+                "state_snapshot": {"step": "done"},
+                "confidence": 0.92,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        await routes._feedback_records.insert(
+            "trust-fb-1",
+            {
+                "tenant_id": tenant.tenant_id,
+                "task_id": "task-1",
+                "agent_id": "agent-trust-1",
+                "predicted_outcome": "approved",
+                "actual_outcome": "approved",
+                "confidence_delta": 0.08,
+                "verified_by": "human",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+        score = routes.TrustScoreComposite(
+            ml_serving=AsyncMock(side_effect=[
+                {"anomaly_score": 0.05},
+                {"bot_score": 0.1},
+                {"session_score": 0.88},
+                {"churn_risk": 0.12},
+            ]),
+            fraud_engine=AsyncMock(),
+            resolution_engine=AsyncMock(),
+        )
+        score._fraud.evaluate = AsyncMock(return_value=MagicMock(composite_score=11.0))
+        score._resolution.get_confidence = AsyncMock(return_value=0.93)
+
+        with patch.object(routes, "_trust_scorer", score):
+            response = await routes.get_agent_trust("agent-trust-1", request)
+
+        data = response["data"]
+        assert data["entity_id"] == "agent-trust-1"
+        assert data["composite"] > 0.0
+        assert data["components"]["identity_confidence"] == pytest.approx(0.93)
+
 
 # =========================================================================
 # 5. IP Geo-Enrichment E2E

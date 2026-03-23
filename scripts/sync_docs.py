@@ -137,7 +137,7 @@ def write_automation() -> None:
         "",
         "## Team workflow",
         "",
-        "- Before commit: run `python scripts/sync_docs.py && python scripts/validate_docs.py`.",
+        "- Before commit: run `python scripts/check_release_readiness.py --target-env production`, `python scripts/sync_docs.py`, and `python scripts/validate_docs.py` as applicable to the target release path.",
         "- During review: confirm behavior-changing code also updated authored docs under `docs/` when applicable.",
         "- After merge: rely on `repo-health.yml` to catch or auto-commit generated documentation drift.",
         "",
