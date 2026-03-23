@@ -1,15 +1,20 @@
 # Changelog
 
-## [Unreleased] — A2H Relationship Layer
+## v8.4.0 — Production Infrastructure + A2H Layer (2026-03-23)
 
-- **NEW**: A2H (Agent-to-Human) relationship layer — fourth relationship category in the Intelligence Graph
-- **NEW**: 4 edge types: `NOTIFIES`, `RECOMMENDS`, `DELIVERS_TO`, `ESCALATES_TO` (Agent → User)
-- **NEW**: 4 event topics for A2H interactions (notification, recommendation, delivery, escalation)
-- **NEW**: `POST /v1/agent/{id}/a2h` — record agent-to-human interactions with graph edge creation
-- **NEW**: Cross-layer path traversal extended to trace A2H connections
-- **NEW**: 13 integration tests for A2H edge classification, graph traversal, and event validation
-- **MODIFIED**: `RelationshipLayer` enum — added `A2H` member
-- **MODIFIED**: Edge type count in Intelligence Graph from 13 to 17
+- **NEW**: A2H relationship layer with 4 edge types and event topics
+- **NEW**: All infrastructure backends replaced: Redis, PostgreSQL, Neptune, Kafka, Prometheus, eth_account, PyJWT, graphql-core, asyncpg, aiokafka
+- **NEW**: Oracle signing/verification with real secp256k1 ECDSA and keccak256
+- **NEW**: Admin API key provisioning with Redis auth cache
+- **NEW**: Middleware async auth and distributed rate limiting
+- **NEW**: PostgreSQL service in docker-compose with health checks
+- **NEW**: /v1/metrics Prometheus endpoint, aggregate /v1/health with DB probe
+- **NEW**: Subsystem docs (Cache, Events, Database, ML Training)
+- **NEW**: SECRET-ROTATION.md runbook, CONTRIBUTING.md
+- **MODIFIED**: Edge type count 13 → 19
+- **FIXED**: Oracle verifier simulated crypto → real keccak256 + ecrecover
+- **FIXED**: Rewards fraud scoring → ML-backed with heuristic fallback
+- **FIXED**: All sync/async mismatches in middleware
 
 ---
 

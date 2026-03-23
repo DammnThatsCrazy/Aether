@@ -6,22 +6,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
-## [Unreleased]
+## [v8.4.0] — 2026-03-23
 
 ### Added
 
-- **A2H (Agent-to-Human) relationship layer** — fourth relationship category in the Intelligence Graph, complementing H2H, H2A, and A2A. Tracks agent-initiated interactions back to humans.
-- 4 new edge types: `NOTIFIES`, `RECOMMENDS`, `DELIVERS_TO`, `ESCALATES_TO` (Agent → User)
-- 4 new event topics: `aether.agent.notification.sent`, `aether.agent.recommendation.made`, `aether.agent.result.delivered`, `aether.agent.escalation.raised`
-- `POST /v1/agent/{id}/a2h` endpoint for recording A2H interactions with graph edge creation and event publishing
-- A2H vertex type set and edge classification in `relationship_layers.py`
-- Cross-layer path traversal extended to include A2H connections (notified, delivered, escalated users)
-- 13 new integration tests covering A2H edge types, classification, graph traversal, events, and endpoint validation
+- **A2H (Agent-to-Human) relationship layer** — fourth relationship category in the Intelligence Graph
+- 4 new edge types: `NOTIFIES`, `RECOMMENDS`, `DELIVERS_TO`, `ESCALATES_TO`
+- 4 new event topics for A2H interactions
+- `POST /v1/agent/{id}/a2h` endpoint
+- **Production infrastructure backends** for all 15+ subsystems:
+  - CacheClient → Redis via redis.asyncio
+  - GraphClient → Neptune via gremlinpython
+  - EventProducer/Consumer → Kafka via aiokafka
+  - Repositories → PostgreSQL via asyncpg
+  - APIKeyValidator → async Redis lookup with SHA-256 hashed keys
+  - BYOKKeyVault → Fernet AES encryption via cryptography
+  - TokenBucketLimiter → Redis INCR+EXPIRE distributed limiting
+  - MetricsCollector → Prometheus Counter/Histogram
+  - 9 Provider Adapters → real httpx HTTP calls
+  - GraphQL parser → graphql-core AST
+  - Export worker → Celery offload
+  - JWT Handler → PyJWT library
+- **Oracle signing with real crypto**: secp256k1 ECDSA via eth_account, keccak256 hashing, ecrecover verification
+- **Admin API key provisioning**: `POST /v1/admin/tenants/{id}/api-keys` with Redis auth cache registration
+- **Middleware async auth**: validate_async() for Redis key lookup, check_async() for distributed rate limiting
+- **Health endpoint**: probes database, cache, graph, and event bus
+- **Prometheus /v1/metrics endpoint**
+- `docker-compose.yml`: PostgreSQL service with health checks and all required env vars
+- `docs/SECRET-ROTATION.md`: rotation runbook for all production secrets
+- `CONTRIBUTING.md`: development setup and contribution guide
+- Subsystem docs: Cache/Redis, Events/Kafka, PostgreSQL/schema, ML training guide
 
 ### Fixed
 
-- Production web SDK hardening: corrected `ConsentState` fallback shape, fixed isolated-module type exports in the CDN loader, and added regression tests for cached/offline loader recovery plus concurrent load deduplication.
-- Test harness hardening: async backend integration tests now auto-run under AnyIO in environments where `pytest-asyncio` is unavailable.
+- Oracle verifier: replaced simulated SHA-256/HMAC with real keccak256 + ecrecover
+- MultiChain signer: chain-specific hashing (keccak256 for EVM/TVM, SHA3-256 for MoveVM, SHA-256d for Bitcoin)
+- Rewards scoring: ML-backed fraud scoring with heuristic fallback (was random-based)
+- Middleware: sync-to-async migration for auth and rate limiting
+- Tenant isolation: identity graph, analytics events, resolution clusters, x402 endpoints
+- Missing CacheKey.custom() method, null guard in analytics
+- CI: ML test execution, version header alignment, pytest markers
 
 - Restored ML compatibility interfaces so the `ML Models/aether-ml/tests` suite passes again after prior API refactors removed legacy entry points.
 - Fixed timezone mismatches in identity feature aggregation that caused tz-aware vs tz-naive subtraction failures.

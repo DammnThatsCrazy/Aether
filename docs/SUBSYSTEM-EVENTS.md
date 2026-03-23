@@ -1,0 +1,49 @@
+# Events / Kafka Subsystem
+
+## Architecture
+
+The event bus provides publish/subscribe messaging for cross-service communication via `shared/events/events.py`.
+
+**Backend selection:**
+- `AETHER_ENV=local` → in-memory list (events visible only within the process)
+- `AETHER_ENV=staging/production` → Kafka via `aiokafka`
+
+## Key Classes
+
+- `EventProducer` — Publishes events to Kafka topics with retry logic.
+- `EventConsumer` — Subscribes to topics with consumer groups and backpressure.
+- `Event` — Serializable event schema with topic, payload, tenant_id, correlation_id.
+- `Topic` — Enum of all event topics (40+ topics across 8 categories).
+
+## Environment Variables
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `KAFKA_BOOTSTRAP_SERVERS` | Yes (staging/prod) | — | Kafka broker addresses |
+
+## Startup
+
+`EventProducer.connect()` is called during `ResourceRegistry.startup()`. Creates an `AIOKafkaProducer` with `acks=all` and 3 retries.
+
+`EventConsumer.start()` subscribes to registered topics and begins consuming.
+
+## Health Check
+
+`EventProducer.health_check()` checks Kafka broker connectivity. Exposed via `GET /v1/health` as the `event_bus` dependency.
+
+## Event Topics
+
+Topics are organized by domain:
+- **Ingestion:** `aether.sdk.events.raw`, `aether.sdk.events.validated`
+- **Identity:** `aether.identity.resolved`, `aether.identity.merged`
+- **Analytics:** `aether.analytics.session.scored`, `aether.analytics.anomaly`
+- **Agent:** `aether.agent.task.started`, `aether.agent.task.completed`
+- **Commerce:** `aether.commerce.payment.sent`, `aether.commerce.agent.hired`
+- **A2H:** `aether.agent.notification.sent`, `aether.agent.recommendation.made`
+
+## Failure Modes
+
+- Kafka unreachable in production → `RuntimeError` at startup (fail-closed)
+- Kafka unreachable in local → falls back to in-memory list
+- Publish failure → retries 3 times with exponential backoff, then raises
+- Consumer handler failure → retries twice, then sends to DLQ
