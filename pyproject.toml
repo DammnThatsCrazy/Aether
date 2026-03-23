@@ -59,6 +59,7 @@ backend = [
     "prometheus-client>=0.20.0",
     "asyncpg>=0.29.0",
     "PyJWT>=2.8.0",
+    "graphql-core>=3.2.0",
 ]
 
 # ML model training and serving

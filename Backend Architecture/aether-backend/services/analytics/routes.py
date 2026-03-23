@@ -156,40 +156,64 @@ async def export_data(
     export_id = str(_uuid.uuid4())
     now = utc_now().isoformat()
 
-    # Query the data inline (production: offload to worker via Kafka/Celery)
-    try:
-        results = await repo.query_events(
-            tenant.tenant_id,
-            body.query.model_dump(exclude_none=True),
-            limit=10_000,
-        )
-        row_count = len(results)
-        status = "completed"
-        error = None
-    except Exception:
-        logger.exception("Export query failed for job %s", export_id)
-        row_count = 0
-        status = "failed"
-        error = "Export query failed. Contact support if this persists."
-
+    # Create the job in queued state
     job = {
         "export_id": export_id,
         "tenant_id": tenant.tenant_id,
         "format": body.format,
-        "status": status,
-        "row_count": row_count,
+        "status": "queued",
+        "row_count": 0,
         "query_hash": query_hash,
         "created_at": now,
-        "completed_at": now if status == "completed" else None,
-        "error": error,
-        "download_url": f"/v1/analytics/export/{export_id}/download" if status == "completed" else None,
+        "completed_at": None,
+        "error": None,
+        "download_url": None,
     }
-
     await _export_store.set(export_id, job)
 
+    # Execute export: try Celery offload, fallback to inline
+    try:
+        from celery import Celery
+        celery_broker = __import__("os").getenv("CELERY_BROKER_URL", "")
+        if celery_broker:
+            # Offload to Celery worker for large/async exports
+            _celery_app = Celery("aether", broker=celery_broker)
+            _celery_app.send_task(
+                "aether.analytics.export",
+                kwargs={
+                    "export_id": export_id,
+                    "tenant_id": tenant.tenant_id,
+                    "query_params": body.query.model_dump(exclude_none=True),
+                    "format": body.format,
+                },
+            )
+            job["status"] = "processing"
+            await _export_store.set(export_id, job)
+            logger.info("Export job %s queued to Celery", export_id)
+        else:
+            raise ImportError("No Celery broker configured")
+    except (ImportError, Exception):
+        # Inline execution when Celery is not available
+        try:
+            results = await repo.query_events(
+                tenant.tenant_id,
+                body.query.model_dump(exclude_none=True),
+                limit=10_000,
+            )
+            job["row_count"] = len(results)
+            job["status"] = "completed"
+            job["completed_at"] = utc_now().isoformat()
+            job["download_url"] = f"/v1/analytics/export/{export_id}/download"
+        except Exception:
+            logger.exception("Export query failed for job %s", export_id)
+            job["status"] = "failed"
+            job["error"] = "Export query failed. Contact support if this persists."
+
+        await _export_store.set(export_id, job)
+
     emit_latency("analytics_export", ctx.elapsed_ms(), labels={"format": body.format})
-    metrics.increment("analytics_exports_created", labels={"format": body.format, "status": status})
-    logger.info("Export job %s: format=%s rows=%d status=%s", export_id, body.format, row_count, status)
+    metrics.increment("analytics_exports_created", labels={"format": body.format, "status": job["status"]})
+    logger.info("Export job %s: format=%s rows=%d status=%s", export_id, body.format, job["row_count"], job["status"])
 
     return APIResponse(data=_sanitize_export_job(job)).to_dict()
 
@@ -224,34 +248,91 @@ _MAX_FIELDS = 20
 
 
 def _parse_and_validate_graphql(query: str) -> dict:
-    """Minimal GraphQL parser — extracts root type and fields.
+    """Parse and validate a GraphQL query for analytics dashboard.
 
-    Production systems should use graphql-core; this parser handles
-    the subset needed for analytics dashboard queries.
+    Uses graphql-core for proper AST parsing when available.
+    Falls back to regex extraction for environments without graphql-core.
     """
     query = query.strip()
     if not query:
         raise BadRequestError("Empty GraphQL query")
 
-    # Block introspection in production
+    # Block introspection regardless of parser
     if "__schema" in query or "__type" in query:
         raise BadRequestError("Introspection is disabled")
 
-    # Extract operation: query { events { ... } }
+    # Check depth before parsing (cheap brace-counting guard)
+    depth = query.count("{")
+    if depth > _MAX_QUERY_DEPTH:
+        raise BadRequestError(f"Query too deep ({depth} > {_MAX_QUERY_DEPTH})")
+
+    try:
+        from graphql import parse as gql_parse, DocumentNode
+        return _parse_graphql_ast(query, gql_parse)
+    except ImportError:
+        return _parse_graphql_regex(query)
+
+
+def _parse_graphql_ast(query: str, gql_parse: Any) -> dict:
+    """AST-based parser using graphql-core."""
+    try:
+        doc = gql_parse(query)
+    except Exception as e:
+        raise BadRequestError(f"Invalid GraphQL syntax: {e}")
+
+    if not doc.definitions:
+        raise BadRequestError("Empty GraphQL document")
+
+    op = doc.definitions[0]
+    if not hasattr(op, "selection_set") or not op.selection_set:
+        raise BadRequestError("Query must have a selection set")
+
+    root_selections = op.selection_set.selections
+    if not root_selections:
+        raise BadRequestError("Query must specify at least one root field")
+
+    root_field = root_selections[0]
+    root_type = root_field.name.value
+
+    if root_type not in _GRAPHQL_FIELDS:
+        raise BadRequestError(
+            f"Unknown root type: {root_type}. Available: {list(_GRAPHQL_FIELDS.keys())}"
+        )
+
+    # Extract nested field names
+    fields: list[str] = []
+    if root_field.selection_set:
+        for sel in root_field.selection_set.selections:
+            if hasattr(sel, "name"):
+                fields.append(sel.name.value)
+
+    if not fields:
+        raise BadRequestError("Query must specify fields")
+
+    # Validate fields against allowed set
+    allowed = _GRAPHQL_FIELDS[root_type]
+    invalid = [f for f in fields if f not in allowed]
+    if invalid:
+        raise BadRequestError(f"Unknown fields for {root_type}: {invalid}")
+
+    if len(fields) > _MAX_FIELDS:
+        raise BadRequestError(f"Too many fields requested ({len(fields)} > {_MAX_FIELDS})")
+
+    return {"root_type": root_type, "fields": fields}
+
+
+def _parse_graphql_regex(query: str) -> dict:
+    """Regex fallback parser for environments without graphql-core."""
     match = re.match(r"(?:query\s+\w*\s*)?\{\s*(\w+)", query)
     if not match:
         raise BadRequestError("Invalid GraphQL query syntax")
 
     root_type = match.group(1)
     if root_type not in _GRAPHQL_FIELDS:
-        raise BadRequestError(f"Unknown root type: {root_type}. Available: {list(_GRAPHQL_FIELDS.keys())}")
+        raise BadRequestError(
+            f"Unknown root type: {root_type}. Available: {list(_GRAPHQL_FIELDS.keys())}"
+        )
 
-    # Check depth BEFORE parsing fields (deep queries may produce garbage fields)
-    depth = query.count("{")
-    if depth > _MAX_QUERY_DEPTH:
-        raise BadRequestError(f"Query too deep ({depth} > {_MAX_QUERY_DEPTH})")
-
-    # Extract requested fields
     field_block = re.search(r"\{[^{]*\{([^}]*)\}", query)
     if not field_block:
         raise BadRequestError("Query must specify fields")
