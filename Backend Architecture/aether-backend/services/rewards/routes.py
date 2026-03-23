@@ -467,7 +467,14 @@ async def _compute_fraud_score(properties: dict) -> float:
         except Exception as e:
             logger.warning(f"ML fraud scoring unavailable: {e} — using heuristics")
 
-    # Rule-based heuristic fallback
+    # Rule-based heuristic fallback — log loudly in non-local environments
+    env = os.getenv("AETHER_ENV", "local").lower()
+    if env not in ("local", "test"):
+        logger.warning(
+            f"DEGRADED: fraud scoring using heuristic fallback in {env} environment. "
+            "Set ML_SERVING_URL to enable ML-backed scoring."
+        )
+        metrics.increment("rewards_fraud_heuristic_fallback", labels={"env": env})
     score = 0.0
     if properties.get("vpn_detected"):
         score += 25.0

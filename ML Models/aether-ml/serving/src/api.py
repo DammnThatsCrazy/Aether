@@ -404,6 +404,19 @@ class ModelServer:
                 logger.warning("Failed to load %s: %s", name, exc)
 
         if not loaded:
+            import os
+            env = os.getenv("AETHER_ENV", "local").lower()
+            if env in ("production", "staging"):
+                logger.error(
+                    "CRITICAL: No trained ML model artifacts found in %s environment. "
+                    "ML serving will return errors until models are trained and deployed. "
+                    "Run: python -m training.pipelines.train --model all",
+                    env,
+                )
+                # Do NOT load stubs in production/staging — return empty so
+                # prediction endpoints return clear errors instead of fake data
+                return []
+
             stub_models = {
                 "intent_prediction": _StubIntentModel(),
                 "bot_detection": _StubBotModel(),
@@ -420,7 +433,7 @@ class ModelServer:
                 self._versions[name] = getattr(model, "version", "test-stub")
                 self._statuses[name] = "loaded"
             loaded = list(stub_models.keys())
-            logger.info("No serialized models found; loaded in-process stub models for test/dev execution")
+            logger.info("No serialized models found; loaded stub models (local/dev mode only)")
 
         return loaded
 
