@@ -188,6 +188,10 @@ class GraphClient:
             )
         return vertex.vertex_id
 
+
+    async def upsert_vertex(self, vertex: Vertex) -> str:
+        return await self.add_vertex(vertex)
+
     async def add_edge(self, edge: Edge) -> None:
         with self._connect() as conn:
             conn.execute(
