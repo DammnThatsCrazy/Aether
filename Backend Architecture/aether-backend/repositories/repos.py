@@ -1,15 +1,21 @@
 """
 Aether Backend — Repository Pattern
 Each service accesses data stores through repository classes that abstract
-query logic from business logic. Includes connection pooling, prepared
-statements, and write-ahead logging hooks.
+query logic from business logic.
+
+Backend selection:
+- AETHER_ENV=local → in-memory dicts (no database required)
+- AETHER_ENV=staging/production → asyncpg PostgreSQL with connection pooling
+  Set DATABASE_URL env var to the PostgreSQL connection string.
 """
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+import json
+import os
+from abc import ABC
 from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 from shared.common.common import NotFoundError, utc_now
 from shared.cache.cache import CacheClient, CacheKey, TTL
@@ -21,23 +27,121 @@ logger = get_logger("aether.repository")
 
 T = TypeVar("T", bound=dict)
 
+# Optional asyncpg import
+try:
+    import asyncpg
+    ASYNCPG_AVAILABLE = True
+except ImportError:
+    asyncpg = None  # type: ignore[assignment]
+    ASYNCPG_AVAILABLE = False
+
+
+def _is_local_env() -> bool:
+    return os.getenv("AETHER_ENV", "local").lower() == "local"
+
+
+def _database_url() -> str:
+    return os.getenv("DATABASE_URL", "")
+
+
+# Shared connection pool (singleton)
+_pool: Optional[Any] = None
+
+
+async def get_pool() -> Any:
+    """Get or create the shared asyncpg connection pool."""
+    global _pool
+    if _pool is not None:
+        return _pool
+
+    url = _database_url()
+    if not url:
+        if _is_local_env():
+            return None
+        raise RuntimeError(
+            "DATABASE_URL not set. Required in non-local environments. "
+            "Set AETHER_ENV=local for in-memory fallback."
+        )
+    if not ASYNCPG_AVAILABLE:
+        if _is_local_env():
+            logger.warning("asyncpg not installed — using in-memory repositories")
+            return None
+        raise RuntimeError("asyncpg required for production: pip install asyncpg>=0.29")
+
+    _pool = await asyncpg.create_pool(
+        url, min_size=2, max_size=20,
+        command_timeout=30, statement_cache_size=100,
+    )
+    logger.info(f"Database pool created (asyncpg, {url.split('@')[-1] if '@' in url else url})")
+    return _pool
+
+
+async def close_pool() -> None:
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None
+        logger.info("Database pool closed")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# BASE REPOSITORY (TimescaleDB / relational)
+# BASE REPOSITORY — auto-selects PostgreSQL or in-memory
 # ═══════════════════════════════════════════════════════════════════════════
 
 class BaseRepository(ABC):
     """
-    Abstract base for relational repositories.
-    Stub uses in-memory dicts. Replace with asyncpg + PgBouncer pool.
+    Base for relational repositories.
+
+    Production: asyncpg queries against PostgreSQL (auto-creates table).
+    Local: in-memory dicts for development.
     """
 
     def __init__(self, table_name: str) -> None:
         self.table_name = table_name
-        self._store: dict[str, dict] = {}
+        self._store: dict[str, dict] = {}  # in-memory fallback
+        self._pool: Optional[Any] = None
+        self._table_ensured = False
+
+    async def _ensure_pool(self) -> Optional[Any]:
+        if self._pool is None:
+            self._pool = await get_pool()
+        return self._pool
+
+    async def _ensure_table(self) -> None:
+        """Auto-create JSONB table if it doesn't exist."""
+        if self._table_ensured:
+            return
+        pool = await self._ensure_pool()
+        if pool is None:
+            self._table_ensured = True
+            return
+        safe_name = self.table_name.replace("-", "_").replace(" ", "_")
+        await pool.execute(f"""
+            CREATE TABLE IF NOT EXISTS {safe_name} (
+                id TEXT PRIMARY KEY,
+                data JSONB NOT NULL DEFAULT '{{}}',
+                tenant_id TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        await pool.execute(f"""
+            CREATE INDEX IF NOT EXISTS idx_{safe_name}_tenant
+            ON {safe_name} (tenant_id)
+        """)
+        self._table_ensured = True
 
     async def find_by_id(self, record_id: str) -> Optional[dict]:
-        return self._store.get(record_id)
+        pool = await self._ensure_pool()
+        if pool is None:
+            return self._store.get(record_id)
+        await self._ensure_table()
+        row = await pool.fetchrow(
+            f"SELECT data FROM {self.table_name} WHERE id = $1", record_id
+        )
+        if row is None:
+            return None
+        return json.loads(row["data"])
 
     async def find_by_id_or_fail(self, record_id: str) -> dict:
         record = await self.find_by_id(record_id)
@@ -53,30 +157,94 @@ class BaseRepository(ABC):
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> list[dict]:
-        results = list(self._store.values())
+        pool = await self._ensure_pool()
+        if pool is None:
+            # In-memory fallback
+            results = list(self._store.values())
+            if filters:
+                results = [
+                    r for r in results
+                    if all(r.get(k) == v for k, v in filters.items())
+                ]
+            reverse = sort_order == "desc"
+            results.sort(key=lambda r: r.get(sort_by, ""), reverse=reverse)
+            return results[offset: offset + limit]
+
+        await self._ensure_table()
+        # Build JSONB filter conditions
+        conditions = ["1=1"]
+        params: list[Any] = []
+        idx = 1
         if filters:
-            results = [
-                r for r in results
-                if all(r.get(k) == v for k, v in filters.items())
-            ]
-        # Sort by field if it exists
-        reverse = sort_order == "desc"
-        results.sort(key=lambda r: r.get(sort_by, ""), reverse=reverse)
-        return results[offset : offset + limit]
+            for key, value in filters.items():
+                if key == "tenant_id":
+                    conditions.append(f"tenant_id = ${idx}")
+                else:
+                    conditions.append(f"data->>'{key}' = ${idx}")
+                params.append(str(value))
+                idx += 1
+
+        direction = "DESC" if sort_order == "desc" else "ASC"
+        safe_sort = sort_by if sort_by in ("created_at", "updated_at") else "created_at"
+        query = f"""
+            SELECT data FROM {self.table_name}
+            WHERE {' AND '.join(conditions)}
+            ORDER BY {safe_sort} {direction}
+            LIMIT ${idx} OFFSET ${idx + 1}
+        """
+        params.extend([limit, offset])
+        rows = await pool.fetch(query, *params)
+        return [json.loads(row["data"]) for row in rows]
 
     async def count(self, filters: Optional[dict[str, Any]] = None) -> int:
-        if not filters:
-            return len(self._store)
-        return len([
-            r for r in self._store.values()
-            if all(r.get(k) == v for k, v in filters.items())
-        ])
+        pool = await self._ensure_pool()
+        if pool is None:
+            if not filters:
+                return len(self._store)
+            return len([
+                r for r in self._store.values()
+                if all(r.get(k) == v for k, v in filters.items())
+            ])
+
+        await self._ensure_table()
+        conditions = ["1=1"]
+        params: list[Any] = []
+        idx = 1
+        if filters:
+            for key, value in filters.items():
+                if key == "tenant_id":
+                    conditions.append(f"tenant_id = ${idx}")
+                else:
+                    conditions.append(f"data->>'{key}' = ${idx}")
+                params.append(str(value))
+                idx += 1
+
+        row = await pool.fetchrow(
+            f"SELECT COUNT(*) as cnt FROM {self.table_name} WHERE {' AND '.join(conditions)}",
+            *params,
+        )
+        return row["cnt"] if row else 0
 
     async def insert(self, record_id: str, data: dict) -> dict:
+        now = utc_now().isoformat()
         data["id"] = record_id
-        data["created_at"] = utc_now().isoformat()
-        data["updated_at"] = utc_now().isoformat()
-        self._store[record_id] = data
+        data["created_at"] = now
+        data["updated_at"] = now
+
+        pool = await self._ensure_pool()
+        if pool is None:
+            self._store[record_id] = data
+            logger.info(f"INSERT {self.table_name} id={record_id} (in-memory)")
+            return data
+
+        await self._ensure_table()
+        tenant_id = data.get("tenant_id", "")
+        await pool.execute(
+            f"""INSERT INTO {self.table_name} (id, data, tenant_id, created_at, updated_at)
+                VALUES ($1, $2::jsonb, $3, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET data = $2::jsonb, updated_at = NOW()""",
+            record_id, json.dumps(data, default=str), tenant_id,
+        )
         logger.info(f"INSERT {self.table_name} id={record_id}")
         return data
 
@@ -84,15 +252,36 @@ class BaseRepository(ABC):
         existing = await self.find_by_id_or_fail(record_id)
         existing.update(data)
         existing["updated_at"] = utc_now().isoformat()
+
+        pool = await self._ensure_pool()
+        if pool is None:
+            self._store[record_id] = existing
+            logger.info(f"UPDATE {self.table_name} id={record_id} (in-memory)")
+            return existing
+
+        await pool.execute(
+            f"UPDATE {self.table_name} SET data = $1::jsonb, updated_at = NOW() WHERE id = $2",
+            json.dumps(existing, default=str), record_id,
+        )
         logger.info(f"UPDATE {self.table_name} id={record_id}")
         return existing
 
     async def delete(self, record_id: str) -> bool:
-        if record_id in self._store:
-            del self._store[record_id]
+        pool = await self._ensure_pool()
+        if pool is None:
+            if record_id in self._store:
+                del self._store[record_id]
+                logger.info(f"DELETE {self.table_name} id={record_id} (in-memory)")
+                return True
+            return False
+
+        result = await pool.execute(
+            f"DELETE FROM {self.table_name} WHERE id = $1", record_id
+        )
+        deleted = result.endswith("1")
+        if deleted:
             logger.info(f"DELETE {self.table_name} id={record_id}")
-            return True
-        return False
+        return deleted
 
 
 # ═══════════════════════════════════════════════════════════════════════════

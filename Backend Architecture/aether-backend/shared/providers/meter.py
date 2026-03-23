@@ -2,19 +2,32 @@
 Aether Shared -- Usage Meter
 
 Per-tenant, per-provider usage tracking for billing and monitoring.
-Stub uses in-memory dicts; production flushes to TimescaleDB.
+
+In-memory aggregation with periodic flush to PostgreSQL when available.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.providers.meter")
+
+# Optional asyncpg import for DB flushing
+try:
+    from repositories.repos import get_pool
+    DB_FLUSH_AVAILABLE = True
+except ImportError:
+    DB_FLUSH_AVAILABLE = False
+
+    async def get_pool() -> None:  # type: ignore[misc]
+        return None
 
 
 @dataclass
@@ -157,6 +170,50 @@ class UsageMeter:
         }
 
     async def flush(self) -> None:
-        """Flush to persistent storage.  Stub: no-op."""
+        """Flush aggregated usage records to PostgreSQL."""
+        if not self._records:
+            return
+
+        pool = await get_pool() if DB_FLUSH_AVAILABLE else None
+        if pool is not None:
+            try:
+                # Ensure the usage table exists
+                await pool.execute("""
+                    CREATE TABLE IF NOT EXISTS provider_usage (
+                        id SERIAL PRIMARY KEY,
+                        tenant_id TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        provider_name TEXT NOT NULL,
+                        total_requests INT DEFAULT 0,
+                        successful_requests INT DEFAULT 0,
+                        failed_requests INT DEFAULT 0,
+                        total_latency_ms DOUBLE PRECISION DEFAULT 0,
+                        method_breakdown JSONB DEFAULT '{}',
+                        period_start DOUBLE PRECISION,
+                        flushed_at TIMESTAMPTZ DEFAULT NOW()
+                    )
+                """)
+                # Insert all accumulated records
+                for key, rec in self._records.items():
+                    methods = dict(self._method_counts.get(key, {}))
+                    await pool.execute(
+                        """INSERT INTO provider_usage
+                           (tenant_id, category, provider_name, total_requests,
+                            successful_requests, failed_requests, total_latency_ms,
+                            method_breakdown, period_start)
+                           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)""",
+                        rec.tenant_id, rec.category, rec.provider_name,
+                        rec.total_requests, rec.successful_requests,
+                        rec.failed_requests, rec.total_latency_ms,
+                        json.dumps(methods), rec.period_start,
+                    )
+                count = len(self._records)
+                self._records.clear()
+                self._method_counts.clear()
+                logger.info(f"Usage meter flushed {count} records to PostgreSQL")
+            except Exception as e:
+                logger.error(f"Usage meter flush failed: {e} — retaining in-memory records")
+        else:
+            logger.debug(f"Usage meter: {len(self._records)} records (no DB, retained in memory)")
+
         self._last_flush = time.time()
-        logger.debug(f"Usage meter flushed {len(self._records)} records")

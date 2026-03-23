@@ -6,16 +6,28 @@ NOT a new ML model. A weighted composite of existing model outputs:
   - Behavioral Trust (25%):  Session Scorer + Churn Prediction
 
 Used by: Agent service, Commerce service, Analytics dashboard.
+
+When an ML serving client (httpx) is provided, the scorer calls the ML
+serving API for real predictions. Otherwise it uses the feature dict
+passed directly (or defaults for local dev).
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from shared.logger.logger import get_logger, metrics
 
 logger = get_logger("aether.scoring.trust")
+
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    httpx = None  # type: ignore[assignment]
+    HTTPX_AVAILABLE = False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -60,24 +72,39 @@ BEHAVIORAL_WEIGHT = 0.25
 class TrustScoreComposite:
     """
     3-component trust score using existing model outputs. No new training.
-    Each component calls existing ML serving or fraud engine endpoints.
+
+    When ml_serving_url is configured (or ML_SERVING_URL env var),
+    the scorer calls the ML serving API for bot detection, anomaly,
+    session scoring, and churn predictions. Otherwise it uses
+    the feature dict passed directly (for local development or
+    when features are pre-computed by the caller).
     """
 
     def __init__(
         self,
-        ml_serving: Optional[object] = None,
+        ml_serving_url: Optional[str] = None,
         fraud_engine: Optional[object] = None,
         resolution_engine: Optional[object] = None,
     ):
-        """
-        Args:
-            ml_serving: ML serving client (production DI).
-            fraud_engine: Fraud engine client (production DI).
-            resolution_engine: Identity resolution engine (production DI).
-        """
-        self._ml = ml_serving
+        self._ml_url = ml_serving_url or os.getenv("ML_SERVING_URL", "")
         self._fraud = fraud_engine
         self._resolution = resolution_engine
+
+    async def _fetch_ml_score(self, model_type: str, signals: dict) -> Optional[dict]:
+        """Call ML serving API for a prediction. Returns None on failure."""
+        if not self._ml_url or not HTTPX_AVAILABLE:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(
+                    f"{self._ml_url}/v1/predict",
+                    json={"type": model_type, "signals": signals},
+                )
+                if resp.status_code == 200:
+                    return resp.json().get("data", {}).get("prediction", {})
+        except Exception as e:
+            logger.warning(f"ML serving call failed for {model_type}: {e}")
+        return None
 
     async def compute(
         self,
@@ -86,41 +113,74 @@ class TrustScoreComposite:
         features: Optional[dict] = None,
     ) -> TrustScore:
         """
-        Compute composite trust score from existing model outputs.
+        Compute composite trust score.
 
-        In production, each component calls the relevant ML serving endpoint.
-        Stub implementation returns neutral scores.
+        If features are provided, uses them directly. Otherwise calls
+        ML serving API for real-time predictions. Falls back to safe
+        defaults (low trust) if both sources unavailable.
         """
         features = features or {}
         components: dict = {}
 
-        # Component 1: Transaction Trust (40%)
-        # Uses: Fraud Engine (8 signals) + Anomaly Detection model
-        fraud_score = features.get("fraud_composite_score", 0.0)
-        anomaly_score = features.get("anomaly_score", 0.0)
+        # ── Component 1: Transaction Trust (40%) ──────────────────────
+        fraud_score = features.get("fraud_composite_score")
+        anomaly_score = features.get("anomaly_score")
+
+        if anomaly_score is None and self._ml_url:
+            ml_result = await self._fetch_ml_score("anomaly", {
+                "entity_id": entity_id, "entity_type": entity_type,
+            })
+            if ml_result:
+                anomaly_score = ml_result.get("anomaly_score", 0.0)
+
+        fraud_score = fraud_score if fraud_score is not None else 0.0
+        anomaly_score = anomaly_score if anomaly_score is not None else 0.0
         transaction_trust = max(0.0, 1.0 - (fraud_score / 100.0)) * (1.0 - anomaly_score)
         components["fraud_score"] = fraud_score
         components["anomaly_score"] = anomaly_score
 
-        # Component 2: Identity Trust (35%)
-        # Uses: Identity Resolution confidence + Bot Detection model
-        # Default 0.1: unknown identity = low trust
-        identity_confidence = features.get("identity_confidence", 0.1)
-        bot_score = features.get("bot_score", 0.0)
+        # ── Component 2: Identity Trust (35%) ─────────────────────────
+        identity_confidence = features.get("identity_confidence")
+        bot_score = features.get("bot_score")
+
+        if bot_score is None and self._ml_url:
+            ml_result = await self._fetch_ml_score("bot", {
+                "entity_id": entity_id, "entity_type": entity_type,
+            })
+            if ml_result:
+                bot_score = ml_result.get("confidence", 0.0)
+
+        identity_confidence = identity_confidence if identity_confidence is not None else 0.1
+        bot_score = bot_score if bot_score is not None else 0.0
         identity_trust = identity_confidence * (1.0 - bot_score)
         components["identity_confidence"] = identity_confidence
         components["bot_score"] = bot_score
 
-        # Component 3: Behavioral Trust (25%)
-        # Uses: Session Scorer + Churn Prediction model
-        # Default 0.1: no behavioral data = low trust
-        session_score = features.get("session_score", 0.1)
-        churn_risk = features.get("churn_risk", 0.0)
+        # ── Component 3: Behavioral Trust (25%) ──────────────────────
+        session_score = features.get("session_score")
+        churn_risk = features.get("churn_risk")
+
+        if session_score is None and self._ml_url:
+            ml_result = await self._fetch_ml_score("session_score", {
+                "entity_id": entity_id, "entity_type": entity_type,
+            })
+            if ml_result:
+                session_score = ml_result.get("engagement_score", 0.1)
+
+        if churn_risk is None and self._ml_url:
+            ml_result = await self._fetch_ml_score("churn", {
+                "entity_id": entity_id, "entity_type": entity_type,
+            })
+            if ml_result:
+                churn_risk = ml_result.get("churn_probability", 0.0)
+
+        session_score = session_score if session_score is not None else 0.1
+        churn_risk = churn_risk if churn_risk is not None else 0.0
         behavioral_trust = session_score * (1.0 - churn_risk)
         components["session_score"] = session_score
         components["churn_risk"] = churn_risk
 
-        # Weighted composite (clamped to [0.0, 1.0])
+        # ── Weighted composite ────────────────────────────────────────
         composite = (
             TRANSACTION_WEIGHT * transaction_trust
             + IDENTITY_WEIGHT * identity_trust

@@ -74,16 +74,23 @@ def trace_request(request, service: str = "backend") -> TraceContext:
 # Latency Histograms
 # =========================================================================
 
-# In-memory histogram buckets (production: Prometheus histogram)
+# In-memory samples for local percentile computation.
+# When prometheus_client is available, metrics.observe() also records
+# to a Prometheus Histogram for /metrics export.
 _latency_buckets: dict[str, list[float]] = {}
 _MAX_SAMPLES = 1000
 
 
 def emit_latency(operation: str, ms: float, labels: Optional[dict] = None) -> None:
-    """Record an operation latency sample."""
+    """Record an operation latency sample.
+
+    Dual-writes to:
+    1. Prometheus histogram (via MetricsCollector.observe) if available
+    2. In-memory sample buffer for get_percentiles() API
+    """
     metrics.observe(f"{operation}_latency_ms", ms, labels=labels or {})
 
-    # Keep in-memory samples for percentile computation
+    # Keep bounded in-memory samples for local percentile computation
     samples = _latency_buckets.setdefault(operation, [])
     samples.append(ms)
     if len(samples) > _MAX_SAMPLES:

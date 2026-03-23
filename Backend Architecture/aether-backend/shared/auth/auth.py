@@ -64,13 +64,23 @@ class TenantContext:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# JWT HANDLER (simplified — swap with PyJWT in production)
+# JWT HANDLER (PyJWT when available, manual HS256 fallback)
 # ═══════════════════════════════════════════════════════════════════════════
+
+try:
+    import jwt as pyjwt
+    PYJWT_AVAILABLE = True
+except ImportError:
+    pyjwt = None  # type: ignore[assignment]
+    PYJWT_AVAILABLE = False
+
 
 class JWTHandler:
     """
-    Minimal JWT encode/decode for HS256.
-    In production, use python-jose or PyJWT with RS256 + key rotation.
+    JWT encode/decode with algorithm selection.
+
+    Production: uses PyJWT library with RS256 support and proper validation.
+    Fallback: manual HS256 if PyJWT not installed (local dev only).
     """
 
     def __init__(self, secret: str = "", algorithm: str = "HS256"):
@@ -79,50 +89,57 @@ class JWTHandler:
 
     def encode(self, payload: dict) -> str:
         """Encode a payload into a JWT string."""
-        header = base64.urlsafe_b64encode(
-            json.dumps({"alg": self.algorithm, "typ": "JWT"}).encode()
-        ).rstrip(b"=").decode()
-
-        # Ensure expiry
         if "exp" not in payload:
             payload["exp"] = int(time.time()) + settings.auth.jwt_expiry_minutes * 60
         if "iat" not in payload:
             payload["iat"] = int(time.time())
 
+        if PYJWT_AVAILABLE:
+            return pyjwt.encode(payload, self.secret, algorithm=self.algorithm)
+
+        # Manual HS256 fallback (local dev only)
+        header = base64.urlsafe_b64encode(
+            json.dumps({"alg": self.algorithm, "typ": "JWT"}).encode()
+        ).rstrip(b"=").decode()
         payload_b64 = base64.urlsafe_b64encode(
             json.dumps(payload).encode()
         ).rstrip(b"=").decode()
-
         signing_input = f"{header}.{payload_b64}".encode()
         signature = base64.urlsafe_b64encode(
             hmac.new(self.secret.encode(), signing_input, hashlib.sha256).digest()
         ).rstrip(b"=").decode()
-
         return f"{header}.{payload_b64}.{signature}"
 
     def decode(self, token: str) -> dict:
         """Decode and verify a JWT. Returns the payload dict."""
+        if PYJWT_AVAILABLE:
+            try:
+                return pyjwt.decode(
+                    token, self.secret,
+                    algorithms=[self.algorithm],
+                    options={"require": ["exp", "iat"]},
+                )
+            except pyjwt.ExpiredSignatureError:
+                raise UnauthorizedError("Token expired")
+            except pyjwt.InvalidTokenError as e:
+                raise UnauthorizedError(f"Invalid token: {e}")
+
+        # Manual HS256 fallback
         try:
             parts = token.split(".")
             if len(parts) != 3:
                 raise UnauthorizedError("Malformed token")
-
             payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
             payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-
             if payload.get("exp", 0) < time.time():
                 raise UnauthorizedError("Token expired")
-
             signing_input = f"{parts[0]}.{parts[1]}".encode()
             expected_sig = base64.urlsafe_b64encode(
                 hmac.new(self.secret.encode(), signing_input, hashlib.sha256).digest()
             ).rstrip(b"=").decode()
-
             if not hmac.compare_digest(expected_sig, parts[2]):
                 raise UnauthorizedError("Invalid signature")
-
             return payload
-
         except UnauthorizedError:
             raise
         except Exception:
