@@ -1,15 +1,56 @@
-# Unified On-Chain Intelligence Graph v8.3.1
+# Unified On-Chain Intelligence Graph v8.5.0
 
 ## Overview
 
 The Unified On-Chain Intelligence Graph extends the Aether platform with an 8-layer architecture for tracking human, agent, and protocol interactions across Web2, Web3, and autonomous agent workflows.
 
-- **Additive extension** — all 9 existing ML models remain unchanged; no retraining required
+- **Additive extension** — all 11 ML models/scorers remain unchanged; no retraining required
 - **Feature-flagged** — every layer activates independently via environment variables (all default to `false`)
-- **GDPR + SOC 2 compliant** — 2 new consent purposes, DSR cascade for agent/payment vertices, 10 new audit actions
+- **GDPR + SOC 2 compliant** — 2 new consent purposes, DSR cascade for agent/payment vertices, 14 audit actions
 - **Graph-native** — 6 new node types, 19 new edge types layered onto the existing Identity Graph
+- **Lake-fueled** — graph mutations are driven by Silver/Gold lake tiers, not ad-hoc scripts
 
-> **Infrastructure note:** The graph layer currently uses an **in-memory stub** (`GraphClient`). The interfaces and edge/vertex schemas are production-ready, but a real Neptune or Neo4j backend must be connected before production deployment. The `query()` method returns empty results in stub mode.
+> **Infrastructure:** `GraphClient` auto-selects Neptune (via gremlinpython) when `NEPTUNE_ENDPOINT` is set, falling back to in-memory in `AETHER_ENV=local`. Non-local environments without Neptune will fail-closed with `RuntimeError`.
+
+## V1 Activation Guide
+
+To enable the Intelligence Graph in staging/production:
+
+```bash
+# Enable graph layers (add to .env or deployment config)
+IG_AGENT_LAYER=true       # L2: Agent behavioral tracking
+IG_COMMERCE_LAYER=true    # L3a: Payment/hire tracking
+IG_ONCHAIN_LAYER=true     # L0: On-chain action ingestion
+IG_X402_LAYER=true        # L3b: x402 micropayment capture
+IG_TRUST_SCORING=true     # Composite trust scoring
+IG_BYTECODE_RISK=true     # Bytecode risk analysis
+IG_RPC_GATEWAY=true       # Shared RPC infrastructure
+
+# Required infrastructure
+NEPTUNE_ENDPOINT=your-neptune-cluster.region.neptune.amazonaws.com
+```
+
+## Graph Mutation Path
+
+Graph edges are created from lake data via deterministic mutation jobs:
+
+```
+Silver/Gold lake tiers
+    ↓
+graph_mutations.py
+    ├── build_wallet_protocol_edges()   → INTERACTS_WITH
+    ├── build_wallet_social_edges()     → RESOLVED_AS
+    └── build_governance_edges()        → INTERACTS_WITH (governance)
+    ↓
+Neptune graph store
+    ↓
+Intelligence API
+    ├── /v1/intelligence/wallet/{addr}/risk
+    ├── /v1/intelligence/entity/{id}/cluster
+    └── Trust/bytecode scoring
+```
+
+Graph can be rebuilt from lake state or incrementally updated.
 
 ## Architecture Layers
 

@@ -1,24 +1,70 @@
 # Aether
 
-Cross-platform Unified Intelligence Graph with Web3 wallet tracking, cross-device identity resolution, and on-chain reward automation.
+Cross-platform Unified Intelligence Graph with Web3 wallet tracking, cross-device identity resolution, data lake, ML-powered intelligence, and on-chain reward automation.
 
 ## Architecture
 
-Aether uses a **"Sense and Ship"** thin-client architecture. SDKs collect raw events, device fingerprints, and wallet interactions — the backend handles all processing, ML inference, identity resolution, traffic source classification, and analytics.
+Aether is a **hybrid Python/FastAPI + Node/TypeScript** monorepo with three operational planes:
 
 ```
-SDK (Web/iOS/Android/RN)          Backend (FastAPI + Neptune + TimescaleDB)
-┌──────────────────────┐          ┌─────────────────────────────────┐
-│ Raw events           │  POST    │ Ingestion → IP Enrichment       │
-│ Device fingerprint   │  /v1/   │ Identity Resolution (10 signals)│
-│ Wallet connections   │  batch   │ ML Scoring (intent, bot)        │
-│ Session + identity   │ ──────> │ DeFi Tx Classification          │
-│ Consent gates        │         │ Traffic Source Auto-Classification│
-│ Feature flag cache   │  GET    │ Funnel Matching                 │
-│                      │  /v1/   │ Heatmap Grid Generation         │
-│                      │  config │ Reward Automation               │
-└──────────────────────┘         └─────────────────────────────────┘
+┌─────────────────────────────┐     ┌──────────────────────────────────────┐
+│   Client SDKs               │     │   Python/FastAPI Backend              │
+│   (Web/iOS/Android/RN)      │     │   24 service routers + lake + intel  │
+│                             │     │                                      │
+│   Raw events, fingerprints  │ ──> │   /v1/ingest/*    Event ingestion    │
+│   Wallet connections        │     │   /v1/lake/*      Data lake CRUD     │
+│   Session + identity        │     │   /v1/intelligence/* Live outputs    │
+│   Consent gates             │     │   /v1/identity/*  Identity/graph     │
+│                             │     │   /v1/ml/*        ML inference       │
+└─────────────────────────────┘     │   /v1/admin/*     Tenant/key mgmt   │
+                                    │   /v1/providers/*  BYOK gateway      │
+┌─────────────────────────────┐     │   /v1/agent/*     Agent orchestration│
+│   External Data Providers   │     │   /v1/rewards/*   On-chain rewards   │
+│   (24 connectors)           │ ──> │   /v1/analytics/* Dashboards/export  │
+│   Market, social, on-chain  │     └──────────────────────────────────────┘
+│   TradFi, prediction mkts   │                    │
+│   Identity enrichment       │     ┌──────────────┴───────────────────────┐
+└─────────────────────────────┘     │   Infrastructure                     │
+                                    │   PostgreSQL (asyncpg)               │
+                                    │   Redis (redis.asyncio)              │
+                                    │   Neptune (gremlinpython)            │
+                                    │   Kafka (aiokafka)                   │
+                                    │   S3 (model artifacts + lake)        │
+                                    │   Prometheus (metrics)               │
+                                    └──────────────────────────────────────┘
 ```
+
+### Data Flow: Extraction to Intelligence
+
+```
+Provider connectors (24) → POST /v1/lake/ingest → Bronze (raw, immutable)
+                                                       ↓
+                                                  Silver (validated, normalized)
+                                                       ↓
+                                                  Gold (features, metrics, highlights)
+                                                       ↓
+                                        ┌──── Redis (online features)
+                                        ├──── Neptune (graph edges)
+                                        ├──── ML Training → Model Registry
+                                        └──── Intelligence API
+                                               ├── /v1/intelligence/wallet/{addr}/risk
+                                               ├── /v1/intelligence/protocol/{id}/analytics
+                                               ├── /v1/intelligence/entity/{id}/cluster
+                                               └── /v1/intelligence/alerts
+```
+
+## Infrastructure
+
+| Store | Backend | Purpose | Env Var |
+|-------|---------|---------|---------|
+| **PostgreSQL** | asyncpg | Lake tiers, repos, model registry | `DATABASE_URL` |
+| **Redis** | redis.asyncio | Cache, features, rate limiting, auth | `REDIS_HOST` |
+| **Neptune** | gremlinpython | Intelligence graph (4 relationship layers) | `NEPTUNE_ENDPOINT` |
+| **Kafka** | aiokafka | Event streaming (40+ topics) | `KAFKA_BOOTSTRAP_SERVERS` |
+| **S3** | boto3 | Model artifacts, lake objects | AWS credentials |
+| **Prometheus** | prometheus_client | Metrics at `/v1/metrics` | Auto-detected |
+
+All stores auto-select real backends in staging/production and fall back to in-memory in `AETHER_ENV=local`.
 
 ## SDKs
 
@@ -29,162 +75,143 @@ SDK (Web/iOS/Android/RN)          Backend (FastAPI + Neptune + TimescaleDB)
 | **Android** | `io.aether:sdk-android` (Kotlin) | ~493 LOC |
 | **React Native** | `@aether/react-native` | ~497 LOC |
 
-### Quick Start
+## Provider Connectors (24)
 
-**Web:**
-```typescript
-import aether from '@aether/web-sdk';
+| Category | Providers | Auth |
+|----------|-----------|------|
+| Blockchain RPC | QuickNode, Alchemy, Infura, Generic | API key |
+| Block Explorer | Etherscan, Moralis | API key |
+| Social | Twitter, Reddit | OAuth/Bearer |
+| Analytics | Dune Analytics | API key |
+| Market Data | DeFiLlama (free), CoinGecko, Binance, Coinbase | API key |
+| Prediction Markets | Polymarket, Kalshi | Bearer |
+| Web3 Social | Farcaster, Lens Protocol | API key |
+| Identity Enrichment | ENS (free), GitHub | PAT |
+| Governance | Snapshot (free) | None |
+| On-Chain Intel | Chainalysis, Nansen | Contract required |
+| TradFi | Massive, Databento | Contract required |
 
-aether.init({ apiKey: 'your-key' });
-aether.track('button_clicked', { buttonId: 'cta' });
-aether.hydrateIdentity({
-  userId: 'user-123',
-  email: 'user@example.com',
-});
-```
+All connectors use real httpx HTTP calls. Unconfigured providers report `not_configured`. See `PROVIDER_MATRIX.md` for details.
 
-**iOS:**
-```swift
-import AetherSDK
-Aether.shared.initialize(config: AetherConfig(apiKey: "your-key"))
-Aether.shared.track("button_tapped", properties: ["buttonId": AnyCodable("cta")])
-```
+## Intelligence Graph
 
-**Android:**
-```kotlin
-import com.aether.sdk.Aether
-Aether.initialize(application, AetherConfig(apiKey = "your-key"))
-Aether.track("button_clicked", mapOf("buttonId" to "cta"))
-```
-
-**React Native:**
-```tsx
-import { AetherProvider } from '@aether/react-native-sdk';
-
-<AetherProvider config={{ apiKey: 'your-key' }}>
-  <App />
-</AetherProvider>
-```
-
-## Key Features
-
-- **Cross-device identity resolution** — Deterministic (email, phone, wallet, userId, OAuth) and probabilistic (fingerprint similarity, IP clustering, behavioral signals) matching into unified Identity Clusters
-- **Device fingerprinting** — SHA-256 hash from platform-specific signals (Web: 17 browser signals via Web Crypto; iOS: CryptoKit; Android: MessageDigest)
-- **Web3 wallet tracking** — 7 VM families: EVM, Solana, Bitcoin, Move/SUI, NEAR, TRON, Cosmos
-- **DeFi transaction classification** — Protocol identification, swap/stake/lend/bridge categorization
-- **On-chain reward automation** — Eligibility checks, pre-built claim payloads, oracle-verified proofs
-- **GDPR/CCPA consent management** — Consent-gated data collection with banner UI
-- **Feature flags** — Server-evaluated, locally cached
-- **Automatic traffic source detection** — Server-side SourceClassifier with 40+ social, 17+ search, 14 email domain tables and 12 ad platform click IDs; priority chain: Click IDs → UTMs → Referrer → Direct
-- **Web2 analytics** — Ecommerce, funnels, heatmaps, form analytics
-- **ML inference** — 9 production models across edge and server tiers: intent prediction, bot detection, session scoring (edge, < 100ms); identity resolution (GNN), journey prediction (LSTM), churn prediction (XGBoost), LTV prediction (ensemble), anomaly detection (Isolation Forest + AutoEncoder), campaign attribution (Shapley values) (server, SageMaker/ECS)
-- **BYOK provider gateway** — Multi-provider abstraction with Bring Your Own Key support, automatic failover (tenant BYOK → system default → fallback), per-tenant usage metering, and circuit breaker integration across 4 provider categories (blockchain RPC, block explorer, social API, analytics data)
-- **Diagnostics & circuit breakers** — Centralized error registry with SHA-256 fingerprinting, per-operation circuit breakers, and real-time health monitoring
-- **Model extraction defense** — 6-component security layer protecting ML inference against extraction and distillation attacks: dual-axis rate limiting, query pattern anomaly detection, output perturbation, probabilistic watermarking, canary trap inputs, and adaptive risk scoring. Gated behind `ENABLE_EXTRACTION_DEFENSE` feature flag
-
-## Unified On-Chain Intelligence Graph
-
-8-layer architecture for tracking behavioral and financial relationships across human-to-human, human-to-agent, agent-to-human, and agent-to-agent interactions. Built on top of the existing Neptune identity graph.
-
-### Relationship Layers
+4 relationship layers powered by Neptune graph:
 
 | Layer | Description |
 |---|---|
-| **H2H** (Human-to-Human) | Referral chains, shared-wallet co-signers, social graph edges derived from on-chain transfers |
-| **H2A** (Human-to-Agent) | User interactions with autonomous agents — delegation events, tool invocations, approval flows |
-| **A2H** (Agent-to-Human) | Agent-initiated interactions back to humans — notifications, recommendations, result deliveries, escalations |
-| **A2A** (Agent-to-Agent) | Inter-agent message passing, x402 payment channels, orchestration dependencies |
+| **H2H** | Human-to-Human — referral chains, shared wallets, social graph |
+| **H2A** | Human-to-Agent — delegation, tool invocations, approval flows |
+| **A2H** | Agent-to-Human — notifications, recommendations, escalations |
+| **A2A** | Agent-to-Agent — orchestration, payments, protocol composition |
 
-### By the Numbers
+**V1 activation:** Intelligence Graph services are available and can be enabled per-environment via `IG_AGENT_LAYER=true`, `IG_COMMERCE_LAYER=true`, `IG_ONCHAIN_LAYER=true`, `IG_X402_LAYER=true`. Graph mutations are fueled by the lake Silver/Gold tiers, not ad-hoc scripts.
 
-| Dimension | Count | Notes |
-|---|---|---|
-| Layers | 8 | L0 On-Chain Actions through L7 Compliance |
-| ML Models | 9 | Intent, bot, session (edge); identity resolution, journey, churn, LTV, anomaly, attribution (server) |
-| Streams | 5 | Wallet tx, SDK events, agent logs, x402 receipts, oracle callbacks |
-| Node Types | 6 | Agent, Service, Contract, Protocol, Payment, ActionRecord (new; layered onto existing Identity Graph) |
-| Edge Types | 19 | LAUNCHED_BY, DELEGATES, INTERACTS_WITH, NOTIFIES, RECOMMENDS, DELIVERS_TO, ESCALATES_TO, HIRED, PAYS, CONSUMES, EARNS_FROM, DEPLOYED, CALLED, COMPOSED_WITH, UPGRADED, GOVERNED_BY, DEPENDS_ON, PERFORMED_ACTION, USES_PROTOCOL |
-| Stores | 5 | Neptune*, TimescaleDB*, Redis*, S3, Kafka* (*in-memory stubs in dev; real integrations required for production) |
+## ML Models (11)
 
-### New Services (Feature-Flagged)
+| Model | Type | Status |
+|-------|------|--------|
+| Intent Prediction | LogisticRegression | Training pipeline ready |
+| Bot Detection | RandomForest | Training pipeline ready |
+| Session Scoring | LogisticRegression | Training pipeline ready |
+| Identity Resolution | Binary classification | Training pipeline ready |
+| Journey Prediction | Multi-class | Training pipeline ready |
+| Churn Prediction | XGBoost | Training pipeline ready |
+| LTV Prediction | XGBoost | Training pipeline ready |
+| Anomaly Detection | IsolationForest | Training pipeline ready |
+| Campaign Attribution | Multi-touch | Training pipeline ready |
+| Bytecode Risk | Rule-based | Active |
+| Trust Score | Composite (weighted ML outputs) | Active |
 
-All intelligence graph layers are **disabled by default**. Progressive activation via environment variables (`AETHER_GRAPH_L0=true`, etc.).
+Model artifacts require training run before serving. See `docs/ML-TRAINING-GUIDE.md`.
 
-- **On-Chain Actions (L0)** — Raw transaction indexing and event normalization (`AETHER_GRAPH_L0`)
-- **Commerce (L3a)** — Merchant-side analytics, cart-to-chain attribution (`AETHER_GRAPH_L3A`)
-- **x402 Interceptor (L3b)** — Agent-to-agent micropayment capture and settlement tracking (`AETHER_GRAPH_L3B`)
+## Quick Start
 
-### Scoring
+```bash
+# Local development (no infrastructure required)
+pip install -e ".[dev,backend]"
+export AETHER_ENV=local
+make test                              # 106 tests pass
 
-- **Trust Score** — Composite metric derived from existing ML models (intent, bot, fraud, anomaly) applied to graph node context
-- **Bytecode Risk** — Rule-based scorer for smart contract interactions; no ML dependency
-
-### GDPR Compliance
-
-2 new consent purposes added: `agent_interaction` and `commerce_tracking`. DSR (Data Subject Request) cascade extended to cover all new vertex types (Agent, Contract, Merchant).
+# Staging with Docker
+cd deploy/staging
+./bootstrap.sh                         # starts PostgreSQL, Redis, Kafka, backend, ML serving
+curl http://localhost:8000/v1/health   # verify all dependencies healthy
+```
 
 ## Project Structure
 
 ```
-packages/
-├── web/              Web SDK (TypeScript)
-├── ios/              iOS SDK (Swift)
-├── android/          Android SDK (Kotlin)
-└── react-native/     React Native SDK (TypeScript)
+Backend Architecture/aether-backend/   Python/FastAPI backend (24 services)
+  services/
+    ingestion/     SDK event ingestion + IP enrichment
+    lake/          Data lake API (Bronze/Silver/Gold + audit + rollback)
+    intelligence/  Intelligence outputs (risk, analytics, clusters, alerts)
+    identity/      Identity management + graph
+    resolution/    Cross-device identity resolution
+    analytics/     Dashboard queries, GraphQL, export
+    ml_serving/    ML model inference
+    agent/         Agent orchestration + A2H
+    rewards/       On-chain reward automation
+    admin/         Tenant + API key management
+    providers/     BYOK provider gateway
+    ...            + 13 more service routers
+  repositories/
+    repos.py       Base repository (asyncpg PostgreSQL)
+    lake.py        Bronze/Silver/Gold repositories
+  shared/
+    graph/         Neptune graph client + relationship layers
+    events/        Kafka event bus
+    cache/         Redis cache
+    providers/     24 provider adapters (11 categories)
+    auth/          API key validation + JWT
+    scoring/       Trust score + bytecode risk
 
-Backend Architecture/
-└── aether-backend/
-    ├── services/
-    │   ├── ingestion/     Event ingestion + IP enrichment
-    │   ├── identity/      Identity management
-    │   ├── resolution/    Cross-device identity resolution
-    │   ├── analytics/     Session scoring + anomaly detection
-    │   ├── fraud/         Fraud detection
-    │   ├── attribution/   Campaign attribution
-    │   ├── ml_serving/    ML model serving
-    │   ├── traffic/
-    │   │   ├── routes.py      Automatic traffic source tracking
-    │   │   └── classifier.py  SourceClassifier (domain tables, click IDs)
-    │   └── diagnostics/   Error tracking & circuit breakers
-    ├── shared/
-    │   ├── graph/         Neptune graph client
-    │   ├── events/        Event bus (Kafka/SNS)
-    │   ├── cache/         Redis cache
-    │   ├── diagnostics/   Error registry & circuit breakers
-    │   └── common/        Shared utilities
-    └── main.py            FastAPI application
+ML Models/aether-ml/                   ML training + serving
+  training/        9 model training pipelines
+  serving/         FastAPI inference API (port 8080)
+  features/        Feature engineering pipeline
 
-docs/
-├── ARCHITECTURE.md       System architecture overview
-├── BACKEND-API.md        API endpoint specification
-├── IDENTITY-RESOLUTION.md  Identity resolution deep dive
-├── SDK-WEB.md            Web SDK integration guide
-├── SDK-IOS.md            iOS SDK integration guide
-├── SDK-ANDROID.md        Android SDK integration guide
-├── SDK-REACT-NATIVE.md   React Native SDK integration guide
-├── INTELLIGENCE-GRAPH.md Unified On-Chain Intelligence Graph spec
-├── AGENT-CONTROLLER.md   Agent Layer orchestrator documentation
-├── MODEL-EXTRACTION-DEFENSE.md  ML extraction defense architecture
-├── MIGRATION-v7.md       v6 → v7 migration guide
-└── CHANGELOG.md          Version history
+packages/                              Client SDKs
+  web/             Web SDK (TypeScript)
+  ios/             iOS SDK (Swift)
+  android/         Android SDK (Kotlin)
+  react-native/    React Native SDK
+
+deploy/staging/                        Staging deployment package
+  bootstrap.sh     One-command staging setup
+  docker-compose.staging.yml
+
+scripts/                               Operational scripts
+  generate_secrets.py    Production secret generation
+  validate_infra.py      Infrastructure validation
+  validate_docs.py       Documentation version checks
 ```
 
 ## Documentation
 
 | Document | Description |
 |---|---|
-| [Architecture](docs/ARCHITECTURE.md) | System design, module architecture, event flow |
+| [Architecture](docs/ARCHITECTURE.md) | System design, hybrid architecture, data flow |
 | [Backend API](docs/BACKEND-API.md) | All API endpoints with request/response examples |
-| [Identity Resolution](docs/IDENTITY-RESOLUTION.md) | Cross-device matching algorithms and graph schema |
-| [Web SDK](docs/SDK-WEB.md) | Web integration guide |
-| [iOS SDK](docs/SDK-IOS.md) | iOS integration guide |
-| [Android SDK](docs/SDK-ANDROID.md) | Android integration guide |
-| [React Native SDK](docs/SDK-REACT-NATIVE.md) | React Native integration guide |
-| [Intelligence Graph](docs/INTELLIGENCE-GRAPH.md) | On-chain intelligence graph architecture |
-| [Agent Controller](docs/AGENT-CONTROLLER.md) | Agent Layer orchestrator, task queue, feedback loop |
-| [Model Extraction Defense](docs/MODEL-EXTRACTION-DEFENSE.md) | ML model extraction defense layer architecture |
-| [Migration Guide](docs/MIGRATION-v7.md) | Breaking changes from v6 to v7 |
+| [Intelligence Graph](docs/INTELLIGENCE-GRAPH.md) | Graph layers, edge types, scoring, V1 activation |
+| [Identity Resolution](docs/IDENTITY-RESOLUTION.md) | Cross-device matching algorithms |
+| [ML Training Guide](docs/ML-TRAINING-GUIDE.md) | Model training, artifacts, ingestion readiness |
+| [Production Readiness](docs/PRODUCTION-READINESS.md) | Infrastructure status, deployment prerequisites |
+| [Operations Runbook](docs/OPERATIONS-RUNBOOK.md) | Failure modes, recovery, operational procedures |
+| [Secret Rotation](docs/SECRET-ROTATION.md) | Secret generation and rotation procedures |
+| [Extraction Defense](docs/MODEL-EXTRACTION-DEFENSE.md) | ML model extraction defense architecture |
+| [Provider Matrix](PROVIDER_MATRIX.md) | 24 providers with auth, env vars, health states |
+| [Execution Tracker](EXECUTION_TRACKER.md) | Phase completion status across all workstreams |
 | [Changelog](docs/CHANGELOG.md) | Version history |
+| [Contributing](CONTRIBUTING.md) | Development setup, standards, PR process |
+
+### Subsystem Docs
+
+| Subsystem | Document |
+|-----------|----------|
+| Cache/Redis | [docs/SUBSYSTEM-CACHE.md](docs/SUBSYSTEM-CACHE.md) |
+| Events/Kafka | [docs/SUBSYSTEM-EVENTS.md](docs/SUBSYSTEM-EVENTS.md) |
+| PostgreSQL/Schema | [docs/SUBSYSTEM-DATABASE.md](docs/SUBSYSTEM-DATABASE.md) |
 
 ## License
 

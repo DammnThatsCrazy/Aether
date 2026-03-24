@@ -1,4 +1,4 @@
-# Aether Backend API v8.3.1 — Endpoint Specification
+# Aether Backend API v8.5.0 — Endpoint Specification
 
 ## Overview
 
@@ -560,6 +560,42 @@ All diagnostics endpoints require `admin` permission.
 1. Tenant BYOK key → 2. System default provider → 3. Fallback provider(s) → 4. ServiceUnavailableError
 
 Feature flag: `PROVIDER_GATEWAY_ENABLED=false` (default). Zero impact until activated.
+
+---
+
+### Data Lake Service (v8.5.0)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/lake/ingest` | Ingest provider data into Bronze tier (batch, source-tagged) |
+| POST | `/v1/lake/rollback` | Rollback records by source_tag across specified tiers |
+| GET | `/v1/lake/audit/{domain}/{source_tag}` | Query audit trail for a source_tag |
+| POST | `/v1/lake/materialize` | Write Gold metric/feature/highlight |
+| GET | `/v1/lake/gold/{domain}/{entity_id}` | Query Gold metrics for an entity |
+| GET | `/v1/lake/quality/{domain}` | Run data quality checks on a domain's Bronze tier |
+| GET | `/v1/lake/status` | Record counts per domain per tier |
+
+**Domains:** `market`, `onchain`, `social`, `identity`, `governance`, `tradfi`
+
+**Required fields for ingest:** `domain`, `source`, `source_tag`, `records[]`
+
+**Permissions:** `write` for ingest/materialize, `read` for queries, `admin` for rollback/quality
+
+---
+
+### Intelligence Service (v8.5.0)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/intelligence/wallet/{address}/risk` | Composite wallet risk score (trust scorer + graph + features) |
+| GET | `/v1/intelligence/protocol/{id}/analytics` | Protocol-level analytics from Gold tier |
+| GET | `/v1/intelligence/entity/{id}/cluster` | Identity cluster via graph relationships |
+| GET | `/v1/intelligence/alerts` | Anomaly alerts from Gold tier |
+| GET | `/v1/intelligence/wallet/{address}/profile` | Full wallet intelligence profile |
+
+**Permissions:** `read` for all intelligence endpoints
+
+All intelligence outputs are sourced from persisted lake data, graph relationships, and ML model scoring. No mock or synthetic data is returned.
 
 ---
 

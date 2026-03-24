@@ -1,5 +1,65 @@
 # Changelog
 
+## v8.5.0 — Data Lake, Intelligence API, Provider Expansion (2026-03-24)
+
+### Data Lake (Phase 2)
+- **NEW**: Bronze/Silver/Gold medallion repositories (`repositories/lake.py`)
+- **NEW**: `POST /v1/lake/ingest` — batch ingest with source_tag and idempotency
+- **NEW**: `POST /v1/lake/rollback` — rollback by source_tag across tiers
+- **NEW**: `GET /v1/lake/audit/{domain}/{tag}` — audit trail per source_tag
+- **NEW**: `POST /v1/lake/materialize` — write Gold metrics/features
+- **NEW**: `GET /v1/lake/quality/{domain}` — data quality checks
+- **NEW**: `GET /v1/lake/status` — record counts per domain per tier
+- **NEW**: 6 domain-specific lake instances: market, onchain, social, identity, governance, tradfi
+
+### Feature Materialization (Phase 3)
+- **NEW**: `materialize_wallet_features()` — wallet features from Silver → Gold → Redis
+- **NEW**: `materialize_protocol_features()` — protocol features with same pipeline
+
+### Graph Mutations (Phase 4)
+- **NEW**: Lake-to-graph edge builders: wallet↔protocol, wallet↔social, governance
+- **NEW**: `run_full_graph_build()` — orchestrates all edge builders per entity
+
+### ML Model Registry (Phase 5)
+- **NEW**: `register_model()` — store metadata with artifact path and metrics
+- **NEW**: `promote_model()` — candidate → active (retires previous)
+- **NEW**: `rollback_model()` — reactivate most recent retired version
+- **NEW**: Model versioning lifecycle: candidate → active → retired
+
+### Intelligence API (Phase 6)
+- **NEW**: `GET /v1/intelligence/wallet/{address}/risk` — composite trust score
+- **NEW**: `GET /v1/intelligence/protocol/{id}/analytics` — Gold-tier protocol data
+- **NEW**: `GET /v1/intelligence/entity/{id}/cluster` — graph identity cluster
+- **NEW**: `GET /v1/intelligence/alerts` — anomaly alerts from Gold
+- **NEW**: `GET /v1/intelligence/wallet/{address}/profile` — full wallet profile
+
+### Provider Expansion (Phase 1 continued)
+- **NEW**: 8 additional provider connectors (total: 24 across 11 categories)
+  - DeFiLlama, CoinGecko, Binance, Coinbase (market data)
+  - Polymarket, Kalshi (prediction markets)
+  - Farcaster, Lens Protocol (Web3 social)
+  - ENS, GitHub (identity enrichment)
+  - Snapshot (governance)
+  - Chainalysis, Nansen (on-chain intelligence, contract-gated)
+  - Massive, Databento (TradFi, contract-gated)
+- **NEW**: 7 new `ProviderCategory` enum values
+
+### Deployment
+- **NEW**: `deploy/staging/bootstrap.sh` — one-command staging deployment
+- **NEW**: `deploy/staging/docker-compose.staging.yml` — full staging stack
+- **NEW**: `scripts/generate_secrets.py` — production secret generation
+- **NEW**: `scripts/validate_infra.py` — infrastructure validation
+- **NEW**: Environment gating: ML serving refuses stub models in staging/prod
+- **NEW**: Rewards scoring logs DEGRADED warning in non-local heuristic fallback
+
+### Documentation
+- **NEW**: `REPO_AUDIT.md`, `IMPLEMENTATION_PLAN.md`, `PROVIDER_MATRIX.md`, `EXECUTION_TRACKER.md`
+- **UPDATED**: Root README.md — reflects lake/intelligence/provider architecture
+- **UPDATED**: docs/CHANGELOG.md — Phases 2–7 documented
+- **UPDATED**: docs/PRODUCTION-READINESS.md — truthful infrastructure status
+
+---
+
 ## v8.4.0 — Production Infrastructure + A2H Layer (2026-03-23)
 
 - **NEW**: A2H relationship layer with 4 edge types and event topics

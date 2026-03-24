@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
+## [v8.5.0] — 2026-03-24
+
+### Added
+
+- Data Lake medallion architecture (Bronze/Silver/Gold) with 6 domain repositories
+- 7 new lake API endpoints: ingest, rollback, audit, materialize, quality, status
+- Intelligence API: wallet risk, protocol analytics, identity clusters, anomaly alerts, wallet profiles
+- Feature materialization from Silver → Gold → Redis online serving
+- Lake-to-graph edge builders: wallet↔protocol, wallet↔social, governance
+- Model artifact registry with versioning (candidate → active → retired) and rollback
+- 8 new provider connectors (total: 24 across 11 categories)
+- Staging deployment package with one-command bootstrap
+- Environment gating for ML serving and rewards heuristic fallback
+
+---
+
 ## [v8.4.0] — 2026-03-23
 
 ### Added

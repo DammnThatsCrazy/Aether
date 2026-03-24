@@ -1,8 +1,31 @@
-# Aether SDK v8.3.1 — Architecture Guide
+# Aether v8.5.0 — Architecture Guide
 
 ## Overview
 
-Aether v7.0 adopts a **"Sense and Ship"** thin-client architecture across all platforms (Web, iOS, Android, React Native). The SDK collects raw user interactions, device fingerprints, wallet events, and session data — then ships everything to the Aether backend for processing, enrichment, identity resolution, and analysis.
+Aether is a **hybrid Python/FastAPI + Node/TypeScript** platform with three operational planes:
+
+1. **SDK Plane** — Thin-client SDKs (Web, iOS, Android, React Native) collect raw events, fingerprints, wallet interactions, and session data. SDKs ship raw data to the backend.
+
+2. **Backend Plane** — Python/FastAPI with 24 service routers handling ingestion, identity, analytics, ML inference, graph, rewards, lake management, and intelligence outputs. Infrastructure: PostgreSQL (asyncpg), Redis (redis.asyncio), Neptune (gremlinpython), Kafka (aiokafka), S3, Prometheus.
+
+3. **Data Lake Plane** — Medallion architecture (Bronze/Silver/Gold) for raw data persistence, validation, feature materialization, and intelligence output generation. Lake data feeds ML training, graph mutations, and intelligence APIs.
+
+### Data Flow
+
+```
+Providers (24)  →  /v1/lake/ingest  →  Bronze (raw, immutable)
+SDKs            →  /v1/ingest/*     →       ↓
+                                       Silver (validated, normalized)
+                                            ↓
+                                       Gold (features, metrics)
+                                            ↓
+                              ┌──── Redis (online features)
+                              ├──── Neptune (graph edges)
+                              ├──── ML Training → Model Registry
+                              └──── Intelligence API (risk, analytics, clusters, alerts)
+```
+
+The SDK also collects raw user interactions, device fingerprints, wallet events, and session data — then ships everything to the backend for processing, enrichment, identity resolution, and analysis.
 
 ```
 ┌─────────────────────────────┐        ┌──────────────────────────────────┐
