@@ -447,6 +447,232 @@ class DuneAnalyticsProvider(Provider):
 
 
 # ======================================================================
+# Category 5: Market Data Providers
+# ======================================================================
+
+
+class DeFiLlamaProvider(Provider):
+    """DeFiLlama — free, no auth required. TVL, yields, protocol data."""
+
+    def _base_url(self) -> str:
+        return self.config.endpoint or "https://api.llama.fi"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        path = params.get("path", "protocols")
+        url = f"{self._base_url()}/{path}"
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}))
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            logger.error(f"DeFiLlama error: {e}")
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        try:
+            result = await self.execute("health", {"path": "protocols"})
+            return ProviderStatus.HEALTHY if result.success else ProviderStatus.DEGRADED
+        except Exception:
+            return ProviderStatus.UNAVAILABLE
+
+
+class CoinGeckoProvider(Provider):
+    """CoinGecko — market data, prices, volumes. Free tier + Pro API."""
+
+    def _base_url(self) -> str:
+        if self.config.api_key:
+            return self.config.endpoint or "https://pro-api.coingecko.com/api/v3"
+        return "https://api.coingecko.com/api/v3"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        path = params.get("path", "ping")
+        url = f"{self._base_url()}/{path}"
+        headers = {}
+        if self.config.api_key:
+            headers["x-cg-pro-api-key"] = self.config.api_key
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}), headers=headers)
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        try:
+            result = await self.execute("ping", {"path": "ping"})
+            return ProviderStatus.HEALTHY if result.success else ProviderStatus.DEGRADED
+        except Exception:
+            return ProviderStatus.UNAVAILABLE
+
+
+class BinanceProvider(Provider):
+    """Binance — spot/futures market data, OHLCV, order book."""
+
+    def _base_url(self) -> str:
+        return self.config.endpoint or "https://api.binance.com/api/v3"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        path = params.get("path", "ticker/price")
+        url = f"{self._base_url()}/{path}"
+        headers = {}
+        if self.config.api_key:
+            headers["X-MBX-APIKEY"] = self.config.api_key
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}), headers=headers)
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        if not self.config.api_key:
+            return ProviderStatus.UNAVAILABLE
+        try:
+            result = await self.execute("ping", {"path": "ping"})
+            return ProviderStatus.HEALTHY if result.success else ProviderStatus.DEGRADED
+        except Exception:
+            return ProviderStatus.UNAVAILABLE
+
+
+class CoinbaseProvider(Provider):
+    """Coinbase — market data, exchange rates, product info."""
+
+    def _base_url(self) -> str:
+        return self.config.endpoint or "https://api.coinbase.com/v2"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        path = params.get("path", "exchange-rates")
+        url = f"{self._base_url()}/{path}"
+        headers = {"CB-VERSION": "2024-01-01"}
+        if self.config.api_key:
+            headers["CB-ACCESS-KEY"] = self.config.api_key
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}), headers=headers)
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        try:
+            result = await self.execute("ping", {"path": "exchange-rates"})
+            return ProviderStatus.HEALTHY if result.success else ProviderStatus.DEGRADED
+        except Exception:
+            return ProviderStatus.UNAVAILABLE
+
+
+# ======================================================================
+# Category 6: Prediction Market Providers
+# ======================================================================
+
+
+class PolymarketProvider(Provider):
+    """Polymarket — prediction market data, events, positions."""
+
+    def _base_url(self) -> str:
+        return self.config.endpoint or "https://gamma-api.polymarket.com"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        path = params.get("path", "markets")
+        url = f"{self._base_url()}/{path}"
+        headers = {}
+        if self.config.api_key:
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}), headers=headers)
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        try:
+            result = await self.execute("health", {"path": "markets", "query": {"limit": "1"}})
+            return ProviderStatus.HEALTHY if result.success else ProviderStatus.DEGRADED
+        except Exception:
+            return ProviderStatus.UNAVAILABLE
+
+
+class KalshiProvider(Provider):
+    """Kalshi — regulated prediction market, events and trades."""
+
+    def _base_url(self) -> str:
+        return self.config.endpoint or "https://trading-api.kalshi.com/trade-api/v2"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        if not self.config.api_key:
+            return ProviderResult(success=False, error="Kalshi API key not configured", provider_name=self.name, latency_ms=0.0)
+        path = params.get("path", "events")
+        url = f"{self._base_url()}/{path}"
+        headers = {"Authorization": f"Bearer {self.config.api_key}"}
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}), headers=headers)
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        return ProviderStatus.HEALTHY if self.config.api_key else ProviderStatus.UNAVAILABLE
+
+
+# ======================================================================
+# Category 7: Web3 Social Providers
+# ======================================================================
+
+
+class FarcasterProvider(Provider):
+    """Farcaster — decentralized social protocol via Neynar API."""
+
+    def _base_url(self) -> str:
+        return self.config.endpoint or "https://api.neynar.com/v2/farcaster"
+
+    async def execute(self, method: str, params: dict[str, Any]) -> ProviderResult:
+        start = time.perf_counter()
+        if not self.config.api_key:
+            return ProviderResult(success=False, error="Farcaster/Neynar API key not configured", provider_name=self.name, latency_ms=0.0)
+        path = params.get("path", "feed")
+        url = f"{self._base_url()}/{path}"
+        headers = {"accept": "application/json", "api_key": self.config.api_key}
+        self._request_count += 1
+        try:
+            result = await _http_get_json(url, params=params.get("query", {}), headers=headers)
+            elapsed = (time.perf_counter() - start) * 1000
+            metrics.increment("provider_request", labels={"provider": self.name, "method": method, "status": "success"})
+            return ProviderResult(success=True, data=result, provider_name=self.name, latency_ms=elapsed)
+        except Exception as e:
+            elapsed = (time.perf_counter() - start) * 1000
+            return ProviderResult(success=False, error=str(e), provider_name=self.name, latency_ms=elapsed)
+
+    async def health_check(self) -> ProviderStatus:
+        return ProviderStatus.HEALTHY if self.config.api_key else ProviderStatus.UNAVAILABLE
+
+
+# ======================================================================
 # FACTORY: name -> Provider class mapping
 # ======================================================================
 
@@ -464,11 +690,21 @@ PROVIDER_FACTORY: dict[str, type[Provider]] = {
     "reddit": RedditProvider,
     # Analytics
     "dune": DuneAnalyticsProvider,
+    # Market Data
+    "defillama": DeFiLlamaProvider,
+    "coingecko": CoinGeckoProvider,
+    "binance": BinanceProvider,
+    "coinbase": CoinbaseProvider,
+    # Prediction Markets
+    "polymarket": PolymarketProvider,
+    "kalshi": KalshiProvider,
+    # Web3 Social
+    "farcaster": FarcasterProvider,
 }
 
 CATEGORY_PROVIDERS: dict[ProviderCategory, list[str]] = {
     ProviderCategory.BLOCKCHAIN_RPC: ["quicknode", "alchemy", "infura", "custom_rpc"],
     ProviderCategory.BLOCK_EXPLORER: ["etherscan", "moralis"],
-    ProviderCategory.SOCIAL_API: ["twitter", "reddit"],
-    ProviderCategory.ANALYTICS_DATA: ["dune"],
+    ProviderCategory.SOCIAL_API: ["twitter", "reddit", "farcaster"],
+    ProviderCategory.ANALYTICS_DATA: ["dune", "defillama", "coingecko", "binance", "coinbase", "polymarket", "kalshi"],
 }
