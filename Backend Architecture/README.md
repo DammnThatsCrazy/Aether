@@ -2,7 +2,7 @@
 
 **FastAPI microservices backend for the Aether platform.**
 
-Aether Backend is a unified API gateway that mounts 29 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, multi-chain automation, diagnostics, BYOK provider gateway with automatic failover, profile 360 intelligence, population omniview, expectation engine, behavioral continuity & friction analysis, RWA intelligence graph, and multi-tenant administration -- all behind a single versioned API surface with 184 endpoints.
+Aether Backend is a unified API gateway that mounts 31 domain-specific microservices onto a single FastAPI application. It provides real-time data ingestion, identity resolution, analytics, ML model serving, autonomous agent orchestration, campaign management, consent/DSR compliance, notifications, traffic source tracking, fraud detection, multi-touch attribution, automated reward distribution with oracle-signed proofs, multi-chain automation, diagnostics, BYOK provider gateway with automatic failover, profile 360 intelligence, population omniview, expectation engine, behavioral continuity & friction analysis, RWA intelligence graph, Web3 coverage (registry-first chain/protocol/app/domain intelligence), cross-domain TradFi/Web2 graph (accounts, instruments, trades, compliance), and multi-tenant administration -- all behind a single versioned API surface with 246 endpoints.
 
 ---
 
@@ -59,7 +59,7 @@ Aether Backend is a unified API gateway that mounts 29 domain-specific microserv
                  |  CORS -> Auth -> Rate Limit -> Body Size -> Log |
                  +------------------------+------------------------+
                                           |
-          29 Service Routers (184 endpoints)
+          31 Service Routers (246 endpoints)
     +-----+-----+------+------+-----+------+------+------+
     |     |     |      |      |     |      |      |      |
   +-v--+ +v--+ +v---+ +v---+ +v--+ +v---+ +v---+ +v---+ |
@@ -96,7 +96,7 @@ Aether Backend is a unified API gateway that mounts 29 domain-specific microserv
 
 **Key architectural decisions:**
 
-- **Single process, multiple routers** -- all 29 services are mounted as FastAPI `APIRouter` instances, sharing a single event loop and connection pool for reduced operational overhead.
+- **Single process, multiple routers** -- all 31 services are mounted as FastAPI `APIRouter` instances, sharing a single event loop and connection pool for reduced operational overhead.
 - **Dependency injection with lifecycle management** -- a `ResourceRegistry` singleton owns all shared resources (cache, graph, event bus, auth handlers). It is initialized at startup and torn down at shutdown via FastAPI's lifespan protocol.
 - **Repository pattern** -- data access is abstracted behind repository classes that separate query logic from business logic, with built-in caching, graph operations, and write-ahead logging hooks.
 - **12-Factor configuration** -- all settings are sourced from environment variables with sensible defaults (`config/settings.py`).

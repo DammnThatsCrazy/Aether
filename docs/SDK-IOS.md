@@ -1,4 +1,4 @@
-# Aether iOS SDK v8.6.0 — Integration Guide
+# Aether iOS SDK v8.7.0 — Integration Guide
 
 ## Installation
 

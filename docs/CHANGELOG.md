@@ -1,5 +1,43 @@
 # Changelog
 
+## v8.7.0 — Cross-Domain Intelligence, Web3 Coverage, Privacy Control Plane (2026-03-25)
+
+### Web3 Coverage Service (NEW)
+- **NEW**: Registry-first Web3 intelligence system — 31 chains, 40+ protocols, 24 apps, 16 tokens
+- 18 new graph vertex types (Chain, Token, App, FrontendDomain, GovernanceSpace, etc.)
+- 27 new graph edge types (USES_PROTOCOL, TOUCHES_DOMAIN, HOLDS_TOKEN, MIGRATED_TO, etc.)
+- Classification engine: 40+ EVM method selectors → canonical actions, contract/domain attribution
+- Protocol migration detection and tracking
+- 29 endpoints: chain/protocol/contract/token/app/domain CRUD, classification, observations, coverage
+
+### Cross-Domain TradFi/Web2 Intelligence Service (NEW)
+- **NEW**: Unified business, TradFi, and Web intelligence graph
+- 10 entity types, 13 ownership roles, 16 institution types
+- Full trade lifecycle: 16 account types, 16 instrument types, orders, executions, positions, balances
+- 30+ business event types (quote lookup, watchlist, order ticket, KYC step, etc.)
+- 15 compliance action types with cross-domain identity fusion
+- 16 new graph vertex types (Institution, FinancialAccount, Instrument, Order, etc.)
+- 30+ new graph edge types (OWNS_ACCOUNT, HOLDS_POSITION, TOKENIZED_AS, OVERLAPS_WITH, etc.)
+- 34 endpoints: institutions, accounts, instruments, trades, compliance, events, links, fusion
+
+### Privacy, Policy, and Hardening Control Plane (NEW)
+- **NEW**: 7-tier data classification (PUBLIC → HIGHLY_SENSITIVE) with 40+ field mappings
+- RBAC (7 roles) + ABAC + purpose-based access control (7 purposes)
+- Field-level masking (6 access levels: FULL, MASKED, METADATA_ONLY, DENIED, etc.)
+- Graph traversal policy: inferred edges restricted by confidence + role
+- ML training eligibility: 5 states (eligible, excluded, consent_required, anonymized_only, aggregate_only)
+- DSAR workflow: 6 GDPR rights with SLA tracking and cascading deletion
+- 8 deletion behaviors (hard_delete, pseudonymize, tombstone, edge_sever, key_destroy, immutable)
+- Log redaction: PII stripping for all log payloads
+- PolicyMetadata attachable to any graph object, edge, feature, or export
+
+### Platform Summary
+- **31 services**, **246 endpoints**, **24 provider connectors**
+- **52 graph vertex types**, **90+ graph edge types**
+- Tests: 106 passed, 0 regressions
+
+---
+
 ## v8.6.0 — Intelligence Platform Completion (2026-03-25)
 
 ### Profile 360

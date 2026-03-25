@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
+## [v8.7.0] — 2026-03-25
+
+### Added
+- **Web3 Coverage Service**: Registry-first intelligence with 31 chains, 40+ protocols, 24 apps, classification engine, migration tracking (29 endpoints)
+- **Cross-Domain TradFi/Web2 Service**: Unified business/financial graph with accounts, instruments, trades, compliance, identity fusion (34 endpoints)
+- **Privacy Control Plane**: 7-tier data classification, RBAC+ABAC+purpose access control, field-level masking, DSAR workflows, ML training eligibility, log redaction
+- 18+16 new graph vertex types (52 total), 27+30 new edge types (90+ total)
+
+### Changed
+- Platform: 31 services, 246 endpoints (up from 29/184 in v8.6.0)
+
+---
+
 ## [v8.6.0] — 2026-03-25
 
 ### Added

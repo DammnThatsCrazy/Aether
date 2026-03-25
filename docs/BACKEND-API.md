@@ -1,4 +1,4 @@
-# Aether Backend API v8.6.0 — Endpoint Specification
+# Aether Backend API v8.7.0 — Endpoint Specification
 
 ## Overview
 
@@ -801,6 +801,81 @@ Registry-first Web3 intelligence system with canonical chain/protocol/app/domain
 | `GET` | `/v1/web3/coverage/status` | Aggregated coverage status across all registries |
 | `GET` | `/v1/web3/coverage/health` | Quick health check (seeded/unseeded) |
 | `POST` | `/v1/web3/seed` | Seed registries with initial data (admin) |
+
+---
+
+### Cross-Domain TradFi/Web2 Intelligence Service (v8.7.0)
+
+Unified cross-domain business, TradFi, and Web intelligence graph with financial accounts, instruments, trade lifecycle, compliance, and identity fusion.
+
+**Institutions**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/crossdomain/institutions` | Register an institution |
+| `GET` | `/v1/crossdomain/institutions` | List institutions (filter: `institution_type`, search: `q`) |
+| `GET` | `/v1/crossdomain/institutions/{institution_id}` | Get institution details |
+
+**Accounts**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/crossdomain/accounts` | Register a financial account |
+| `GET` | `/v1/crossdomain/accounts` | List accounts (filter: `owner`, `institution`, `account_type`) |
+| `GET` | `/v1/crossdomain/accounts/{account_id}` | Get account details |
+| `GET` | `/v1/crossdomain/accounts/{account_id}/positions` | List account positions |
+
+**Instruments**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/crossdomain/instruments` | Register a market instrument |
+| `GET` | `/v1/crossdomain/instruments` | List instruments (filter: `instrument_type`, `issuer`, search: `q`) |
+| `GET` | `/v1/crossdomain/instruments/{instrument_id}` | Get instrument details |
+| `GET` | `/v1/crossdomain/instruments/symbol/{symbol}` | Get instrument by ticker symbol |
+
+**Positions / Orders / Executions / Balances / Cash**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/crossdomain/positions` | Record a position snapshot |
+| `GET` | `/v1/crossdomain/positions/instrument/{instrument_id}` | List positions by instrument |
+| `POST` | `/v1/crossdomain/orders` | Record a trade order |
+| `GET` | `/v1/crossdomain/orders/{account_id}` | List orders by account |
+| `POST` | `/v1/crossdomain/executions` | Record a trade execution |
+| `GET` | `/v1/crossdomain/executions/order/{order_id}` | List executions by order |
+| `GET` | `/v1/crossdomain/executions/account/{account_id}` | List executions by account |
+| `POST` | `/v1/crossdomain/balances` | Record a balance snapshot |
+| `GET` | `/v1/crossdomain/balances/{account_id}/latest` | Get latest balance |
+| `POST` | `/v1/crossdomain/cash-movements` | Record a cash movement |
+| `GET` | `/v1/crossdomain/cash-movements/{account_id}` | List cash movements |
+
+**Compliance / Business Events**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/crossdomain/compliance/actions` | Record a compliance action |
+| `GET` | `/v1/crossdomain/compliance/actions/{entity_id}` | List compliance actions for entity |
+| `POST` | `/v1/crossdomain/events` | Record a business application event |
+| `GET` | `/v1/crossdomain/events/entity/{entity_id}` | List events by entity |
+| `GET` | `/v1/crossdomain/events/instrument/{instrument_id}` | List events by instrument |
+
+**Cross-Domain Identity Links**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/crossdomain/links` | Create a cross-domain identity link |
+| `GET` | `/v1/crossdomain/links/{entity_id}` | List identity links for entity |
+| `GET` | `/v1/crossdomain/links/high-confidence` | List high-confidence cross-domain links |
+
+**Fusion / Intelligence**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/crossdomain/fusion/exposure/{entity_id}` | Cross-domain exposure graph |
+| `GET` | `/v1/crossdomain/fusion/profile/{entity_id}` | Unified cross-domain profile |
+| `GET` | `/v1/crossdomain/coverage/status` | Coverage status across registries |
+| `GET` | `/v1/crossdomain/coverage/health` | Quick health check |
 
 ---
 
