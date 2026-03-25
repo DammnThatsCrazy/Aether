@@ -1,6 +1,6 @@
 # Aether Provider Matrix
 
-## Implemented Providers (16 total)
+## Implemented Providers (24 total)
 
 | Provider | Category | Auth Mode | Env Var | Base URL | Rate Limit | Status |
 |----------|----------|-----------|---------|----------|-----------|--------|
@@ -20,19 +20,14 @@
 | **Polymarket** | Prediction Mkt | Bearer (optional) | `POLYMARKET_API_KEY` | `gamma-api.polymarket.com` | Rate limited | ✅ Implemented |
 | **Kalshi** | Prediction Mkt | Bearer | `KALSHI_API_KEY` | `trading-api.kalshi.com` | Rate limited | ✅ Implemented |
 | **Farcaster** | Web3 Social | Header | `FARCASTER_API_KEY` | `api.neynar.com/v2/farcaster` | Varies by plan | ✅ Implemented |
-
-## Planned Providers (Not Yet Implemented)
-
-| Provider | Category | Priority | Blocked By |
-|----------|----------|----------|-----------|
-| Lens Protocol | Web3 Social | P2 | Implementation needed |
-| GitHub | Developer | P2 | Implementation needed |
-| Chainalysis | On-chain Intel | P3 | Contract + implementation |
-| Nansen | On-chain Intel | P3 | Contract + implementation |
-| Massive | TradFi | P3 | Contract + implementation |
-| Databento | TradFi | P3 | Contract + implementation |
-| Snapshot | Governance | P3 | Implementation needed |
-| The Graph | Indexing | P3 | Implementation needed |
+| **Lens Protocol** | Web3 Social | Header | `LENS_API_KEY` | `api.lens.dev` | Rate limited | ✅ Implemented |
+| **ENS** | Identity Enrichment | None (public) | — | `api.ensideas.com` | Rate limited | ✅ Implemented |
+| **GitHub** | Developer | Bearer token | `GITHUB_API_TOKEN` | `api.github.com` | 5K req/hr | ✅ Implemented |
+| **Snapshot** | Governance | None (public) | — | `hub.snapshot.org/graphql` | Rate limited | ✅ Implemented |
+| **Chainalysis** | On-chain Intel | Header | `CHAINALYSIS_API_KEY` | `api.chainalysis.com/v1` | Contract-gated | ✅ Implemented |
+| **Nansen** | On-chain Intel | Header | `NANSEN_API_KEY` | `api.nansen.ai/v1` | Contract-gated | ✅ Implemented |
+| **Massive** | TradFi Data | Header | `MASSIVE_API_KEY` | `api.massive.io/v1` | Contract-gated | ✅ Implemented |
+| **Databento** | TradFi Data | Header | `DATABENTO_API_KEY` | `hist.databento.com/v0` | Contract-gated | ✅ Implemented |
 
 ## Provider Health States
 

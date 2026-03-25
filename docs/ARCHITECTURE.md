@@ -6,7 +6,7 @@ Aether is a **hybrid Python/FastAPI + Node/TypeScript** platform with three oper
 
 1. **SDK Plane** — Thin-client SDKs (Web, iOS, Android, React Native) collect raw events, fingerprints, wallet interactions, and session data. SDKs ship raw data to the backend.
 
-2. **Backend Plane** — Python/FastAPI with 24 service routers handling ingestion, identity, analytics, ML inference, graph, rewards, lake management, and intelligence outputs. Infrastructure: PostgreSQL (asyncpg), Redis (redis.asyncio), Neptune (gremlinpython), Kafka (aiokafka), S3, Prometheus.
+2. **Backend Plane** — Python/FastAPI with 29 service routers handling ingestion, identity, analytics, ML inference, graph, rewards, lake management, profile intelligence, population omniview, expectation engine, behavioral continuity, RWA intelligence, and intelligence outputs. Infrastructure: PostgreSQL (asyncpg), Redis (redis.asyncio), Neptune (gremlinpython), Kafka (aiokafka), S3, Prometheus.
 
 3. **Data Lake Plane** — Medallion architecture (Bronze/Silver/Gold) for raw data persistence, validation, feature materialization, and intelligence output generation. Lake data feeds ML training, graph mutations, and intelligence APIs.
 

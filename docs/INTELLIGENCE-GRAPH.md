@@ -63,7 +63,7 @@ Graph can be rebuilt from lake state or incrementally updated.
 | **L3a** | Commerce | Payment tracking, agent hiring, fee analysis | Payment records, hire events, fee elimination reports |
 | **L3b** | x402 Interceptor | HTTP 402-based micropayment capture | Payment headers, economic graph edges, per-call cost tracking |
 | **L4** | ML Intelligence | Scoring and anomaly detection | 9 existing models + Trust Score composite + Bytecode Risk scorer |
-| **L5** | Unified Graph | Cross-layer relationship store | 6 node types, 19 edge types, in-memory stub (Neptune integration pending) |
+| **L5** | Unified Graph | Cross-layer relationship store | 18+ vertex types, 48+ edge types, Neptune (gremlinpython) with in-memory fallback for local dev |
 
 ## Relationship Layers
 

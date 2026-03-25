@@ -2,7 +2,7 @@
 
 Operations guide for the Aether backend services.
 
-> **Infrastructure status:** The application logic, API contracts, and error handling described in this runbook are fully implemented. However, the data persistence layer (graph, events, cache, repositories) currently uses **in-memory stubs**. The failure behaviors described below are accurate for the application layer, but data will not survive process restarts until real infrastructure (Neptune, Kafka, Redis, PostgreSQL) is connected. See `PRODUCTION-READINESS.md` for the full infrastructure integration checklist.
+> **Infrastructure status:** All infrastructure backends are production-implemented: PostgreSQL (asyncpg) for repositories, Redis (redis.asyncio) for cache and rate limiting, Neptune (gremlinpython) for graph, Kafka (aiokafka) for events, Prometheus for metrics. In local development (`AETHER_ENV=local`), the system falls back to in-memory backends automatically. In staging/production, real backends are required — missing connections produce a `RuntimeError` at startup (fail-closed). See `PRODUCTION-READINESS.md` for the full deployment checklist.
 
 ---
 
@@ -117,13 +117,14 @@ Operations guide for the Aether backend services.
 
 ## Concurrency Safety
 
-All in-memory stores use `threading.Lock` for thread-safe access:
+All data access goes through `BaseRepository` (asyncpg PostgreSQL) which provides connection pooling and transactional safety. In-memory fallbacks are only used in `AETHER_ENV=local` for development:
 
-| Store | Lock | Service |
-|-------|------|---------|
-| `_touchpoint_store` | `_touchpoint_lock` | Campaign |
-| `_export_jobs` | `_export_lock` | Analytics |
-| `_task_store` + `_audit_store` | `_task_lock` | Agent |
-| `_http_client` | `_client_lock` | ML Serving |
+| Layer | Backend | Concurrency Model |
+|-------|---------|-------------------|
+| Repositories | PostgreSQL (asyncpg pool) | Connection pool with async I/O |
+| Cache | Redis (redis.asyncio) | Atomic INCR/EXPIRE for rate limiting |
+| Graph | Neptune (gremlinpython) | Connection per query |
+| Events | Kafka (aiokafka) | Producer/Consumer with async I/O |
+| ML Serving Proxy | `httpx.AsyncClient` | Connection pooling with `_client_lock` |
 
-Production note: Replace in-memory stores with Redis/TimescaleDB for horizontal scaling.
+All stores support horizontal scaling natively through their backend implementations.

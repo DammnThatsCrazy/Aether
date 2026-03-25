@@ -12,7 +12,7 @@ android {
         minSdk = 21
         targetSdk = 34
 
-        buildConfigField("String", "AETHER_SDK_VERSION", "\"4.0.0\"")
+        buildConfigField("String", "AETHER_SDK_VERSION", "\"8.6.0\"")
 
         consumerProguardFiles("consumer-rules.pro")
     }

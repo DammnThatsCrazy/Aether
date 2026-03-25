@@ -153,16 +153,34 @@ def update_ios_version(new_version: str) -> None:
 
 
 def update_android_version(new_version: str) -> None:
-    """Update version in build.gradle.kts."""
+    """Update version in build.gradle.kts (both Maven publish and buildConfigField)."""
     path = ANDROID_BUILD_GRADLE
     if not path.exists():
         print(f"  SKIP (not found): {path.relative_to(ROOT)}")
         return
     text = path.read_text()
+    changes = 0
+
+    # Update Maven publication version: version = "X.Y.Z"
     updated = re.sub(r'version\s*=\s*"[^"]+"', f'version = "{new_version}"', text, count=1)
     if updated != text:
-        path.write_text(updated)
-        print(f"  Updated: {path.relative_to(ROOT)} -> {new_version}")
+        changes += 1
+        text = updated
+
+    # Update buildConfigField version: AETHER_SDK_VERSION
+    updated = re.sub(
+        r'buildConfigField\("String",\s*"AETHER_SDK_VERSION",\s*"\\"[^"]*\\""\)',
+        f'buildConfigField("String", "AETHER_SDK_VERSION", "\\"{new_version}\\"")',
+        text,
+        count=1,
+    )
+    if updated != text:
+        changes += 1
+        text = updated
+
+    if changes > 0:
+        path.write_text(text)
+        print(f"  Updated: {path.relative_to(ROOT)} -> {new_version} ({changes} locations)")
     else:
         print(f"  SKIP (no version found): {path.relative_to(ROOT)}")
 
