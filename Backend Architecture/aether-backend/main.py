@@ -141,6 +141,7 @@ from services.profile.routes import router as profile_router
 from services.population.routes import router as population_router
 from services.expectations.routes import router as expectations_router
 from services.behavioral.routes import router as behavioral_router
+from services.rwa.routes import router as rwa_router
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -238,6 +239,7 @@ def create_app() -> FastAPI:
     app.include_router(population_router)
     app.include_router(expectations_router)
     app.include_router(behavioral_router)
+    app.include_router(rwa_router)
 
     # ── Intelligence Graph services (feature-flagged) ───────────
     ig = settings.intelligence_graph
