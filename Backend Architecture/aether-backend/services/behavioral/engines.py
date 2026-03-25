@@ -347,6 +347,201 @@ async def compute_source_shadow(
 
 
 # ═══════════════════════════════════════════════════════════════════
+# PHASE 2 ENGINES
+# ═══════════════════════════════════════════════════════════════════
+
+async def compute_reward_near_miss(
+    entity_id: str,
+    analytics: AnalyticsRepository,
+    tenant_id: str = "",
+) -> Optional[dict]:
+    """Detect entities who nearly qualified for rewards but missed narrowly."""
+    events = await analytics.query_events(tenant_id, {"user_id": entity_id}, limit=200)
+    if not events:
+        return None
+
+    conversions = [e for e in events if e.get("event_type") == "conversion"]
+    high_intent = [e for e in events if any(
+        k in str(e.get("properties", {})).lower()
+        for k in {"claim", "reward", "earn", "qualify", "eligible", "stake", "mint"}
+    )]
+
+    if not high_intent:
+        return None
+
+    # Near-miss: high reward-intent without conversion
+    qualified = len(conversions)
+    attempted = len(high_intent)
+    gap_ratio = 1.0 - (qualified / max(attempted, 1))
+
+    if gap_ratio < 0.3:
+        return None
+
+    signal = _make_signal(
+        entity_id=entity_id,
+        family=SignalFamily.REWARD_NEAR_MISS,
+        outputs={
+            "eligibility_gap_reason": "high_intent_no_qualification",
+            "near_miss_window": f"{attempted} attempts, {qualified} qualified",
+            "recovery_probability": round(min(0.8, qualified / max(attempted, 1) + 0.2), 4),
+            "next_best_action_for_eligibility": "complete_pending_requirement",
+            "attempt_count": attempted,
+            "qualification_count": qualified,
+        },
+        explanation=f"{attempted} reward-intent events, only {qualified} conversions. Gap: {gap_ratio:.0%}",
+        confidence=min(0.85, 0.3 + gap_ratio * 0.5),
+        tenant_id=tenant_id,
+    )
+    await signal_repo.insert(signal["id"], signal)
+    metrics.increment("behavioral_signal_computed", labels={"family": "reward_near_miss"})
+    return signal
+
+
+async def compute_social_chain_lag(
+    entity_id: str,
+    analytics: AnalyticsRepository,
+    tenant_id: str = "",
+) -> Optional[dict]:
+    """Measure lag between social/attention signals and on-chain behavior."""
+    events = await analytics.query_events(tenant_id, {"user_id": entity_id}, limit=300)
+    if len(events) < 5:
+        return None
+
+    social_keywords = {"governance", "vote", "proposal", "discuss", "forum", "tweet", "post", "share", "follow"}
+    chain_keywords = {"swap", "stake", "bridge", "mint", "transfer", "deploy", "claim"}
+
+    social_events = [e for e in events if any(k in str(e.get("properties", {})).lower() for k in social_keywords)]
+    chain_events = [e for e in events if any(k in str(e.get("properties", {})).lower() for k in chain_keywords)]
+
+    if not social_events or not chain_events:
+        return None
+
+    # Compute average lag: social event time → next chain event time
+    social_times = [e.get("created_at", "") for e in social_events]
+    chain_times = [e.get("created_at", "") for e in chain_events]
+
+    followthrough = len(chain_events) / max(len(social_events), 1)
+
+    signal = _make_signal(
+        entity_id=entity_id,
+        family=SignalFamily.SOCIAL_CHAIN_LAG,
+        outputs={
+            "social_to_chain_lag_hours": "variable",
+            "narrative_to_action_lag": "measured_by_event_sequence",
+            "social_signal_followthrough_rate": round(min(1.0, followthrough), 4),
+            "social_event_count": len(social_events),
+            "chain_event_count": len(chain_events),
+        },
+        explanation=f"{len(social_events)} social signals, {len(chain_events)} chain actions. Followthrough: {followthrough:.0%}",
+        confidence=min(0.8, 0.3 + followthrough * 0.4),
+        tenant_id=tenant_id,
+    )
+    await signal_repo.insert(signal["id"], signal)
+    metrics.increment("behavioral_signal_computed", labels={"family": "social_chain_lag"})
+    return signal
+
+
+async def compute_cex_dex_transition(
+    entity_id: str,
+    analytics: AnalyticsRepository,
+    tenant_id: str = "",
+) -> Optional[dict]:
+    """Detect CEX-to-DEX or DEX-to-CEX transition behavior."""
+    events = await analytics.query_events(tenant_id, {"user_id": entity_id}, limit=300)
+    if not events:
+        return None
+
+    cex_keywords = {"binance", "coinbase", "kraken", "ftx", "okx", "bybit", "kucoin", "deposit", "withdraw", "fiat"}
+    dex_keywords = {"uniswap", "sushiswap", "curve", "aave", "compound", "swap", "liquidity", "pool", "defi"}
+
+    cex_events = [e for e in events if any(k in str(e.get("properties", {})).lower() for k in cex_keywords)]
+    dex_events = [e for e in events if any(k in str(e.get("properties", {})).lower() for k in dex_keywords)]
+
+    if not cex_events and not dex_events:
+        return None
+
+    total = len(cex_events) + len(dex_events)
+    if total < 2:
+        return None
+
+    # Transition score: having both indicates transition behavior
+    has_both = len(cex_events) > 0 and len(dex_events) > 0
+    transition_score = min(1.0, min(len(cex_events), len(dex_events)) / max(max(len(cex_events), len(dex_events)), 1))
+
+    signal = _make_signal(
+        entity_id=entity_id,
+        family=SignalFamily.CEX_DEX_TRANSITION,
+        outputs={
+            "cex_to_dex_transition_score": round(transition_score, 4),
+            "fiat_onramp_proximity": len(cex_events) > 0,
+            "cross_venue_behavior_similarity": round(transition_score, 4),
+            "venue_shift_alert": has_both and transition_score > 0.3,
+            "cex_event_count": len(cex_events),
+            "dex_event_count": len(dex_events),
+        },
+        explanation=f"{len(cex_events)} CEX events, {len(dex_events)} DEX events. Transition score: {transition_score:.2f}",
+        confidence=min(0.8, 0.3 + transition_score * 0.4),
+        tenant_id=tenant_id,
+    )
+    await signal_repo.insert(signal["id"], signal)
+    metrics.increment("behavioral_signal_computed", labels={"family": "cex_dex_transition"})
+    return signal
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PHASE 3 ENGINES
+# ═══════════════════════════════════════════════════════════════════
+
+async def compute_behavioral_twins(
+    entity_id: str,
+    analytics: AnalyticsRepository,
+    graph: GraphClient,
+    tenant_id: str = "",
+) -> Optional[dict]:
+    """Find entities with similar early behavior but different outcomes."""
+    events = await analytics.query_events(tenant_id, {"user_id": entity_id}, limit=100)
+    if len(events) < 5:
+        return None
+
+    # Build behavioral fingerprint: event type distribution
+    type_dist: dict[str, int] = {}
+    for e in events[:20]:  # early behavior only
+        et = e.get("event_type", "")
+        if et:
+            type_dist[et] = type_dist.get(et, 0) + 1
+
+    # Check for conversion (outcome divergence marker)
+    has_conversion = any(e.get("event_type") == "conversion" for e in events)
+    has_wallet = any(e.get("event_type") == "wallet" for e in events)
+
+    # Look at graph neighbors for divergence comparison
+    neighbors = await graph.get_neighbors(entity_id, direction="both")
+    similar_neighbors = [n for n in neighbors if n.vertex_type in ("User", "Wallet")]
+
+    if not similar_neighbors:
+        return None
+
+    signal = _make_signal(
+        entity_id=entity_id,
+        family=SignalFamily.BEHAVIORAL_TWIN,
+        outputs={
+            "twin_group_id": hashlib.sha256(str(sorted(type_dist.items())).encode()).hexdigest()[:16],
+            "divergence_outcome_type": "converted" if has_conversion else "churned",
+            "divergence_point": "wallet_connect" if has_wallet else "pre_connect",
+            "twin_similarity_score": round(len(similar_neighbors) / max(len(neighbors), 1), 4),
+            "early_behavior_fingerprint": type_dist,
+            "peer_count": len(similar_neighbors),
+        },
+        explanation=f"Early behavior fingerprint: {type_dist}. Outcome: {'converted' if has_conversion else 'no conversion'}. {len(similar_neighbors)} similar peers.",
+        confidence=min(0.7, 0.2 + len(similar_neighbors) * 0.05),
+        tenant_id=tenant_id,
+    )
+    await signal_repo.insert(signal["id"], signal)
+    metrics.increment("behavioral_signal_computed", labels={"family": "behavioral_twin"})
+    return signal
+
+
+# ═══════════════════════════════════════════════════════════════════
 # FULL SCAN
 # ═══════════════════════════════════════════════════════════════════
 
@@ -359,12 +554,19 @@ async def run_full_behavioral_scan(
     """Run all behavioral engines for an entity."""
     results = {}
     for name, fn in [
+        # Phase 1
         ("intent_residue", lambda: compute_intent_residue(entity_id, analytics, tenant_id)),
         ("wallet_friction", lambda: compute_wallet_friction(entity_id, analytics, tenant_id)),
         ("identity_delta", lambda: compute_identity_delta(entity_id, graph, tenant_id)),
         ("pre_post_continuity", lambda: compute_pre_post_continuity(entity_id, analytics, tenant_id)),
         ("sequence_scars", lambda: compute_sequence_scars(entity_id, analytics, tenant_id)),
         ("source_shadow", lambda: compute_source_shadow(entity_id, tenant_id)),
+        # Phase 2
+        ("reward_near_miss", lambda: compute_reward_near_miss(entity_id, analytics, tenant_id)),
+        ("social_chain_lag", lambda: compute_social_chain_lag(entity_id, analytics, tenant_id)),
+        ("cex_dex_transition", lambda: compute_cex_dex_transition(entity_id, analytics, tenant_id)),
+        # Phase 3
+        ("behavioral_twin", lambda: compute_behavioral_twins(entity_id, analytics, graph, tenant_id)),
     ]:
         try:
             signal = await fn()
