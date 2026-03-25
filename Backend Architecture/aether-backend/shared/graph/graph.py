@@ -86,6 +86,24 @@ class VertexType:
     PROTOCOL_VERSION = "ProtocolVersion"
     UNKNOWN_CONTRACT = "UnknownContract"
 
+    # Cross-Domain — TradFi / Business / Web2 graph objects
+    INSTITUTION = "Institution"
+    FINANCIAL_ACCOUNT = "FinancialAccount"
+    INSTRUMENT = "Instrument"
+    ORDER = "Order"
+    EXECUTION = "Execution"
+    POSITION = "Position"
+    BALANCE_SNAPSHOT = "BalanceSnapshot"
+    CASH_MOVEMENT = "CashMovement"
+    COMPLIANCE_ACTION = "ComplianceAction"
+    BUSINESS_EVENT = "BusinessEvent"
+    HOUSEHOLD = "Household"
+    LEGAL_ENTITY = "LegalEntity"
+    FUND_ENTITY = "FundEntity"
+    DESK = "Desk"
+    SECTOR = "Sector"
+    CORPORATE_ACTION = "CorporateAction"
+
 
 class EdgeType:
     HAS_SESSION = "HAS_SESSION"
@@ -169,6 +187,53 @@ class EdgeType:
 
     # ── Web3 Coverage — Classification edges ───────────────────────────
     LATER_CLASSIFIED_AS = "LATER_CLASSIFIED_AS"  # UnknownContract → Protocol/ContractSystem
+
+    # ── Cross-Domain — Entity ↔ Account edges ─────────────────────────
+    OWNS_ACCOUNT = "OWNS_ACCOUNT"             # Entity → FinancialAccount (with OwnershipRole)
+    BENEFICIAL_OF = "BENEFICIAL_OF"           # Entity → FinancialAccount
+    AUTHORIZED_ON = "AUTHORIZED_ON"           # Entity → FinancialAccount
+    ADVISES = "ADVISES"                       # Entity → Entity (advisor/broker relationship)
+    PARENT_OF = "PARENT_OF"                   # LegalEntity → LegalEntity (corporate hierarchy)
+    MEMBER_OF_HOUSEHOLD = "MEMBER_OF_HOUSEHOLD"  # Entity → Household
+
+    # ── Cross-Domain — Account ↔ Instrument edges ─────────────────────
+    HOLDS_POSITION = "HOLDS_POSITION"         # Account → Instrument (position)
+    PLACED_ORDER = "PLACED_ORDER"             # Account → Order
+    ORDER_FOR = "ORDER_FOR"                   # Order → Instrument
+    EXECUTED_AS = "EXECUTED_AS"               # Order → Execution
+    TRADED_AT_VENUE = "TRADED_AT_VENUE"       # Execution → MarketVenue
+    CASH_FLOW = "CASH_FLOW"                   # Account → Account (cash movement)
+    FUNDED_BY = "FUNDED_BY"                   # Account → Account (funding source)
+
+    # ── Cross-Domain — Institution/Business edges ──────────────────────
+    SERVICES_ACCOUNT = "SERVICES_ACCOUNT"     # Institution → FinancialAccount
+    ISSUES = "ISSUES"                         # Institution/Issuer → Instrument
+    CUSTODIES = "CUSTODIES"                   # Institution → FinancialAccount/Holdings
+    MARKETS_TO = "MARKETS_TO"                 # Business → Profile/Cohort (CRM/campaign)
+    OPERATES = "OPERATES"                     # Business → App/FrontendDomain
+    OFFERS_PRODUCT = "OFFERS_PRODUCT"         # Institution → Instrument/Product
+
+    # ── Cross-Domain — Instrument topology ─────────────────────────────
+    ISSUED_BY = "ISSUED_BY"                   # Instrument → Institution/Issuer
+    IN_SECTOR = "IN_SECTOR"                   # Instrument → Sector
+    UNDERLYING_OF = "UNDERLYING_OF"           # Instrument → Instrument (derivatives)
+    TOKENIZED_AS = "TOKENIZED_AS"             # Instrument → Token (RWA bridge)
+    CORRELATED_WITH = "CORRELATED_WITH"       # Instrument → Instrument
+
+    # ── Cross-Domain — Compliance/Risk edges ───────────────────────────
+    RESTRICTED_ON = "RESTRICTED_ON"           # Entity/Account → Instrument/Venue
+    COMPLIANCE_ACTED_ON = "COMPLIANCE_ACTED_ON"  # ComplianceAction → Entity/Account
+    KYC_FOR = "KYC_FOR"                       # KYC record → Entity
+
+    # ── Cross-Domain — Behavioral / Pre-trade edges ────────────────────
+    RESEARCHED = "RESEARCHED"                 # Entity → Instrument (quote/chart/news)
+    WATCHLISTED = "WATCHLISTED"               # Entity → Instrument
+    INQUIRED_ABOUT = "INQUIRED_ABOUT"         # Entity → Product/Instrument
+    VISITED = "VISITED"                       # Entity → App/FrontendDomain
+
+    # ── Cross-Domain — Identity fusion ─────────────────────────────────
+    OVERLAPS_WITH = "OVERLAPS_WITH"           # Profile → Profile (cross-domain identity)
+    LINKED_VIA = "LINKED_VIA"                 # Entity → Entity (with link_signal property)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

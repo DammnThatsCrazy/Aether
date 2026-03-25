@@ -143,6 +143,7 @@ from services.expectations.routes import router as expectations_router
 from services.behavioral.routes import router as behavioral_router
 from services.rwa.routes import router as rwa_router
 from services.web3.routes import router as web3_router
+from services.crossdomain.routes import router as crossdomain_router
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -242,6 +243,7 @@ def create_app() -> FastAPI:
     app.include_router(behavioral_router)
     app.include_router(rwa_router)
     app.include_router(web3_router)
+    app.include_router(crossdomain_router)
 
     # ── Intelligence Graph services (feature-flagged) ───────────
     ig = settings.intelligence_graph
