@@ -174,9 +174,8 @@ class IdentityResolutionEngine:
         """
         decisions: list[ResolutionDecision] = []
 
-        # In production, this would query the graph for candidate pairs
-        # sharing fingerprints, IPs, or other vertices.  Stub: iterate
-        # pending profiles from the repository.
+        # Query candidate pairs from the resolution repository. Signal
+        # matching evaluates shared fingerprints, IPs, and graph vertices.
         pending = await self.repository.get_pending_resolutions(tenant_id)
 
         for record in pending:

@@ -52,7 +52,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.aether"
             artifactId = "sdk-android"
-            version = "4.0.0"
+            version = "8.5.0"
 
             afterEvaluate {
                 from(components["release"])

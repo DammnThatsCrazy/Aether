@@ -23,9 +23,9 @@ class ResolutionEventConsumer:
     """
     Consumes validated SDK events and runs the real-time resolution pipeline.
 
-    In production, this would be an SQS / Kafka consumer.  The stub exposes
-    ``on_event_validated()`` as a callable handler that the ``EventConsumer``
-    dispatches to.
+    Subscribes via the shared ``EventConsumer`` (Kafka in production, in-memory
+    in local). The ``on_event_validated()`` handler is registered with the
+    consumer for the ``SDK_EVENTS_VALIDATED`` topic.
     """
 
     def __init__(

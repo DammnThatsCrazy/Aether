@@ -1,9 +1,9 @@
 """
 Aether Backend — Identity Resolution Repository
 
-Graph queries and data access for the resolution pipeline.  Uses the shared
+Graph queries and data access for the resolution pipeline. Uses the shared
 ``GraphClient`` for Neptune traversals, ``CacheClient`` for hot-path lookups,
-and in-memory stores as stubs for DynamoDB / TimescaleDB in production.
+and ``BaseRepository`` (asyncpg PostgreSQL) for persistent storage.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ logger = get_logger("aether.resolution.repository")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# PRIVATE STORES (in-memory stubs — swap with DynamoDB / TimescaleDB)
+# PRIVATE STORES (PostgreSQL via BaseRepository — in-memory fallback in local)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class _PendingStore(BaseRepository):

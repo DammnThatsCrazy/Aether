@@ -595,6 +595,78 @@ Feature flag: `PROVIDER_GATEWAY_ENABLED=false` (default). Zero impact until acti
 
 **Permissions:** `read` for all intelligence endpoints
 
+---
+
+### Profile 360 Service (v8.5.0)
+
+Holistic user/entity omniview — composes data from all Aether subsystems into one canonical profile view. Does not duplicate data; aggregates from identity, analytics, consent, graph, intelligence, and lake subsystems.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/profile/{user_id}` | Full holistic profile (identity + identifiers + consent + timeline + graph + intelligence + lake + provenance) |
+| GET | `/v1/profile/{user_id}/timeline` | Paginated event timeline with optional `event_type` filter |
+| GET | `/v1/profile/{user_id}/graph` | Graph relationships (bounded to 50 neighbors) |
+| GET | `/v1/profile/{user_id}/intelligence` | Risk scores + Gold-tier features + model outputs |
+| GET | `/v1/profile/{user_id}/identifiers` | All linked wallets, emails, devices, sessions, social handles |
+| GET | `/v1/profile/{user_id}/provenance` | Source attribution across identity, onchain, social data |
+| GET | `/v1/profile/resolve` | Resolve any identifier to canonical profile_id (query params: `wallet`, `email`, `device`, `session`, `social`, `customer`) |
+| GET | `/v1/profile/{user_id}/lake/{domain}` | Domain-specific Gold data (identity, market, onchain, social) |
+
+**Query params:** `include_timeline`, `include_graph`, `include_intelligence`, `include_lake` (all default true), `timeline_limit` (1–500)
+
+**Permissions:** `read` for all profile endpoints
+
+---
+
+### Population Intelligence Service (v8.5.0)
+
+Macro-to-micro group intelligence. Supports segments, cohorts, clusters, communities, batches, archetypes, anomaly groups, lookalike groups, risk groups, and lifecycle groups.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/population/summary` | Population overview: total groups, type distribution, top groups |
+| GET | `/v1/population/groups` | List all groups with optional `population_type` filter |
+| GET | `/v1/population/trends` | Group creation over time |
+| POST | `/v1/population/groups` | Create a new group (segment, cohort, cluster, community, etc.) |
+| GET | `/v1/population/groups/{id}` | Group details with member count |
+| GET | `/v1/population/groups/{id}/members` | Paginated members with `min_confidence` filter |
+| POST | `/v1/population/groups/{id}/members` | Add members with basis, confidence, reason, source_tag |
+| GET | `/v1/population/groups/{id}/intelligence` | Group intelligence summary (basis distribution, avg confidence) |
+| GET | `/v1/population/compare` | Compare two groups: overlap, unique counts (`group_a`, `group_b` query params) |
+| GET | `/v1/population/entity/{id}/memberships` | All groups an entity belongs to (enriched with names/types) |
+| GET | `/v1/population/entity/{id}/explain/{pop_id}` | Explain why an entity is in a specific group |
+
+**Group types:** `segment`, `cohort`, `cluster`, `community`, `batch`, `archetype`, `anomaly`, `lookalike`, `risk`, `lifecycle`
+
+**Membership basis:** `rule`, `graph`, `ml_model`, `similarity`, `manual`, `inferred`
+
+**Permissions:** `write` for create/add members, `read` for queries
+
+---
+
+### Expectation Engine Service (v8.5.0)
+
+Negative-space intelligence: what should have happened but did not. Detects absence, contradiction, and source silence across macro/meso/micro levels.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/v1/expectations/summary` | Population-wide expected vs actual summary |
+| GET | `/v1/expectations/contradictions` | Top contradictions across the population |
+| GET | `/v1/expectations/silence` | Source silence vs real behavior change (explicitly separated) |
+| GET | `/v1/expectations/group/{pop_id}` | Group expectation view |
+| GET | `/v1/expectations/group/{pop_id}/gaps` | Missing expected behaviors for a group |
+| GET | `/v1/expectations/entity/{id}` | Full expectation scan for an entity (runs all detectors) |
+| GET | `/v1/expectations/entity/{id}/signals` | Signals filtered by `signal_type` |
+| GET | `/v1/expectations/entity/{id}/explain` | Why this entity is unusual — top signals with explanations |
+| POST | `/v1/expectations/scan/{id}` | Trigger full expectation scan for an entity |
+| GET | `/v1/expectations/signal/{id}` | Signal detail with full provenance |
+
+**Signal types (ranked by business priority):** `identity_contradiction`, `relationship_contradiction`, `broken_sequence`, `missing_expected_action`, `missing_expected_edge`, `peer_deviation`, `self_deviation`, `cohort_anomaly`, `source_silence`, `temporal_contradiction`, `model_contradiction`, `graph_contradiction`
+
+**Every signal includes:** `expected`, `observed`, `baseline_source`, `confidence`, `explanation`, `is_source_silence`, `severity`, `source_tag`
+
+**Permissions:** `read` for queries, `write` for triggering scans
+
 All intelligence outputs are sourced from persisted lake data, graph relationships, and ML model scoring. No mock or synthetic data is returned.
 
 ---

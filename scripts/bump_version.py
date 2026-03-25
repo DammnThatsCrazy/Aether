@@ -33,7 +33,13 @@ PACKAGE_JSONS = [
     ROOT / "package.json",
     ROOT / "packages" / "web" / "package.json",
     ROOT / "packages" / "react-native" / "package.json",
+    ROOT / "Data Ingestion Layer" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "package.json",
 ]
+
+# Native SDK version files (different format than package.json)
+IOS_PACKAGE_SWIFT = ROOT / "packages" / "ios" / "Package.swift"
+ANDROID_BUILD_GRADLE = ROOT / "packages" / "android" / "build.gradle.kts"
 
 # Doc files where the FIRST heading contains a version like "v8.3.1" or "v8.3.0"
 DOC_HEADERS = [
@@ -131,6 +137,36 @@ def update_doc_header(path: Path, new_version: str) -> None:
     print(f"  SKIP (no version in heading): {path.relative_to(ROOT)}")
 
 
+def update_ios_version(new_version: str) -> None:
+    """Update version comment in Package.swift."""
+    path = IOS_PACKAGE_SWIFT
+    if not path.exists():
+        print(f"  SKIP (not found): {path.relative_to(ROOT)}")
+        return
+    text = path.read_text()
+    updated = VERSION_PATTERN.sub(new_version, text, count=1)
+    if updated != text:
+        path.write_text(updated)
+        print(f"  Updated: {path.relative_to(ROOT)} -> {new_version}")
+    else:
+        print(f"  SKIP (no version found): {path.relative_to(ROOT)}")
+
+
+def update_android_version(new_version: str) -> None:
+    """Update version in build.gradle.kts."""
+    path = ANDROID_BUILD_GRADLE
+    if not path.exists():
+        print(f"  SKIP (not found): {path.relative_to(ROOT)}")
+        return
+    text = path.read_text()
+    updated = re.sub(r'version\s*=\s*"[^"]+"', f'version = "{new_version}"', text, count=1)
+    if updated != text:
+        path.write_text(updated)
+        print(f"  Updated: {path.relative_to(ROOT)} -> {new_version}")
+    else:
+        print(f"  SKIP (no version found): {path.relative_to(ROOT)}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -177,6 +213,11 @@ def main() -> None:
     print("\n4. README headers:")
     for readme in README_HEADERS:
         update_doc_header(readme, new_version)
+
+    # 5. Native SDK versions
+    print("\n5. Native SDK versions:")
+    update_ios_version(new_version)
+    update_android_version(new_version)
 
     print(f"\nDone. Version bumped to {new_version} across all files.")
     print("Remember to update CHANGELOG.md with release notes.")

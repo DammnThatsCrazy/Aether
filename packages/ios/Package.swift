@@ -1,5 +1,5 @@
 // swift-tools-version: 5.9
-// AetherSDK v7.0.0
+// AetherSDK 8.5.0
 
 import PackageDescription
 
