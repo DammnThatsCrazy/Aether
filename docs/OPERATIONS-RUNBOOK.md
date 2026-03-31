@@ -1,4 +1,4 @@
-# Operations Runbook v9.0.0
+# Operations Runbook v8.7.0
 
 Operations guide for the Aether backend services.
 

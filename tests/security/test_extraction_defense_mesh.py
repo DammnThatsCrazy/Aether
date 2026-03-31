@@ -19,8 +19,26 @@ Comprehensive test suite covering:
 
 import asyncio
 import hashlib
+import sys
 import time
+from pathlib import Path
+
 import pytest
+
+# =========================================================================
+# Path setup — add backend root to sys.path for shared/services imports
+# =========================================================================
+
+ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = ROOT / "Backend Architecture" / "aether-backend"
+ML_ROOT = ROOT / "ML Models" / "aether-ml"
+
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+if str(ML_ROOT) not in sys.path:
+    sys.path.insert(0, str(ML_ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 # =========================================================================
 # Test helpers

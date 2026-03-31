@@ -1,4 +1,4 @@
-# Aether v9.0.0 — Architecture Guide
+# Aether v8.7.0 — Architecture Guide
 
 ## Overview
 
