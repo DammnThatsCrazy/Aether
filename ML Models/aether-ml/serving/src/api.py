@@ -578,6 +578,13 @@ async def lifespan(app: FastAPI):
     """Application lifespan: load models on startup, clean up on shutdown."""
     _ensure_models_loaded()
     loaded = server.loaded_models()
+    env = os.getenv("AETHER_ENV", "local").lower()
+    if not loaded and env in ("production", "staging"):
+        raise RuntimeError(
+            f"FATAL: No ML models loaded in {env}. "
+            "Deploy model artifacts to /opt/ml/models before starting serving. "
+            "Run: python -m training.pipelines.train --model all"
+        )
     logger.info("Serving %d models: %s", len(loaded), loaded)
 
     # Start extraction defense cleanup task if defense is enabled

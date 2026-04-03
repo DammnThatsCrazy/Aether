@@ -100,21 +100,36 @@ class TokenBucketLimiter:
             return await self._check_redis(api_key, tier)
         return self.check(api_key, tier)
 
+    # Lua script: atomic increment-and-check to prevent TOCTOU race conditions.
+    # Returns [allowed (0/1), current_count] in a single Redis round-trip.
+    _RATE_LIMIT_LUA = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[2])
+end
+local limit = tonumber(ARGV[1])
+if count > limit then
+    return {0, count}
+else
+    return {1, count}
+end
+"""
+
     async def _check_redis(self, api_key: str, tier: APIKeyTier) -> RateLimitResult:
-        """Redis sliding window using INCR + EXPIRE."""
+        """Redis sliding window using atomic Lua INCR+check."""
         now = time.time()
         limit = self._get_limit(tier)
         window = 60
         key = f"aether:ratelimit:{api_key}:{int(now // window)}"
+        reset_at = (int(now // window) + 1) * window
         try:
-            pipe = self._redis.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, window + 1)
-            results = await pipe.execute()
-            count = results[0]
+            result = await self._redis.eval(
+                self._RATE_LIMIT_LUA, 1, key, str(limit), str(window + 1)
+            )
+            allowed = bool(result[0])
+            count = int(result[1])
             remaining = max(0, limit - count)
-            reset_at = (int(now // window) + 1) * window
-            if count > limit:
+            if not allowed:
                 metrics.increment("rate_limit_exceeded", labels={"tier": tier.value})
                 return RateLimitResult(allowed=False, limit=limit, remaining=0, reset_at=reset_at)
             return RateLimitResult(allowed=True, limit=limit, remaining=remaining, reset_at=reset_at)
