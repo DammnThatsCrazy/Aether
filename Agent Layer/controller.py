@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import heapq
 import logging
-from datetime import datetime, timezone
 from typing import Optional
 
 from config.settings import (
@@ -20,8 +19,8 @@ from config.settings import (
     TaskStatus,
     WorkerType,
 )
-from models.core import AgentTask, TaskResult
 from guardrails.guardrails import Guardrails
+from models.core import AgentTask, TaskResult
 from workers.base import BaseWorker
 
 logger = logging.getLogger("aether.controller")

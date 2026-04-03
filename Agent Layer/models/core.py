@@ -6,12 +6,11 @@ Shared models for tasks, results, and audit records.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from config.settings import TaskPriority, TaskStatus, WorkerType
-
 
 # ---------------------------------------------------------------------------
 # Task — the unit of work the controller dispatches to workers

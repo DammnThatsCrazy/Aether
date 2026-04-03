@@ -56,29 +56,27 @@ Routes:
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from config.settings import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from config.settings import settings
 from middleware.middleware import register_middleware
+from services.admin.routes import router as admin_router
+from services.agent.routes import router as agent_router
+from services.analytics.routes import router as analytics_router
+from services.campaign.routes import router as campaign_router
+from services.consent.routes import router as consent_router
 
 # Import all service routers
 from services.gateway.routes import router as gateway_router
-from services.ingestion.routes import router as ingestion_router
 from services.identity.routes import router as identity_router
-from services.analytics.routes import router as analytics_router
+from services.ingestion.routes import router as ingestion_router
 from services.ml_serving.routes import router as ml_router
-from services.agent.routes import router as agent_router
-from services.campaign.routes import router as campaign_router
-from services.consent.routes import router as consent_router
 from services.notification.routes import router as notification_router
-from services.admin.routes import router as admin_router
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # APP FACTORY

@@ -19,13 +19,12 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pandas as pd
 
 from optimization.quantization import ModelQuantizer, QuantizationConfig, QuantizationStrategy, QuantizationResult
-from optimization.distillation import ModelDistiller, DistillationConfig, DistillationMode, DistillationResult
+from optimization.distillation import ModelDistiller, DistillationConfig, DistillationResult
 from optimization.pruning import ModelPruner, PruningConfig, PruningStrategy, PruningResult
 
 logger = logging.getLogger("aether.ml.optimization.pipeline")
@@ -241,7 +240,8 @@ class OptimizationPipeline:
         }
 
     def _estimate_size(self, model: Any) -> int:
-        import io, pickle
+        import io
+        import pickle
         buf = io.BytesIO()
         try:
             internal = getattr(model, '_model', model)

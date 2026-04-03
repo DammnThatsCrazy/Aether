@@ -8,7 +8,6 @@ Every field, object, edge, feature, and export surface maps to a tier.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 

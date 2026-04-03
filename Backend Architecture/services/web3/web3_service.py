@@ -19,14 +19,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Query, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query
 
 from .web3_models import (
-    WalletActivity, ChainDistribution, TransactionSummary,
-    DeFiSummary, PortfolioView, WhaleEvent, BridgeEvent,
-    ExchangeFlow, PerpetualActivity, VMType, DeFiCategory,
+    BridgeEvent,
+    ChainDistribution,
+    DeFiCategory,
+    DeFiSummary,
+    ExchangeFlow,
+    PerpetualActivity,
+    PortfolioView,
+    TransactionSummary,
+    VMType,
+    WalletActivity,
     WalletClassification,
+    WhaleEvent,
 )
 from .web3_queries import Web3QueryEngine
 

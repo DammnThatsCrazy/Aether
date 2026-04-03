@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from itertools import combinations
-from typing import Any, Optional
+from typing import Any
 
 from shared.logger.logger import get_logger
 

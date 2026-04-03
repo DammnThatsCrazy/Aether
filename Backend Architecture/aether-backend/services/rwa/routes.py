@@ -35,13 +35,13 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Request, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from shared.common.common import APIResponse, NotFoundError, utc_now
 from shared.logger.logger import get_logger, metrics
 from services.rwa.models import (
     RWAAssetCreate, PolicyCreate, CashflowEventCreate,
-    ExposureQuery, PolicySimulation,
+    PolicySimulation,
 )
 from services.rwa.engine import (
     register_asset, register_policy, record_cashflow,

@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
-
 # ── Stub mode detection ────────────────────────────────────────────────
 # If AETHER_STUB_AWS=1 or boto3 is unavailable, all client calls
 # return None so operational scripts can fall back to illustrative data.

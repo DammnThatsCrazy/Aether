@@ -9,11 +9,10 @@ In-memory aggregation with periodic flush to PostgreSQL when available.
 from __future__ import annotations
 
 import json
-import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from shared.logger.logger import get_logger, metrics
 

@@ -7,9 +7,9 @@ This is the primary interface for operators interacting with the agent layer.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from models.objectives import Objective, ObjectiveStatus, ObjectiveType, Severity
+from models.objectives import ObjectiveStatus, ObjectiveType, Severity
 
 logger = logging.getLogger("aether.services.internal_ops")
 

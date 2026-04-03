@@ -9,14 +9,13 @@ and ``BaseRepository`` (asyncpg PostgreSQL) for persistent storage.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Optional
 
-from shared.common.common import NotFoundError, utc_now
-from shared.cache.cache import CacheClient, CacheKey, TTL
+from shared.common.common import utc_now
+from shared.cache.cache import CacheClient
 from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
 from shared.logger.logger import get_logger
-from repositories.repos import BaseRepository, IdentityRepository
+from repositories.repos import BaseRepository
 
 logger = get_logger("aether.resolution.repository")
 

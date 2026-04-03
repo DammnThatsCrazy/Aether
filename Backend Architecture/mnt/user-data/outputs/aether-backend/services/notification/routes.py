@@ -7,11 +7,10 @@ Tech: Node.js (Fastify) + SQS. Scaling: Queue-based autoscaling.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
 from shared.common.common import APIResponse, utc_now
 from shared.logger.logger import get_logger
 

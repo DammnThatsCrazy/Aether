@@ -10,7 +10,6 @@ Resolution strategies:
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import math
 import re
@@ -19,6 +18,7 @@ from typing import Any
 
 from config.settings import WorkerType
 from models.core import AgentTask, TaskResult
+
 from workers.base import BaseWorker
 
 logger = logging.getLogger("aether.worker.entity_resolver")

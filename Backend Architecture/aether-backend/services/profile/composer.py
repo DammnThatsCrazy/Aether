@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from shared.common.common import utc_now
 from shared.graph.graph import GraphClient
-from shared.cache.cache import CacheClient, TTL
+from shared.cache.cache import CacheClient
 from shared.scoring.trust_score import TrustScoreComposite
 from shared.logger.logger import get_logger, metrics
 from repositories.repos import IdentityRepository, AnalyticsRepository, ConsentRepository

@@ -29,15 +29,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Optional
 
 import numpy as np
 
 
 def cmd_verify_watermark(args: argparse.Namespace) -> None:
     """Verify watermark presence in suspect model outputs."""
-    from .watermark import ModelWatermark
     from .config import WatermarkConfig
+    from .watermark import ModelWatermark
 
     config = WatermarkConfig(
         secret_key=args.secret_key,

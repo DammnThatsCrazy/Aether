@@ -20,7 +20,6 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
@@ -231,7 +230,8 @@ class ModelQuantizer:
 
     def _estimate_model_size(self, model: Any) -> int:
         """Estimate model size in bytes."""
-        import io, pickle
+        import io
+        import pickle
         buf = io.BytesIO()
         try:
             internal = getattr(model, '_model', model)

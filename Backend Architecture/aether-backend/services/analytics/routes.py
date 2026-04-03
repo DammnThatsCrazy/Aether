@@ -16,13 +16,12 @@ from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from shared.common.common import (
-    APIResponse, BadRequestError, CursorPagination, NotFoundError,
-    PaginatedResponse, PaginationMeta, UnauthorizedError, utc_now,
+    APIResponse, BadRequestError, NotFoundError,
+    PaginatedResponse, PaginationMeta, utc_now,
 )
 from shared.cache.cache import CacheClient
-from shared.auth.auth import JWTHandler, APIKeyValidator
 from shared.logger.logger import get_logger, metrics
-from shared.observability import trace_request, emit_latency, record_graphql_query, record_graphql_rejection
+from shared.observability import trace_request, emit_latency, record_graphql_query
 from shared.store import get_store
 from dependencies.providers import get_cache, get_registry
 from repositories.repos import AnalyticsRepository

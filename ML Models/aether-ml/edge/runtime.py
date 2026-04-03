@@ -7,7 +7,7 @@ Supports ONNX (via onnxruntime), sklearn (via joblib), and TFLite formats.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import os
 import time
 from pathlib import Path
@@ -432,7 +432,8 @@ class PredictionCache:
 
     @staticmethod
     def hash_features(features: dict[str, Any]) -> str:
-        import hashlib, json
+        import hashlib
+        import json
         payload = json.dumps(features, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 

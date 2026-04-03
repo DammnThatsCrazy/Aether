@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import logging
 import sys
-import time
 import uuid
 from collections import defaultdict
 from contextvars import ContextVar

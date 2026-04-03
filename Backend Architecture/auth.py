@@ -6,22 +6,20 @@ Used by ALL services via middleware.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
-import base64
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
 from enum import Enum
+from typing import Optional
 
-from shared.common.common import (
-    UnauthorizedError,
-    ForbiddenError,
-    utc_now,
-)
 from config.settings import settings
-
+from shared.common.common import (
+    ForbiddenError,
+    UnauthorizedError,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # TENANT / USER CONTEXT

@@ -13,10 +13,8 @@ This script is idempotent and safe to run multiple times.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
-import time
 
 
 def check_redis_connectivity(env: str) -> bool:

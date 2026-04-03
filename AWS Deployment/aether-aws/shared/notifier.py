@@ -11,10 +11,10 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
-from shared.runner import log, run_cmd
 from shared.aws_client import aws_client
+from shared.runner import log, run_cmd
 
 
 class Severity(str, Enum):

@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from repositories.repos import BaseRepository, AnalyticsRepository
-from repositories.lake import silver_identity, silver_onchain, silver_social, gold_identity
-from shared.graph.graph import GraphClient, VertexType
-from shared.cache.cache import CacheClient, TTL
+from repositories.lake import silver_identity, silver_onchain, silver_social
+from shared.graph.graph import GraphClient
 from shared.common.common import utc_now
 from shared.logger.logger import get_logger, metrics
 from services.behavioral.signals import SignalFamily

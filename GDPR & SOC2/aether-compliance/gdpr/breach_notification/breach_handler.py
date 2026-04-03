@@ -203,7 +203,7 @@ class BreachHandler:
         incident.status = BreachStatus.ESCALATED
         incident._add_timeline("Internal escalation", f"Within {BREACH_CONFIG.internal_escalation_minutes} min target")
 
-        brc_log(f"Escalation notifications sent:")
+        brc_log("Escalation notifications sent:")
         for channel in BREACH_CONFIG.channels[:3]:
             brc_log(f"  → {channel}")
 
@@ -291,7 +291,7 @@ class BreachHandler:
         }
 
         brc_log(f"Subject notification sent to {incident.affected_users_count} users")
-        brc_log(f"  Channels: email, in-app notification, dashboard banner")
+        brc_log("  Channels: email, in-app notification, dashboard banner")
 
         return incident
 
@@ -336,7 +336,7 @@ class BreachHandler:
                           data_categories: list) -> BreachIncident:
         """Execute the complete incident response pipeline."""
         brc_log(f"\n{'!' * 50}")
-        brc_log(f"INCIDENT RESPONSE INITIATED")
+        brc_log("INCIDENT RESPONSE INITIATED")
         brc_log(f"{'!' * 50}\n")
 
         incident = self.report_breach(description, detection_source, severity)

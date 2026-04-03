@@ -9,10 +9,18 @@ from datetime import datetime
 from typing import Optional
 
 from .web3_models import (
-    WalletActivity, ChainDistribution, TransactionSummary,
-    DeFiSummary, PortfolioView, WhaleEvent, BridgeEvent,
-    ExchangeFlow, PerpetualActivity, VMType, DeFiCategory,
-    WalletClassification, TokenHolding, DeFiPositionView,
+    BridgeEvent,
+    ChainDistribution,
+    DeFiCategory,
+    DeFiSummary,
+    ExchangeFlow,
+    PerpetualActivity,
+    PortfolioView,
+    TransactionSummary,
+    VMType,
+    WalletActivity,
+    WalletClassification,
+    WhaleEvent,
 )
 
 

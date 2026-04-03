@@ -25,16 +25,14 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Set
+from typing import List, Optional, Set
 
-from config.pipeline_config import QUALITY_THRESHOLDS, REPO_SERVICES, REPO_PACKAGES
-from quality_gates.gate import QualityGate, GateResult, GateStatus
-from shared.runner import run_cmd, log, CommandResult
+from config.pipeline_config import REPO_SERVICES
+from quality_gates.gate import QualityGate, GateResult
+from shared.runner import run_cmd, log
 from shared.parsers import (
-    parse_eslint_json,
     parse_ruff_json,
     parse_jest_coverage,
-    parse_jest_results,
     parse_pytest_coverage,
     parse_pytest_results,
     parse_snyk_json,
@@ -211,7 +209,6 @@ def stage_unit_test(gate: QualityGate, workdir: str = ".") -> StageResult:
 
     # Parse real results -- with fallback to stub values for demo
     try:
-        import os as _os
         cov_path = os.path.join(workdir, "coverage", "coverage-summary.json")
         if os.path.exists(cov_path):
             with open(cov_path) as f:

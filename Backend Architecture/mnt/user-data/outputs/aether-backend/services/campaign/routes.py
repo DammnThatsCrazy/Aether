@@ -10,11 +10,10 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
-from shared.common.common import APIResponse, PaginatedResponse, PaginationMeta
-from shared.events.events import Event, EventProducer, Topic
-from shared.logger.logger import get_logger
 from repositories.repos import CampaignRepository
+from shared.common.common import APIResponse, PaginatedResponse, PaginationMeta
+from shared.events.events import EventProducer
+from shared.logger.logger import get_logger
 
 logger = get_logger("aether.service.campaign")
 router = APIRouter(prefix="/v1/campaigns", tags=["Campaigns"])

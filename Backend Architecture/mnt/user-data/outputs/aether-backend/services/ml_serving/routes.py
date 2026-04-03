@@ -7,13 +7,12 @@ Scaling: Endpoint autoscaling on inference volume.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
+from shared.cache.cache import TTL, CacheClient, CacheKey
 from shared.common.common import APIResponse, BadRequestError
-from shared.cache.cache import CacheClient, CacheKey, TTL
 from shared.events.events import Event, EventProducer, Topic
 from shared.logger.logger import get_logger
 

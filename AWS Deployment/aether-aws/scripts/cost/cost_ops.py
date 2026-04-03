@@ -14,16 +14,15 @@ Enhanced:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, TypeVar
 
 from config.aws_config import (
-    COMPUTE_SPECS, DATA_STORES, BUDGET_CONFIGS, SERVICE_NAMES,
+    COMPUTE_SPECS,
 )
-from shared.runner import cost_log, timed
 from shared.aws_client import aws_client
 from shared.notifier import notifier
-
+from shared.runner import cost_log, timed
 
 T = TypeVar("T")
 
@@ -147,7 +146,7 @@ def estimate_service_costs(environment: str = "production") -> list[ServiceCost]
     for c in costs:
         cost_log(f"  ${c.monthly_usd:>7,.0f}  {c.service}")
 
-    cost_log(f"\n  Category Totals:")
+    cost_log("\n  Category Totals:")
     total = 0.0
     for cat, amount in sorted(by_category.items()):
         cost_log(f"    {cat:12s} ${amount:>8,.0f}")

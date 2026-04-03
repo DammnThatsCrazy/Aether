@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Optional
 
+from config.settings import settings
 from shared.auth.auth import APIKeyTier
 from shared.common.common import RateLimitedError
 from shared.logger.logger import get_logger
-from config.settings import settings
 
 logger = get_logger("aether.rate_limit")
 

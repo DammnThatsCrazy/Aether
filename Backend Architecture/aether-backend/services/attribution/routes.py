@@ -20,7 +20,6 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from services.attribution.models import Touchpoint
 from services.attribution.resolver import (
     AttributionConfig,
     AttributionResolver,

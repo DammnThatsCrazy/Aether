@@ -17,7 +17,6 @@ from typing import Any, Optional
 from shared.logger.logger import get_logger, metrics
 from shared.providers.base import (
     Provider,
-    ProviderConfig,
     ProviderResult,
     ProviderStatus,
 )

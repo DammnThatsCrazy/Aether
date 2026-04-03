@@ -19,7 +19,6 @@ import logging
 from typing import Optional
 
 from models.mutations import (
-    MutationClass,
     MutationStatus,
     ReviewBatch,
     ReviewStatus,

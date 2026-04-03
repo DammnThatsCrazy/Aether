@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from models.evidence import CandidateFact
 from models.objectives import PlanStep
-from models.evidence import CandidateFact, FactVerificationStatus
 
 logger = logging.getLogger("aether.controllers.enrichment")
 

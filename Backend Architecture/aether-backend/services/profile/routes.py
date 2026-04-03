@@ -26,7 +26,7 @@ from shared.common.common import APIResponse, BadRequestError, NotFoundError
 from shared.cache.cache import CacheClient
 from shared.graph.graph import GraphClient
 from shared.logger.logger import get_logger, metrics
-from dependencies.providers import get_registry, get_cache, get_graph
+from dependencies.providers import get_cache, get_graph
 from repositories.repos import IdentityRepository, AnalyticsRepository, ConsentRepository
 from repositories.lake import gold_identity, gold_market, gold_onchain, gold_social
 from services.profile.resolver import ProfileResolver

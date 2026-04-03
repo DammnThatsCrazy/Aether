@@ -28,7 +28,6 @@ from shared.events.events import Event, EventProducer, Topic
 from shared.graph.graph import Edge, EdgeType, GraphClient, Vertex, VertexType
 from shared.graph.relationship_layers import get_cross_layer_paths, get_layer_subgraph, RelationshipLayer
 from shared.logger.logger import get_logger, metrics
-from shared.observability import trace_request, emit_latency
 from shared.scoring.trust_score import TrustScoreComposite
 from shared.store import get_store
 

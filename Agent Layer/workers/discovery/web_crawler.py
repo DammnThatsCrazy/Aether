@@ -14,9 +14,9 @@ from typing import Any
 
 import httpx
 from bs4 import BeautifulSoup
-
 from config.settings import WorkerType
 from models.core import AgentTask, TaskResult
+
 from workers.base import BaseWorker
 
 logger = logging.getLogger("aether.worker.web_crawler")
@@ -240,7 +240,7 @@ class WebCrawlerWorker(BaseWorker):
             # Resolve relative URLs
             if href.startswith("/"):
                 # Extract scheme + netloc from base_url
-                from urllib.parse import urlparse, urljoin
+                from urllib.parse import urljoin
                 href = urljoin(base_url, href)
             elif not href.startswith(("http://", "https://")):
                 from urllib.parse import urljoin

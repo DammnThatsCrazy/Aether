@@ -279,7 +279,6 @@ class APIKeyValidator:
     """
 
     def __init__(self, environment: Optional[str] = None, cache: Optional[Any] = None):
-        from config.settings import Environment
         self._environment = environment or settings.env
         self._cache = cache  # CacheClient instance, injected at startup
 

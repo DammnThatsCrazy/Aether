@@ -13,14 +13,11 @@ All mutations are deterministic and replayable from lake state.
 
 from __future__ import annotations
 
-from typing import Optional
 
 from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
 from shared.logger.logger import get_logger, metrics
-from shared.common.common import utc_now
 from repositories.lake import (
-    silver_onchain, silver_social, silver_identity, silver_governance,
-    gold_identity,
+    silver_onchain, silver_identity, silver_governance,
 )
 
 logger = get_logger("aether.lake.graph_mutations")

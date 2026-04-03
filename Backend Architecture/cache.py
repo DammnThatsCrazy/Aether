@@ -6,9 +6,8 @@ Used by all services with caching needs.
 
 from __future__ import annotations
 
-import json
 import hashlib
-from dataclasses import dataclass
+import json
 from enum import IntEnum
 from typing import Any, Optional
 

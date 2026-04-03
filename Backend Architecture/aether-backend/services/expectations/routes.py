@@ -32,7 +32,6 @@ from shared.common.common import APIResponse, NotFoundError, utc_now
 from shared.cache.cache import CacheClient
 from shared.graph.graph import GraphClient
 from shared.logger.logger import get_logger, metrics
-from repositories.repos import AnalyticsRepository
 from dependencies.providers import get_cache, get_graph
 from services.expectations.engine import ExpectationEngine, signal_repo
 from services.expectations.models import SignalType

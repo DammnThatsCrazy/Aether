@@ -11,9 +11,9 @@ Uses the existing GraphClient and graph model without replacement.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from shared.graph.graph import GraphClient, Vertex, VertexType
+from shared.graph.graph import GraphClient
 from shared.logger.logger import get_logger
 
 logger = get_logger("aether.graph.extraction")

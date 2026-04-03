@@ -6,9 +6,8 @@ their source dependencies, and output contracts.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
-from shared.common.common import utc_now
 
 
 class SignalFamily(str, Enum):

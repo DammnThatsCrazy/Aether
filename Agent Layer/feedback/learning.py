@@ -19,12 +19,10 @@ Integrations:
 from __future__ import annotations
 
 import logging
-import math
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 from config.settings import (
     ConfidenceThresholds,

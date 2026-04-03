@@ -10,14 +10,12 @@ Integrates with existing model registry and Gold lake feature data.
 from __future__ import annotations
 
 import asyncio
-import math
-from typing import Any, Optional
+from typing import Optional
 
 from shared.common.common import utc_now
 from shared.logger.logger import get_logger, metrics
 from repositories.repos import BaseRepository
-from services.lake.model_registry import _registry as model_registry, get_active_model
-from repositories.lake import gold_identity
+from services.lake.model_registry import get_active_model
 
 logger = get_logger("aether.lake.drift_monitor")
 

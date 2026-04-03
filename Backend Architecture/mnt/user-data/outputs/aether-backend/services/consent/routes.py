@@ -7,15 +7,14 @@ Tech: Node.js (Fastify) + DynamoDB. Scaling: Low traffic, minimal.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
+from repositories.repos import ConsentRepository
 from shared.common.common import APIResponse, utc_now
 from shared.events.events import Event, EventProducer, Topic
 from shared.logger.logger import get_logger
-from repositories.repos import ConsentRepository
 
 logger = get_logger("aether.service.consent")
 router = APIRouter(prefix="/v1/consent", tags=["Consent"])

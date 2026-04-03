@@ -16,9 +16,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from config.aws_config import MONITORING_STACK, COMPUTE_SPECS, SERVICE_NAMES
-from shared.runner import mon_log, timed
+from config.aws_config import MONITORING_STACK, SERVICE_NAMES
 from shared.aws_client import aws_client
+from shared.runner import mon_log, timed
 
 
 def _require_live_aws(response: Optional[dict[str, Any]], operation: str) -> dict[str, Any]:

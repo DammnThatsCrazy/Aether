@@ -8,11 +8,10 @@ Bridges to the aether-agent-layer module.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
 from shared.common.common import APIResponse, BadRequestError
 from shared.logger.logger import get_logger
 

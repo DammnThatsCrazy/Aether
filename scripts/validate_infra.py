@@ -44,6 +44,7 @@ def check_postgres(url: str) -> bool:
     """Validate PostgreSQL connectivity."""
     try:
         import asyncio
+
         import asyncpg
         async def _check():
             conn = await asyncpg.connect(url, timeout=5)

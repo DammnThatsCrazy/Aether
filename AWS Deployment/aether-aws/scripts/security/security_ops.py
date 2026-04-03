@@ -15,18 +15,18 @@ Covers:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
 
 from config.aws_config import (
-    SECRETS, SecretSpec, COMPLIANCE_CONTROLS, DATA_STORES,
-    SERVICE_NAMES, AWS_ACCOUNTS, AccountType,
+    COMPLIANCE_CONTROLS,
+    SECRETS,
+    SERVICE_NAMES,
 )
-from shared.runner import sec_log, timed
 from shared.aws_client import aws_client
 from shared.notifier import notifier
-
+from shared.runner import sec_log, timed
 
 # =========================================================================
 # DATA MODELS

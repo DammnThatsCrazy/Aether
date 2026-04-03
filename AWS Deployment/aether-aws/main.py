@@ -18,19 +18,32 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config.aws_config import (
-    AWS_ACCOUNTS, AccountType, VPC_CONFIGS, DNS_DOMAINS,
-    VPC_ENDPOINTS, COMPUTE_SPECS, DATA_STORES, MONITORING_STACK,
-    SECRETS, COMPLIANCE_CONTROLS, BUDGET_CONFIGS,
-    DR, DR_STRATEGIES, SERVICE_NAMES, ALL_ENVIRONMENTS,
+    ALL_ENVIRONMENTS,
+    AWS_ACCOUNTS,
+    BUDGET_CONFIGS,
+    COMPLIANCE_CONTROLS,
+    COMPUTE_SPECS,
+    DATA_STORES,
+    DNS_DOMAINS,
+    DR,
+    DR_STRATEGIES,
+    MONITORING_STACK,
+    SECRETS,
+    SERVICE_NAMES,
+    VPC_CONFIGS,
+    VPC_ENDPOINTS,
 )
-from scripts.network.network_ops import run_full_network_check
-from scripts.monitoring.monitoring_ops import run_full_monitoring_check
-from scripts.cost.cost_ops import run_full_cost_report
-from scripts.security.security_ops import run_full_security_audit
 from scripts.capacity.capacity_ops import run_full_capacity_check
+from scripts.cost.cost_ops import run_full_cost_report
 from scripts.dr.disaster_recovery import (
-    execute_dr_failover, print_dr_runbook, run_dr_drill, FailoverScope,
+    FailoverScope,
+    execute_dr_failover,
+    print_dr_runbook,
+    run_dr_drill,
 )
+from scripts.monitoring.monitoring_ops import run_full_monitoring_check
+from scripts.network.network_ops import run_full_network_check
+from scripts.security.security_ops import run_full_security_audit
 
 
 def print_header(title: str) -> None:
@@ -57,11 +70,11 @@ def show_network_architecture() -> None:
               f"{vpc.public_subnets} public + {vpc.private_subnets} private subnets | "
               f"{vpc.nat_gateways} NAT GW(s)")
 
-    print(f"\n  Public subnets:  ALB, NAT Gateways, bastion hosts")
-    print(f"  Private subnets: ECS tasks, RDS, ElastiCache, Neptune, Lambda")
-    print(f"  VPC Peering:     production <-> data (ML model access)")
+    print("\n  Public subnets:  ALB, NAT Gateways, bastion hosts")
+    print("  Private subnets: ECS tasks, RDS, ElastiCache, Neptune, Lambda")
+    print("  VPC Peering:     production <-> data (ML model access)")
 
-    print(f"\n  DNS (Route 53):")
+    print("\n  DNS (Route 53):")
     for purpose, domain in DNS_DOMAINS.items():
         print(f"    {domain:35s} ({purpose})")
 
@@ -72,7 +85,7 @@ def show_network_architecture() -> None:
     for ep in VPC_ENDPOINTS:
         print(f"    {ep.service:25s} [{ep.type:9s}]  {ep.reason}")
 
-    print(f"\n  WAF: CloudFront + ALB -- DDoS, rate limiting, bot mitigation")
+    print("\n  WAF: CloudFront + ALB -- DDoS, rate limiting, bot mitigation")
 
 
 def show_compute_architecture() -> None:
@@ -87,11 +100,11 @@ def show_compute_architecture() -> None:
               f"{spec.max_count:>4d} {spec.target_cpu_pct:>4d}% {spot:>5s} "
               f"{spec.port:>5d} {spec.health_path}")
 
-    print(f"\n  Platform: ECS Fargate (Agent workers on Fargate Spot)")
-    print(f"  Scheduling: EventBridge + Lambda/ECS for ML retraining, data cleanup")
-    print(f"  WebSocket: API Gateway WebSocket for real-time streaming")
+    print("\n  Platform: ECS Fargate (Agent workers on Fargate Spot)")
+    print("  Scheduling: EventBridge + Lambda/ECS for ML retraining, data cleanup")
+    print("  WebSocket: API Gateway WebSocket for real-time streaming")
 
-    print(f"\n  Environment Scaling:")
+    print("\n  Environment Scaling:")
     for env in ALL_ENVIRONMENTS:
         specs = COMPUTE_SPECS.get(env, {})
         total_min = sum(s.min_count for s in specs.values())
@@ -109,7 +122,7 @@ def show_data_stores() -> None:
         print(f"  {spec.service:<30s} {spec.instance_type:<30s} "
               f"{spec.config} [{enc}{tls}]")
 
-    print(f"\n  Encryption: [E] = at rest (KMS), [T] = in transit (TLS)")
+    print("\n  Encryption: [E] = at rest (KMS), [T] = in transit (TLS)")
 
 
 def show_secrets_management() -> None:
@@ -119,8 +132,8 @@ def show_secrets_management() -> None:
     for s in SECRETS:
         print(f"  {s.name:<38s} {s.service:<14s} {s.rotation_days:>7d} days")
     print(f"\n  Total: {len(SECRETS)} secrets managed via AWS Secrets Manager")
-    print(f"  Encryption: KMS with automatic key rotation")
-    print(f"  Replication: Cross-region to us-west-2 (production)")
+    print("  Encryption: KMS with automatic key rotation")
+    print("  Replication: Cross-region to us-west-2 (production)")
 
 
 def show_monitoring_stack() -> None:
@@ -184,8 +197,8 @@ def show_terraform_modules() -> None:
         new_badge = " *" if "(NEW)" in desc else ""
         print(f"  {name:<14s} -> {desc}{new_badge}")
 
-    print(f"\n  Environments: 3 compositions (dev, staging, production)")
-    print(f"  State: per-environment S3 keys with DynamoDB locking")
+    print("\n  Environments: 3 compositions (dev, staging, production)")
+    print("  State: per-environment S3 keys with DynamoDB locking")
 
 
 # =========================================================================
@@ -261,15 +274,15 @@ def main(argv: list[str] | None = None) -> None:
         f"  \u2713 {len(DATA_STORES.get('production', []))} Data Stores       -- Neptune, RDS, Redis, MSK, OpenSearch, DynamoDB, S3, SageMaker FS",
         f"  \u2713 {len(VPC_ENDPOINTS)} VPC Endpoints     -- S3, DynamoDB (Gateway) + 10 Interface (PrivateLink)",
         f"  \u2713 {len(SECRETS)} Managed Secrets   -- Secrets Manager, KMS rotation, cross-region replication",
-        f"  \u2713 2 CDN Distributions -- SDK (cdn.aether.network), Dashboard SPA",
-        f"  \u2713 2 API Gateways      -- HTTP (api.aether.network), WebSocket (ws.aether.network)",
-        f"  \u2713 WAF                 -- Rate limiting, bot control, DDoS protection",
-        f"  \u2713 ML Serving          -- SageMaker multi-model endpoint, autoscaling, feature store",
+        "  \u2713 2 CDN Distributions -- SDK (cdn.aether.network), Dashboard SPA",
+        "  \u2713 2 API Gateways      -- HTTP (api.aether.network), WebSocket (ws.aether.network)",
+        "  \u2713 WAF                 -- Rate limiting, bot control, DDoS protection",
+        "  \u2713 ML Serving          -- SageMaker multi-model endpoint, autoscaling, feature store",
         f"  \u2713 {len(MONITORING_STACK)} Monitoring Layers -- Metrics, logs, tracing, alerting, dashboards, cost, security",
         f"  \u2713 {len(COMPLIANCE_CONTROLS)} Compliance Controls -- Encryption, IAM, audit, network, backup",
         f"  \u2713 DR                  -- RPO {DR.rpo_hours}h, RTO {DR.rto_hours}h, cross-region replication, Terraform rebuild",
-        f"  \u2713 17 Terraform Modules -- Full IaC, 3 environment compositions",
-        f"  \u2713 6 Operational Scripts -- Network, monitoring, cost, security, capacity, DR",
+        "  \u2713 17 Terraform Modules -- Full IaC, 3 environment compositions",
+        "  \u2713 6 Operational Scripts -- Network, monitoring, cost, security, capacity, DR",
     ]
     for line in summary:
         print(line)

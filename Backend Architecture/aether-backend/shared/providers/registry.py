@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from shared.logger.logger import get_logger
-from shared.providers.base import Provider, ProviderConfig, ProviderStatus
+from shared.providers.base import Provider, ProviderConfig
 from shared.providers.categories import (
     CATEGORY_PROVIDERS,
     PROVIDER_FACTORY,

@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
-from typing import Any
 
-from agent_controller.hub import ControllerHub
-from agent_controller.dashboard import render_dashboard
 from services.agent.internal_ops import InternalOpsService
+
+from agent_controller.dashboard import render_dashboard
+from agent_controller.hub import ControllerHub
 
 
 def create_hub() -> ControllerHub:

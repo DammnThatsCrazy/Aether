@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
-from config.compliance_config import PROCESSING_ACTIVITIES, CROSS_BORDER_TRANSFERS
+from config.compliance_config import CROSS_BORDER_TRANSFERS, PROCESSING_ACTIVITIES
 from shared.logger import ropa_log
 
 

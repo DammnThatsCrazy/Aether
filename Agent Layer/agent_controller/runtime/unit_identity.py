@@ -6,7 +6,7 @@ Pure work mode is the default; UNITS presentation is opt-in.
 
 from __future__ import annotations
 
-from models.units import UnitClass, UnitIdentity, UnitRegistry, UnitStatus
+from models.units import UnitClass, UnitIdentity, UnitRegistry
 
 
 def create_controller_unit(

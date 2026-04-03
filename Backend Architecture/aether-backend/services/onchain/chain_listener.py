@@ -17,10 +17,9 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from typing import Any, Callable, Coroutine, Optional
+from typing import Callable, Optional
 
 from shared.logger.logger import get_logger, metrics
-from shared.common.common import utc_now
 
 from .models import ChainListenerConfig
 

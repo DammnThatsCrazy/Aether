@@ -4,10 +4,9 @@ Multi-account structure, sizing by environment, DR targets, and all resource spe
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
 
+from dataclasses import dataclass
+from enum import Enum
 
 # ═══════════════════════════════════════════════════════════════════════════
 # AWS ACCOUNTS (multi-account strategy)

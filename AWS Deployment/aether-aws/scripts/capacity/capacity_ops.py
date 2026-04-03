@@ -13,14 +13,13 @@ Covers:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
-from config.aws_config import COMPUTE_SPECS, DATA_STORES, SERVICE_NAMES
-from shared.runner import cap_log, timed
+from config.aws_config import COMPUTE_SPECS, SERVICE_NAMES
 from shared.aws_client import aws_client
-
+from shared.runner import cap_log, timed
 
 # =========================================================================
 # DATA MODELS
@@ -266,7 +265,7 @@ def forecast_capacity() -> list[CapacityForecast]:
     if critical:
         cap_log(f"\n  \u26a0 {len(critical)} resources projected to exhaust within 6 months!")
     else:
-        cap_log(f"\n  \u2713 All resources have >6 months of headroom")
+        cap_log("\n  \u2713 All resources have >6 months of headroom")
 
     return forecasts
 

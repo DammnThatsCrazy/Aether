@@ -156,16 +156,16 @@ class DSRExecutor:
         """Update user traits and profile data."""
         dsr_log(f"  Art. 16 — Rectifying data for user {dsr.user_id}...")
 
-        dsr_log(f"    Updating identity profile in Neptune + cache...")
-        dsr_log(f"    Updating correctable event metadata...")
-        dsr_log(f"    Triggering feature recomputation...")
+        dsr_log("    Updating identity profile in Neptune + cache...")
+        dsr_log("    Updating correctable event metadata...")
+        dsr_log("    Triggering feature recomputation...")
 
         for store in GDPR_DATA_STORES:
             dsr.stores_processed.append(store.name)
             if store.name in dsr.stores_remaining:
                 dsr.stores_remaining.remove(store.name)
 
-        dsr_log(f"  Rectification complete")
+        dsr_log("  Rectification complete")
 
     # ── Art. 17: Right to Erasure ─────────────────────────────────────
 
@@ -206,11 +206,11 @@ class DSRExecutor:
             ("Neptune (Graph DB) — Payments",
              f"DELETE PAYMENT vertices WHERE payer_id = '{dsr.user_id}' + PAYS edges"),
             ("Neptune (Graph DB) — Contracts",
-             f"ANONYMIZE CONTRACT vertices deployed by user's agents (on-chain = immutable, pseudonymize deployer_agent_id)"),
+             "ANONYMIZE CONTRACT vertices deployed by user's agents (on-chain = immutable, pseudonymize deployer_agent_id)"),
             ("Neptune (Graph DB) — Actions",
-             f"PSEUDONYMIZE ACTION_RECORD entries (replace agent_id with SHA-256 hash, retain chain data for audit)"),
+             "PSEUDONYMIZE ACTION_RECORD entries (replace agent_id with SHA-256 hash, retain chain data for audit)"),
             ("Neptune (Graph DB) — Commerce",
-             f"DELETE HIRED edges involving user's agents"),
+             "DELETE HIRED edges involving user's agents"),
         ]
 
         for store_name, operation in ig_steps:
@@ -220,7 +220,7 @@ class DSRExecutor:
         # Additional IG erasure steps for services, protocols, and x402 data
         ig_extra_steps = [
             ("Neptune (Graph DB) — Services",
-             f"DELETE CONSUMES edges WHERE from_vertex is user's agent + pseudonymize SERVICE vertex references"),
+             "DELETE CONSUMES edges WHERE from_vertex is user's agent + pseudonymize SERVICE vertex references"),
             ("Neptune (Graph DB) — Protocols",
              f"DELETE INTERACTS_WITH edges WHERE from_vertex = '{dsr.user_id}'"),
             ("x402 In-Memory Store",
@@ -240,16 +240,16 @@ class DSRExecutor:
         """Freeze processing: data retained but not processed. Must be IMMEDIATE."""
         dsr_log(f"  Art. 18 — Restricting processing for user {dsr.user_id}...")
 
-        dsr_log(f"    Setting restriction flag on identity profile...")
-        dsr_log(f"    Broadcasting restriction event to all services...")
-        dsr_log(f"    Caching restriction flag in Redis...")
+        dsr_log("    Setting restriction flag on identity profile...")
+        dsr_log("    Broadcasting restriction event to all services...")
+        dsr_log("    Caching restriction flag in Redis...")
 
         for store in GDPR_DATA_STORES:
             dsr.stores_processed.append(store.name)
             if store.name in dsr.stores_remaining:
                 dsr.stores_remaining.remove(store.name)
 
-        dsr_log(f"  Restriction applied immediately ✓")
+        dsr_log("  Restriction applied immediately ✓")
 
     # ── Art. 20: Right to Portability ─────────────────────────────────
 
@@ -283,7 +283,7 @@ class DSRExecutor:
                 dsr.stores_remaining.remove(store.name)
 
         dsr.result = export
-        dsr_log(f"  Portable export complete (JSON with schema)")
+        dsr_log("  Portable export complete (JSON with schema)")
 
     # ── Art. 21: Right to Object ──────────────────────────────────────
 
@@ -291,18 +291,18 @@ class DSRExecutor:
         """Stop all processing for a specific identity. IMMEDIATE."""
         dsr_log(f"  Art. 21 — Stopping all processing for user {dsr.user_id}...")
 
-        dsr_log(f"    Revoking all consent purposes...")
-        dsr_log(f"    Setting opt-out flag (SDK will stop collection)...")
-        dsr_log(f"    Excluding from ML inference pipeline...")
-        dsr_log(f"    Removing from all campaign audiences...")
-        dsr_log(f"    Broadcasting IDENTITY_OBJECTION event...")
+        dsr_log("    Revoking all consent purposes...")
+        dsr_log("    Setting opt-out flag (SDK will stop collection)...")
+        dsr_log("    Excluding from ML inference pipeline...")
+        dsr_log("    Removing from all campaign audiences...")
+        dsr_log("    Broadcasting IDENTITY_OBJECTION event...")
 
         for store in GDPR_DATA_STORES:
             dsr.stores_processed.append(store.name)
             if store.name in dsr.stores_remaining:
                 dsr.stores_remaining.remove(store.name)
 
-        dsr_log(f"  Processing stopped immediately ✓")
+        dsr_log("  Processing stopped immediately ✓")
 
     # ── Helpers ───────────────────────────────────────────────────────
 

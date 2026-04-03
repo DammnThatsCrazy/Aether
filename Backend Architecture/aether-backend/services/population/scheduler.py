@@ -8,7 +8,6 @@ Uses asyncio for scheduling. Integrates with existing population registry.
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
 
 from shared.common.common import utc_now
 from shared.logger.logger import get_logger, metrics

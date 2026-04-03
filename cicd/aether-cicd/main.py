@@ -14,14 +14,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config.pipeline_config import (
-    CI_STAGES, CD_STAGES, QUALITY_THRESHOLDS,
-    SDK_RELEASE_TARGETS, BRANCH_CONFIG, AWS_ACCOUNTS,
+    CI_STAGES, CD_STAGES, BRANCH_CONFIG, AWS_ACCOUNTS,
     REPO_SERVICES, REPO_PACKAGES, TERRAFORM_CONFIG,
     NOTIFICATION_CONFIG, CACHE_CONFIG, CHANGE_DETECTION_CONFIG,
 )
-from quality_gates.gate import QualityGate, GateStatus
-from stages.ci.ci_stages import run_full_ci
-from stages.cd.cd_stages import run_full_cd, Environment
+from quality_gates.gate import QualityGate
 from stages.sdk.sdk_release import release_all_sdks, BumpType, PreRelease
 
 
@@ -71,19 +68,19 @@ def demo_pipeline_config() -> None:
     print(f"\nTerraform modules: {', '.join(TERRAFORM_CONFIG.modules)}")
     print(f"Drift detection: {TERRAFORM_CONFIG.drift_detection_cron}")
 
-    print(f"\nNotifications:")
+    print("\nNotifications:")
     print(f"  CI channel:  {NOTIFICATION_CONFIG.slack_channel_ci}")
     print(f"  CD channel:  {NOTIFICATION_CONFIG.slack_channel_cd}")
     print(f"  Alerts:      {NOTIFICATION_CONFIG.slack_channel_alerts}")
     print(f"  On rollback: {NOTIFICATION_CONFIG.notify_on_rollback}")
     print(f"  On drift:    {NOTIFICATION_CONFIG.notify_on_drift}")
 
-    print(f"\nCaching:")
+    print("\nCaching:")
     print(f"  Turbo remote cache:  {CACHE_CONFIG.turbo_remote_cache}")
     print(f"  Docker layer cache:  {CACHE_CONFIG.docker_layer_cache}")
     print(f"  ECR keep count:      {CACHE_CONFIG.ecr_lifecycle_keep_count}")
 
-    print(f"\nChange Detection:")
+    print("\nChange Detection:")
     print(f"  Enabled:        {CHANGE_DETECTION_CONFIG.enabled}")
     print(f"  Base ref:       {CHANGE_DETECTION_CONFIG.base_ref}")
     print(f"  Always run:     {', '.join(CHANGE_DETECTION_CONFIG.always_run_paths)}")

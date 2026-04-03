@@ -7,11 +7,10 @@ Used by ALL services.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Generic, Optional, TypeVar
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import IntEnum
-
+from typing import Any, Generic, Optional, TypeVar
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ERROR CLASSES

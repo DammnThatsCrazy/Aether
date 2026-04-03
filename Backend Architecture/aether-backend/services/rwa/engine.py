@@ -5,16 +5,13 @@ reserve credibility, redemption pressure, compliance detection.
 
 from __future__ import annotations
 
-import uuid
-from typing import Any, Optional
 
 from repositories.repos import BaseRepository
-from repositories.lake import bronze_tradfi, silver_onchain, gold_market
-from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
+from repositories.lake import silver_onchain
 from shared.common.common import utc_now
 from shared.logger.logger import get_logger, metrics
 from services.rwa.models import (
-    RWAAssetClass, RWAChain, PolicyType, CashflowType, ExposureType,
+    PolicyType, CashflowType, ExposureType,
     RWAAssetCreate, PolicyCreate, CashflowEventCreate,
     make_rwa_asset, make_policy, make_cashflow_event,
 )

@@ -15,16 +15,13 @@ Endpoints:
 
 from __future__ import annotations
 
-from typing import Any, Optional
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
 
-from shared.common.common import APIResponse, NotFoundError, utc_now
-from shared.graph.graph import GraphClient
+from shared.common.common import APIResponse, utc_now
 from shared.scoring.trust_score import TrustScoreComposite
 from shared.logger.logger import get_logger, metrics
-from repositories.lake import gold_identity, gold_market, gold_onchain
+from repositories.lake import gold_identity, gold_market
 from services.lake.features import materialize_wallet_features
 from dependencies.providers import get_registry
 

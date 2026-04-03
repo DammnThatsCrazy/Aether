@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from config.settings import WorkerType, TaskPriority
+from config.settings import TaskPriority, WorkerType
 from models.core import AgentTask, TaskResult
 
 logger = logging.getLogger("aether.queue.tasks")
@@ -44,7 +44,6 @@ def _task_to_dict(task: AgentTask) -> dict[str, Any]:
 
 def _dict_to_task(data: dict[str, Any]) -> AgentTask:
     """Deserialize a dict back into an AgentTask."""
-    from datetime import datetime
     return AgentTask(
         worker_type=WorkerType(data["worker_type"]),
         priority=TaskPriority(data["priority"]),

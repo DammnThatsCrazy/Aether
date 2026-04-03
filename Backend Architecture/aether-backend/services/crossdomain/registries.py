@@ -8,7 +8,7 @@ in-memory fallback for local development). Reuses the Web3 registry pattern.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from repositories.repos import BaseRepository
 from shared.common.common import utc_now

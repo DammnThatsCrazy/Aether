@@ -9,13 +9,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from models.objectives import PlanStep
 from models.evidence import (
-    CandidateFact,
-    FactVerificationStatus,
     VerificationDecision,
     VerificationResult,
 )
+from models.objectives import PlanStep
 
 logger = logging.getLogger("aether.controllers.verification")
 

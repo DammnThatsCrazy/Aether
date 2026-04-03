@@ -2,8 +2,8 @@
 // AETHER SDK — EVENT QUEUE (BATCH, FLUSH, RETRY, OFFLINE PERSISTENCE)
 // =============================================================================
 
-import type { AetherEvent, RetryConfig, ConsentState } from '../types';
-import { storage } from '../utils';
+import type { AetherEvent, RetryConfig, ConsentState } from './WebSDKTypes(CoreTypeDefinitions)';
+import { storage } from './SDKUtilityFunctions';
 
 const QUEUE_STORAGE_KEY = 'event_queue';
 const MAX_STORED_EVENTS = 1000;
@@ -162,7 +162,7 @@ export class EventQueue {
       batch: events,
       sentAt: new Date().toISOString(),
       context: {
-        library: { name: '@aether/sdk', version: '__SDK_VERSION__' },
+        library: { name: '@aether/sdk', version: '8.7.0' },
       },
     });
 

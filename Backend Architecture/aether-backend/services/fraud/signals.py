@@ -20,10 +20,8 @@ Integration:
 from __future__ import annotations
 
 import logging
-import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger("aether.fraud.signals")

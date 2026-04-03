@@ -10,7 +10,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from shared.common.common import APIResponse, NotFoundError, PaginatedResponse, PaginationMeta
+from shared.common.common import APIResponse, NotFoundError
 from shared.cache.cache import CacheClient
 from shared.graph.graph import GraphClient
 from shared.events.events import Event, EventProducer, Topic

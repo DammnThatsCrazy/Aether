@@ -11,7 +11,6 @@ from __future__ import annotations
 import time
 from contextlib import contextmanager
 from functools import partial
-from typing import Optional
 
 
 def log(msg: str, tag: str = "CMP") -> None:

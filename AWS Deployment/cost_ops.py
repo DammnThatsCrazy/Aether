@@ -8,10 +8,8 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass
-from typing import Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from config.aws_config import AWS_ACCOUNTS, AccountType, COMPUTE_SPECS, DATA_STORES
 
 
 def _log(msg: str):
@@ -89,7 +87,7 @@ def estimate_service_costs(environment: str = "production") -> list[ServiceCost]
     for c in costs:
         _log(f"  ${c.monthly_usd:>7,.0f}  {c.service}")
 
-    _log(f"\n  Category Totals:")
+    _log("\n  Category Totals:")
     total = 0
     for cat, amount in sorted(by_category.items()):
         _log(f"    {cat:12s} ${amount:>8,.0f}")
@@ -158,5 +156,5 @@ def run_full_cost_report(environment: str = "production"):
     optimization_recommendations()
 
     print(f"\n{'═' * 60}")
-    print(f"  Cost report complete ✓")
+    print("  Cost report complete ✓")
     print(f"{'═' * 60}\n")

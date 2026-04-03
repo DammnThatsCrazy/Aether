@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -251,7 +251,6 @@ class IdentityResolution(AetherModel):
             (path / "metadata.json").write_text(self.metadata.model_dump_json(indent=2))
 
     def load(self, path: Path) -> None:
-        import torch
 
         self.metadata = ModelMetadata.model_validate_json(
             (path / "metadata.json").read_text()

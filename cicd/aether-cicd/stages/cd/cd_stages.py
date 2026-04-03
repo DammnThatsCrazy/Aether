@@ -23,14 +23,13 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from config.pipeline_config import (
-    QUALITY_THRESHOLDS, CD_STAGES, DEMO_CD_STAGES, REPO_SERVICES, Environment,
+    QUALITY_THRESHOLDS, REPO_SERVICES, Environment,
 )
-from quality_gates.gate import QualityGate, GateResult, GateStatus
+from quality_gates.gate import QualityGate
 from shared.runner import run_cmd, log
 from shared.notifier import Notifier, NotifyEvent
 
@@ -475,7 +474,7 @@ def run_full_cd(
 
     # All stages passed
     print(f"\n{'=' * 60}")
-    print(f"  DEPLOYMENT SUCCESSFUL")
+    print("  DEPLOYMENT SUCCESSFUL")
     print(f"  Version:     {version}")
     print(f"  Commit:      {commit_sha[:8]}")
     print(f"  Environment: {environment.value}")
@@ -697,11 +696,11 @@ def run_demo_cd(
 
     # All stages passed
     print(f"\n{'=' * 60}")
-    print(f"  DEMO DEPLOYMENT SUCCESSFUL")
+    print("  DEMO DEPLOYMENT SUCCESSFUL")
     print(f"  Version:     {version}")
     print(f"  Commit:      {commit_sha[:8]}")
-    print(f"  Environment: demo")
-    print(f"  URL:         https://demo.aether.io")
+    print("  Environment: demo")
+    print("  URL:         https://demo.aether.io")
     print(f"{'=' * 60}\n")
 
     notifier.cd_success(version, "demo")

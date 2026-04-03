@@ -16,12 +16,11 @@ recover any accuracy loss.
 
 from __future__ import annotations
 
-import copy
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd

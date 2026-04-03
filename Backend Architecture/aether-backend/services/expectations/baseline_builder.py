@@ -11,7 +11,7 @@ No public API — consumed only by ExtractionExpectationEngine.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from shared.logger.logger import get_logger
 
