@@ -16,6 +16,9 @@ import os
 from abc import ABC
 from typing import Any, Optional, TypeVar
 
+import asyncio
+import re
+
 from shared.common.common import NotFoundError, utc_now
 from shared.cache.cache import CacheClient, CacheKey, TTL
 from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
@@ -42,36 +45,45 @@ def _database_url() -> str:
     return os.getenv("DATABASE_URL", "")
 
 
-# Shared connection pool (singleton)
+# Shared connection pool (singleton, guarded by lock to prevent race conditions)
 _pool: Optional[Any] = None
+_pool_lock = asyncio.Lock()
+
+# Strict table name validation (alphanumeric + underscores only)
+_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 
 
 async def get_pool() -> Any:
-    """Get or create the shared asyncpg connection pool."""
+    """Get or create the shared asyncpg connection pool (thread-safe)."""
     global _pool
     if _pool is not None:
         return _pool
 
-    url = _database_url()
-    if not url:
-        if _is_local_env():
-            return None
-        raise RuntimeError(
-            "DATABASE_URL not set. Required in non-local environments. "
-            "Set AETHER_ENV=local for in-memory fallback."
-        )
-    if not ASYNCPG_AVAILABLE:
-        if _is_local_env():
-            logger.warning("asyncpg not installed — using in-memory repositories")
-            return None
-        raise RuntimeError("asyncpg required for production: pip install asyncpg>=0.29")
+    async with _pool_lock:
+        # Double-check after acquiring lock
+        if _pool is not None:
+            return _pool
 
-    _pool = await asyncpg.create_pool(
-        url, min_size=2, max_size=20,
-        command_timeout=30, statement_cache_size=100,
-    )
-    logger.info(f"Database pool created (asyncpg, {url.split('@')[-1] if '@' in url else url})")
-    return _pool
+        url = _database_url()
+        if not url:
+            if _is_local_env():
+                return None
+            raise RuntimeError(
+                "DATABASE_URL not set. Required in non-local environments. "
+                "Set AETHER_ENV=local for in-memory fallback."
+            )
+        if not ASYNCPG_AVAILABLE:
+            if _is_local_env():
+                logger.warning("asyncpg not installed — using in-memory repositories")
+                return None
+            raise RuntimeError("asyncpg required for production: pip install asyncpg>=0.29")
+
+        _pool = await asyncpg.create_pool(
+            url, min_size=2, max_size=20,
+            command_timeout=30, statement_cache_size=100,
+        )
+        logger.info(f"Database pool created (asyncpg, {url.split('@')[-1] if '@' in url else url})")
+        return _pool
 
 
 async def close_pool() -> None:
@@ -114,6 +126,8 @@ class BaseRepository(ABC):
             self._table_ensured = True
             return
         safe_name = self.table_name.replace("-", "_").replace(" ", "_")
+        if not _TABLE_NAME_RE.match(safe_name):
+            raise ValueError(f"Invalid table name: {safe_name!r} — must be alphanumeric/underscores only")
         await pool.execute(f"""
             CREATE TABLE IF NOT EXISTS {safe_name} (
                 id TEXT PRIMARY KEY,

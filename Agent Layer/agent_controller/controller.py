@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import heapq
 import logging
+from collections import deque
 from queue.celery_app import is_celery_available
 from queue.tasks import (
     register_worker_for_tasks,
@@ -75,8 +76,8 @@ class AgentController:
         # Registry: WorkerType → BaseWorker instance
         self._workers: dict[WorkerType, BaseWorker] = {}
 
-        # Completed/failed task log
-        self._history: list[AgentTask] = []
+        # Completed/failed task log (bounded ring buffer to prevent memory exhaustion)
+        self._history: deque[AgentTask] = deque(maxlen=10_000)
 
         # Celery async result tracking
         self._celery_results: dict[str, str] = {}  # task_id → celery_id
