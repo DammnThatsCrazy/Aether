@@ -13,18 +13,15 @@ Runbook:
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from config.aws_config import DR, DR_STRATEGIES, AWS_ACCOUNTS, AccountType
+from config.aws_config import DR, DR_STRATEGIES
 
 
 class FailoverScope(str, Enum):
@@ -102,14 +99,14 @@ def rebuild_infrastructure(ctx: RecoveryContext) -> bool:
     tf_steps = [
         f"terraform -chdir=terraform/environments/production init -input=false -backend-config='region={ctx.dr_region}'",
         f"terraform -chdir=terraform/environments/production plan -var='aws_region={ctx.dr_region}' -out=dr.tfplan",
-        f"terraform -chdir=terraform/environments/production apply -auto-approve dr.tfplan",
+        "terraform -chdir=terraform/environments/production apply -auto-approve dr.tfplan",
     ]
 
     for step in tf_steps:
         _log(f"  Running: {step[:80]}...")
         exit_code, output = _run(step)
         if exit_code != 0:
-            _log(f"  ⚠ Terraform step returned non-zero (stub mode)")
+            _log("  ⚠ Terraform step returned non-zero (stub mode)")
 
     ctx.steps_completed.append("infrastructure_rebuild")
     _log("Infrastructure rebuild initiated ✓")
@@ -286,7 +283,7 @@ def execute_dr_failover(scope: FailoverScope = FailoverScope.REGION) -> Recovery
     notify_stakeholders(ctx)
 
     print(f"\n{'═' * 60}")
-    print(f"  DISASTER RECOVERY COMPLETE")
+    print("  DISASTER RECOVERY COMPLETE")
     print(f"  Steps: {', '.join(ctx.steps_completed)}")
     print(f"  Status: {ctx.status.value}")
     print(f"{'═' * 60}\n")

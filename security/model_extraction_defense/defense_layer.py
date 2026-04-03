@@ -24,19 +24,19 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from dataclasses import dataclass
+from typing import Any, Optional
 
 import numpy as np
 
-from .config import ExtractionDefenseConfig
-from .rate_limiter import QueryRateLimiter, RateLimitCheck
-from .pattern_detector import QueryPatternDetector, PatternAnalysis
-from .output_perturbation import OutputPerturbationLayer
-from .watermark import ModelWatermark
 from .canary_detector import CanaryInputDetector
-from .risk_scorer import ExtractionRiskScorer, RiskAssessment
+from .config import ExtractionDefenseConfig
 from .metrics import DefenseMetrics
+from .output_perturbation import OutputPerturbationLayer
+from .pattern_detector import PatternAnalysis, QueryPatternDetector
+from .rate_limiter import QueryRateLimiter, RateLimitCheck
+from .risk_scorer import ExtractionRiskScorer, RiskAssessment
+from .watermark import ModelWatermark
 
 logger = logging.getLogger("aether.security.defense_layer")
 

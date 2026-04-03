@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import time
 import uuid
 from typing import Callable, Optional
@@ -20,7 +19,6 @@ from fastapi.responses import JSONResponse
 from shared.common.common import AetherError, UnauthorizedError
 from shared.auth.auth import JWTHandler, APIKeyValidator, TenantContext, Role
 from shared.logger.logger import get_logger, set_request_context, metrics
-from shared.rate_limit.limiter import TokenBucketLimiter
 from config.settings import settings
 from dependencies.providers import get_registry
 

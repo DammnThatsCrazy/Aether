@@ -12,9 +12,7 @@ Operates on a per-client sliding window of recent queries.
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import math
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field

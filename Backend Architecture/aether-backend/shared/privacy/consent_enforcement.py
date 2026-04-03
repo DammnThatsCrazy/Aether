@@ -10,7 +10,6 @@ Enforcement behavior: fail-closed — disallowed processing is blocked.
 
 from __future__ import annotations
 
-from typing import Optional
 
 from shared.logger.logger import get_logger
 

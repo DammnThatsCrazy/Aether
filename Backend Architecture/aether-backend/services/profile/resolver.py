@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Optional
 
 from shared.graph.graph import GraphClient, VertexType, EdgeType
-from shared.cache.cache import CacheClient, CacheKey, TTL
+from shared.cache.cache import CacheClient, TTL
 from shared.logger.logger import get_logger
 
 logger = get_logger("aether.profile.resolver")

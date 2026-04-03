@@ -26,10 +26,8 @@ import logging
 import os
 import sys
 import time
-from dataclasses import dataclass, field, asdict
-from enum import Enum
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 #  Logging

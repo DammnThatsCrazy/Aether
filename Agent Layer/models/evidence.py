@@ -6,10 +6,10 @@ Models for evidence collection, candidate facts, and verification results.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class VerificationDecision(str, Enum):

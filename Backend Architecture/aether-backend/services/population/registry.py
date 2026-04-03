@@ -6,10 +6,10 @@ Uses existing BaseRepository pattern (asyncpg in prod, in-memory in local).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from repositories.repos import BaseRepository
-from shared.common.common import utc_now, NotFoundError
+from shared.common.common import utc_now
 from shared.logger.logger import get_logger, metrics
 from services.population.models import (
     PopulationType, MembershipBasis,

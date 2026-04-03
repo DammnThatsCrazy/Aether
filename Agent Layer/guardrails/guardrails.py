@@ -6,7 +6,6 @@ Safety net that wraps every worker execution.
 from __future__ import annotations
 
 import logging
-import re
 import time
 from collections import defaultdict
 from typing import Optional
@@ -16,7 +15,7 @@ from config.settings import (
     ConfidenceThresholds,
     RateLimitBudget,
 )
-from models.core import AuditRecord, TaskResult, AgentTask
+from models.core import AgentTask, AuditRecord, TaskResult
 
 logger = logging.getLogger("aether.guardrails")
 

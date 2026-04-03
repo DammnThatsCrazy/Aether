@@ -26,8 +26,6 @@ from repositories.repos import AnalyticsRepository
 from dependencies.providers import get_cache, get_graph
 from services.behavioral.engines import (
     run_full_behavioral_scan, signal_repo,
-    compute_intent_residue, compute_wallet_friction,
-    compute_source_shadow,
 )
 from services.behavioral.signals import SIGNAL_REGISTRY, SignalFamily
 

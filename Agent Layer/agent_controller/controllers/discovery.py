@@ -7,10 +7,10 @@ Manages source fallback, retries, and evidence capture.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from models.objectives import PlanStep
 from models.evidence import EvidenceRecord
+from models.objectives import PlanStep
 
 logger = logging.getLogger("aether.controllers.discovery")
 

@@ -30,9 +30,8 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Request, Query
-from pydantic import BaseModel, Field
 
-from shared.common.common import APIResponse, BadRequestError, NotFoundError, utc_now
+from shared.common.common import APIResponse, NotFoundError, utc_now
 from shared.logger.logger import get_logger, metrics
 from services.population.models import PopulationCreate, MembershipAdd, PopulationType
 from services.population.registry import population_repo, membership_repo

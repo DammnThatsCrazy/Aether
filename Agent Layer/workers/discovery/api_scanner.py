@@ -17,9 +17,9 @@ import logging
 from typing import Any
 
 import httpx
-
 from config.settings import WorkerType
 from models.core import AgentTask, TaskResult
+
 from workers.base import BaseWorker
 
 logger = logging.getLogger("aether.worker.api_scanner")

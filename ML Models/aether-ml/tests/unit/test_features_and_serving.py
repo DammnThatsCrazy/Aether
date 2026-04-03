@@ -4,9 +4,6 @@ Tests for feature registry, streaming pipeline, edge inference, batch predictor,
 """
 
 import json
-import numpy as np
-import pandas as pd
-import pytest
 from pathlib import Path
 import tempfile
 
@@ -19,11 +16,11 @@ from features.streaming import (
     WalletFeatureProcessor, WindowedAggregator,
 )
 from edge.runtime import (
-    EdgeRuntime, EdgeRuntimeConfig, EdgePrediction,
-    PredictionCache, EdgeModelManager, SklearnBackend,
+    EdgePrediction,
+    PredictionCache,
 )
 from serving.src.cache import (
-    PredictionCache as ServerCache, CacheKeyBuilder, CacheConfig, DEFAULT_MODEL_TTLS,
+    CacheKeyBuilder, DEFAULT_MODEL_TTLS,
 )
 from common.src.base import ModelType
 

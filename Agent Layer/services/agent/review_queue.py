@@ -9,8 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from models.mutations import MutationClass, ReviewStatus
-
 logger = logging.getLogger("aether.services.review_queue")
 
 

@@ -11,14 +11,19 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config.aws_config import (
-    AWS_ACCOUNTS, AccountType, VPC_CONFIGS, DNS_DOMAINS,
-    COMPUTE_SPECS, DATA_STORES, MONITORING_STACK,
-    DR, DR_STRATEGIES,
+    AWS_ACCOUNTS,
+    COMPUTE_SPECS,
+    DATA_STORES,
+    DNS_DOMAINS,
+    DR,
+    DR_STRATEGIES,
+    MONITORING_STACK,
+    VPC_CONFIGS,
 )
-from scripts.dr.disaster_recovery import execute_dr_failover, print_dr_runbook, FailoverScope
+from scripts.cost.cost_ops import run_full_cost_report
+from scripts.dr.disaster_recovery import FailoverScope, execute_dr_failover, print_dr_runbook
 from scripts.monitoring.monitoring_ops import run_full_monitoring_check
 from scripts.network.network_ops import run_full_network_check
-from scripts.cost.cost_ops import run_full_cost_report
 
 
 def print_header(title: str):
@@ -40,15 +45,15 @@ def show_network_architecture():
         nat = 3 if env == "production" else 1
         print(f"  {env:12s} VPC {vpc.cidr} | {vpc.azs} AZs | {vpc.public_subnets} public + {vpc.private_subnets} private subnets | {nat} NAT GW(s)")
 
-    print(f"\n  Public subnets:  ALB, NAT Gateways, bastion hosts")
-    print(f"  Private subnets: ECS tasks, RDS, ElastiCache, Neptune, Lambda")
-    print(f"  VPC Peering:     production ↔ data (ML model access)")
+    print("\n  Public subnets:  ALB, NAT Gateways, bastion hosts")
+    print("  Private subnets: ECS tasks, RDS, ElastiCache, Neptune, Lambda")
+    print("  VPC Peering:     production ↔ data (ML model access)")
 
-    print(f"\n  DNS (Route 53):")
+    print("\n  DNS (Route 53):")
     for purpose, domain in DNS_DOMAINS.items():
         print(f"    {domain:35s} ({purpose})")
 
-    print(f"\n  WAF: CloudFront + ALB — DDoS, rate limiting, bot mitigation")
+    print("\n  WAF: CloudFront + ALB — DDoS, rate limiting, bot mitigation")
 
 
 def show_compute_architecture():
@@ -60,9 +65,9 @@ def show_compute_architecture():
         spot = "yes" if spec.spot else "—"
         print(f"  {svc:<15s} {spec.cpu:>5d} {spec.memory:>5d}M {spec.min_count:>4d} {spec.max_count:>4d} {spec.target_cpu_pct:>4d}% {spot:>5s} {spec.port:>5d}")
 
-    print(f"\n  Platform: ECS Fargate (Agent workers on Fargate Spot)")
-    print(f"  Scheduling: EventBridge + Lambda/ECS for ML retraining, data cleanup")
-    print(f"  WebSocket: API Gateway WebSocket for real-time streaming")
+    print("\n  Platform: ECS Fargate (Agent workers on Fargate Spot)")
+    print("  Scheduling: EventBridge + Lambda/ECS for ML retraining, data cleanup")
+    print("  WebSocket: API Gateway WebSocket for real-time streaming")
 
 
 def show_data_stores():

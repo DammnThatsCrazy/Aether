@@ -7,7 +7,7 @@ In production: AWS API Gateway + Lambda authorizer.
 from __future__ import annotations
 
 from fastapi import APIRouter
-from shared.common.common import APIResponse, utc_now
+from shared.common.common import utc_now
 
 router = APIRouter(tags=["Gateway"])
 

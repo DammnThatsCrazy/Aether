@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from config.aws_config import VPC_CONFIGS, DNS_DOMAINS, AWS_ACCOUNTS, AccountType
+from config.aws_config import AWS_ACCOUNTS, DNS_DOMAINS, VPC_CONFIGS, AccountType
 
 
 def _log(msg: str):
@@ -97,7 +97,7 @@ def verify_security_groups(environment: str = "production"):
 
 def verify_dns(environment: str = "production"):
     """Verify Route 53 DNS records."""
-    _log(f"DNS configuration:")
+    _log("DNS configuration:")
     for purpose, domain in DNS_DOMAINS.items():
         target = {
             "api": "API Gateway → ALB → ECS Fargate",
@@ -112,9 +112,9 @@ def verify_vpc_peering():
     """Verify VPC peering between production and data accounts."""
     prod = AWS_ACCOUNTS[AccountType.PRODUCTION]
     data = AWS_ACCOUNTS[AccountType.DATA]
-    _log(f"VPC Peering:")
+    _log("VPC Peering:")
     _log(f"  {prod.name} ({VPC_CONFIGS['production'].cidr}) ↔ {data.name} ({VPC_CONFIGS['data'].cidr})")
-    _log(f"  Purpose: ML model access from production to data account")
+    _log("  Purpose: ML model access from production to data account")
 
 
 def verify_waf():
@@ -149,5 +149,5 @@ def run_full_network_check(environment: str = "production"):
     verify_waf()
 
     print(f"\n{'═' * 60}")
-    print(f"  Network verification complete ✓")
+    print("  Network verification complete ✓")
     print(f"{'═' * 60}\n")

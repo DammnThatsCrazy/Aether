@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import Counter
 from typing import Any
 
 from config.settings import WorkerType
 from models.core import AgentTask, TaskResult
+
 from workers.base import BaseWorker
 
 logger = logging.getLogger("aether.worker.semantic_tagger")

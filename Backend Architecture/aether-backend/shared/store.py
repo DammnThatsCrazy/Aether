@@ -27,7 +27,7 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Optional
 
 from shared.logger.logger import get_logger
 

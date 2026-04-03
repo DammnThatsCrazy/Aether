@@ -11,13 +11,12 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
-from shared.common.common import APIResponse, PaginatedResponse, PaginationMeta
-from shared.cache.cache import CacheClient
-from shared.graph.graph import GraphClient
-from shared.events.events import Event, EventProducer, Topic
-from shared.logger.logger import get_logger
 from repositories.repos import IdentityRepository
+from shared.cache.cache import CacheClient
+from shared.common.common import APIResponse
+from shared.events.events import Event, EventProducer, Topic
+from shared.graph.graph import GraphClient
+from shared.logger.logger import get_logger
 
 logger = get_logger("aether.service.identity")
 router = APIRouter(prefix="/v1/identity", tags=["Identity"])

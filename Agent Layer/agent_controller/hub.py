@@ -14,30 +14,31 @@ Hierarchy:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from agent_controller.governance import GovernanceController, GovernancePolicy
-from agent_controller.kira import KiraController
-from agent_controller.controllers.intake import IntakeController
+from models.units import UnitRegistry
+from shared.events.objective_events import EventBus
+from shared.graph.staging import GraphStagingInterface
+
+from agent_controller.controllers.bolt import BoltController
+from agent_controller.controllers.commit import CommitController
 from agent_controller.controllers.discovery import DiscoveryController
 from agent_controller.controllers.enrichment import EnrichmentController
-from agent_controller.controllers.verification import VerificationController
-from agent_controller.controllers.commit import CommitController
+from agent_controller.controllers.intake import IntakeController
 from agent_controller.controllers.recovery import RecoveryController
-from agent_controller.controllers.bolt import BoltController
 from agent_controller.controllers.trigger import TriggerController
-from agent_controller.runtime.objective_runtime import ObjectiveRuntime
-from agent_controller.runtime.loop_runtime import LoopRuntime
-from agent_controller.runtime.checkpointing import CheckpointStore
+from agent_controller.controllers.verification import VerificationController
+from agent_controller.governance import GovernanceController, GovernancePolicy
+from agent_controller.kira import KiraController
+from agent_controller.planning.stopping_policy import StoppingPolicy
 from agent_controller.runtime.briefing import BriefingStore
+from agent_controller.runtime.checkpointing import CheckpointStore
+from agent_controller.runtime.loop_runtime import LoopRuntime
+from agent_controller.runtime.objective_runtime import ObjectiveRuntime
 from agent_controller.runtime.review_batching import ReviewBatchingRuntime
 from agent_controller.runtime.unit_identity import (
     create_controller_unit,
 )
-from agent_controller.planning.stopping_policy import StoppingPolicy
-from models.units import UnitRegistry
-from shared.events.objective_events import EventBus
-from shared.graph.staging import GraphStagingInterface
 
 logger = logging.getLogger("aether.hub")
 

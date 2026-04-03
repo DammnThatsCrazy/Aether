@@ -12,7 +12,6 @@ Used by: Analytics, Agent, Commerce, On-Chain services.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from shared.graph.graph import EdgeType, Vertex, Edge, VertexType, GraphClient
 from shared.logger.logger import get_logger

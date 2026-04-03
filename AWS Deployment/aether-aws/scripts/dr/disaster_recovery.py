@@ -21,18 +21,16 @@ Runbook:
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
-from config.aws_config import DR, DR_STRATEGIES, AWS_ACCOUNTS, AccountType, SERVICE_NAMES
-from shared.runner import dr_log, run_cmd, timed
+from config.aws_config import DR, DR_STRATEGIES, SERVICE_NAMES
 from shared.aws_client import aws_client
 from shared.notifier import notifier
-
+from shared.runner import dr_log, run_cmd, timed
 
 # =========================================================================
 # ENUMS & MODELS
@@ -222,7 +220,7 @@ def rebuild_infrastructure(ctx: RecoveryContext) -> bool:
             step.status = "failed"
             step.details = f"Terraform command failed: {tf_cmd}"
             ctx.errors.append(step.details)
-            dr_log(f"  \u2717 Terraform step failed")
+            dr_log("  \u2717 Terraform step failed")
             return False
 
     step.duration_ms = (time.monotonic() - start) * 1000
@@ -403,7 +401,7 @@ def run_dr_drill(scope: FailoverScope = FailoverScope.SERVICE) -> RecoveryContex
         dr_log(f"  \u2713 {check_name:30s} -> {expected}")
 
     ctx.status = RecoveryStatus.COMPLETE
-    dr_log(f"\nDR drill complete. All checks passed.")
+    dr_log("\nDR drill complete. All checks passed.")
     dr_log(f"Next scheduled drill: in {DR.drill_frequency_days} days")
 
     notifier.dr_alert(scope.value, "DRILL_COMPLETE", "All readiness checks passed")
@@ -451,7 +449,7 @@ def execute_dr_failover(scope: FailoverScope = FailoverScope.REGION) -> Recovery
                       f"DR complete. Total time: {ctx.total_duration_ms / 1000:.0f}s")
 
     print(f"\n{'=' * 70}")
-    print(f"  DISASTER RECOVERY COMPLETE")
+    print("  DISASTER RECOVERY COMPLETE")
     print(f"  Steps: {', '.join(ctx.steps_completed)}")
     print(f"  Total time: {ctx.total_duration_ms / 1000:.1f}s")
     print(f"  Status: {ctx.status.value}")

@@ -13,10 +13,9 @@ Unlike the existing token-bucket limiter, this module:
 
 from __future__ import annotations
 
-import time
 import logging
-from collections import defaultdict
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass
 from threading import Lock
 from typing import Optional
 

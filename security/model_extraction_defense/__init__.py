@@ -21,16 +21,16 @@ Quick start:
         post = defense.post_response(api_key, raw_output, features)
 """
 
+from .canary_detector import CanaryDetection, CanaryInputDetector
+from .cleanup import CleanupThread, cleanup_periodic, start_cleanup_thread
 from .config import ExtractionDefenseConfig
-from .rate_limiter import QueryRateLimiter, RateLimitCheck
-from .pattern_detector import QueryPatternDetector, PatternAnalysis
-from .output_perturbation import OutputPerturbationLayer
-from .watermark import ModelWatermark
-from .canary_detector import CanaryInputDetector, CanaryDetection
-from .risk_scorer import ExtractionRiskScorer, RiskAssessment
+from .defense_layer import ExtractionDefenseLayer, PostResponseResult, PreRequestResult
 from .metrics import DefenseMetrics
-from .defense_layer import ExtractionDefenseLayer, PreRequestResult, PostResponseResult
-from .cleanup import CleanupThread, start_cleanup_thread, cleanup_periodic
+from .output_perturbation import OutputPerturbationLayer
+from .pattern_detector import PatternAnalysis, QueryPatternDetector
+from .rate_limiter import QueryRateLimiter, RateLimitCheck
+from .risk_scorer import ExtractionRiskScorer, RiskAssessment
+from .watermark import ModelWatermark
 
 __all__ = [
     # Facade

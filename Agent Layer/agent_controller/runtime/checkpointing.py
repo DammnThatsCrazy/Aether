@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger("aether.runtime.checkpointing")

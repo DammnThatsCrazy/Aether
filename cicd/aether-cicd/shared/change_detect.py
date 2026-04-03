@@ -11,7 +11,6 @@ Usage:
 
 from __future__ import annotations
 
-import os
 from typing import List, Optional, Set
 
 from shared.runner import run_cmd, log

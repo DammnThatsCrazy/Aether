@@ -20,11 +20,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
-
-from config.compliance_config import DATA_PROTECTION_CONTROLS
-from shared.logger import dpd_log
-
+from typing import Optional
 
 # ═══════════════════════════════════════════════════════════════════════════
 # CONTROL 1: IP ANONYMIZATION

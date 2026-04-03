@@ -12,13 +12,14 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
-
-from shared.common.common import (
-    APIResponse, CursorPagination, PaginatedResponse, PaginationMeta,
-)
-from shared.cache.cache import CacheClient
-from shared.logger.logger import get_logger
 from repositories.repos import AnalyticsRepository
+from shared.cache.cache import CacheClient
+from shared.common.common import (
+    APIResponse,
+    PaginatedResponse,
+    PaginationMeta,
+)
+from shared.logger.logger import get_logger
 
 logger = get_logger("aether.service.analytics")
 router = APIRouter(prefix="/v1/analytics", tags=["Analytics"])

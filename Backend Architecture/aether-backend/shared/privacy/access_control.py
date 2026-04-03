@@ -9,15 +9,12 @@ export/training eligibility enforcement.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 from shared.privacy.classification import (
     DataClassification,
     AccessLevel,
     TrainingEligibility,
-    ClassificationRules,
-    CLASSIFICATION_RULES,
-    FIELD_CLASSIFICATIONS,
     classify_field,
     get_rules,
 )

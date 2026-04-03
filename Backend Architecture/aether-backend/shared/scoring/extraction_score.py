@@ -16,9 +16,6 @@ policy recommendation. Consumed by the ExtractionPolicyEngine.
 
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass, field
-from typing import Any, Optional
 
 from shared.logger.logger import get_logger, metrics
 from shared.scoring.extraction_models import (
@@ -27,7 +24,6 @@ from shared.scoring.extraction_models import (
     ExtractionRiskBand,
     ExtractionSignal,
     ModelSensitivityTier,
-    SignalSeverity,
     get_model_tier,
 )
 

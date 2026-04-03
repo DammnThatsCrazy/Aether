@@ -7,14 +7,12 @@ statements, and write-ahead logging hooks.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, TypeVar
+from abc import ABC
+from typing import Any, Optional, TypeVar
 
+from shared.cache.cache import TTL, CacheClient, CacheKey
 from shared.common.common import NotFoundError, utc_now
-from shared.cache.cache import CacheClient, CacheKey, TTL
-from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
-from shared.events.events import Event, EventProducer, Topic
+from shared.graph.graph import Edge, EdgeType, GraphClient, Vertex, VertexType
 from shared.logger.logger import get_logger
 
 logger = get_logger("aether.repository")

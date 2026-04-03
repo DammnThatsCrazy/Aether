@@ -7,9 +7,10 @@ stale objective repair, and checkpoint restoration.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from models.objectives import Objective, ObjectiveStatus, PlanStep
+from models.objectives import PlanStep
+
 from agent_controller.runtime.checkpointing import CheckpointStore
 
 logger = logging.getLogger("aether.controllers.recovery")

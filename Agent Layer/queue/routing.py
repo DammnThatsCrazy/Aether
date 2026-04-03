@@ -6,9 +6,6 @@ Maps controller domains to Celery queues.
 
 from __future__ import annotations
 
-from typing import Any
-
-
 # Controller-to-queue mapping
 CONTROLLER_QUEUE_MAP: dict[str, str] = {
     "intake": "intake",

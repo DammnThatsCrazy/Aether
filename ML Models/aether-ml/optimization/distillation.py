@@ -15,17 +15,14 @@ constraints (<100ms inference, <1MB artifact).
 
 from __future__ import annotations
 
-import copy
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 
@@ -251,7 +248,8 @@ class ModelDistiller:
         }
 
     def _estimate_size(self, model: Any) -> int:
-        import io, pickle
+        import io
+        import pickle
         buf = io.BytesIO()
         try:
             internal = getattr(model, '_model', model)

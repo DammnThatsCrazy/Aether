@@ -12,27 +12,38 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from audit.reviews.access_review import AccessReviewer
+from audit.trails.audit_engine import AuditAction, AuditEngine
 from config.compliance_config import (
-    GDPR_RIGHTS, DATA_PROTECTION_CONTROLS, CONSENT_CONFIG,
-    GDPR_DATA_STORES, SOC2_TRUST_CRITERIA, AUDIT_TRAILS, BREACH_CONFIG,
-    PROCESSING_ACTIVITIES, CROSS_BORDER_TRANSFERS,
-    ConsentPurpose, DataRole,
+    AUDIT_TRAILS,
+    BREACH_CONFIG,
+    CONSENT_CONFIG,
+    CROSS_BORDER_TRANSFERS,
+    DATA_PROTECTION_CONTROLS,
+    GDPR_DATA_STORES,
+    GDPR_RIGHTS,
+    PROCESSING_ACTIVITIES,
+    ConsentPurpose,
 )
+from gdpr.breach_notification.breach_handler import BreachHandler, BreachSeverity
+from gdpr.consent.consent_manager import ConsentManager, ConsentSource
 from gdpr.data_protection.data_protection import (
-    IPAnonymizer, DataVectorizer, Pseudonymizer,
-    DataMinimizer, DataMinimizationConfig, DataCategory,
-    DataProtectionPipeline, anonymize_ip, verify_encryption, verify_access_controls,
+    DataCategory,
+    DataMinimizationConfig,
+    DataMinimizer,
+    DataProtectionPipeline,
+    DataVectorizer,
+    IPAnonymizer,
+    Pseudonymizer,
+    anonymize_ip,
+    verify_encryption,
 )
 from gdpr.data_subject_rights.dsr_engine import DSRExecutor, DSRRequest, DSRType
-from gdpr.consent.consent_manager import ConsentManager, ConsentSource
-from gdpr.breach_notification.breach_handler import BreachHandler, BreachSeverity
 from gdpr.ropa.ropa_engine import ROPAEngine
-from soc2.trust_criteria.trust_criteria_engine import TrustCriteriaEngine, ControlStatus
-from soc2.gap_analysis.gap_analyzer import GapAnalyzer
-from soc2.continuous.compliance_monitor import ContinuousComplianceMonitor
-from audit.trails.audit_engine import AuditEngine, AuditAction
-from audit.reviews.access_review import AccessReviewer
 from policies.policy_generator import PolicyGenerator
+from soc2.continuous.compliance_monitor import ContinuousComplianceMonitor
+from soc2.gap_analysis.gap_analyzer import GapAnalyzer
+from soc2.trust_criteria.trust_criteria_engine import TrustCriteriaEngine
 from tests.compliance_tests import ComplianceTestRunner
 
 
@@ -89,7 +100,7 @@ def main():
         {"event_type": "scroll", "depth": 75},
     ]
     filtered = minimizer.filter_batch(events)
-    print(f"  Data Minimization Demo:")
+    print("  Data Minimization Demo:")
     print(f"    Enabled categories: {[c.value for c in config.enabled_categories]}")
     print(f"    Input events: {len(events)} -> Passed: {len(filtered)}, Blocked: {len(events) - len(filtered)}")
     print()
@@ -112,7 +123,7 @@ def main():
         {"event_type": "click", "element": "btn", "ip": "5.6.7.8", "user_id": "user-2"},
         {"event_type": "custom", "name": "checkout", "ip": "9.10.11.12", "user_id": "user-3"},
     ])
-    print(f"  Full Data Protection Pipeline:")
+    print("  Full Data Protection Pipeline:")
     print(f"    Input: 3 events -> Output: {len(processed)} (after minimization + anonymization + pseudonymization)")
     print(f"    Stats: {pipeline.stats}")
     print(f"    Lineage: {pipeline.lineage.stats}")
@@ -152,7 +163,7 @@ def main():
 
     header("3. GDPR — CONSENT MANAGEMENT")
 
-    print(f"  Configuration:")
+    print("  Configuration:")
     print(f"    Purposes: {CONSENT_CONFIG.purposes}")
     print(f"    Storage: {CONSENT_CONFIG.storage}")
     print(f"    DNT Respected: {CONSENT_CONFIG.dnt_respected}")
@@ -183,7 +194,7 @@ def main():
 
     header("4. GDPR — BREACH NOTIFICATION (Article 33/34)")
 
-    print(f"  Configuration:")
+    print("  Configuration:")
     print(f"    Notification window: {BREACH_CONFIG.notification_window_hours} hours")
     print(f"    Internal escalation: {BREACH_CONFIG.internal_escalation_minutes} minutes")
     print(f"    Channels: {', '.join(BREACH_CONFIG.channels)}")
@@ -314,7 +325,7 @@ def main():
     gen = PolicyGenerator()
     policies = gen.generate_all()
 
-    print(f"\n  6 Policy Documents Generated:")
+    print("\n  6 Policy Documents Generated:")
     for pol in policies:
         print(f"    {pol.status:8s} {pol.title} ({pol.section_count} sections, owner: {pol.owner})")
 

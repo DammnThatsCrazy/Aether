@@ -12,7 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from shared.common.common import APIResponse, utc_now
+from shared.common.common import APIResponse
 from shared.logger.logger import get_logger
 from repositories.repos import AdminRepository, APIKeyRepository
 

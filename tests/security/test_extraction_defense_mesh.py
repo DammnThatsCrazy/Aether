@@ -18,12 +18,8 @@ Comprehensive test suite covering:
 """
 
 import asyncio
-import hashlib
 import sys
-import time
 from pathlib import Path
-
-import pytest
 
 # =========================================================================
 # Path setup — add backend root to sys.path for shared/services imports
@@ -86,7 +82,7 @@ class TestExtractionModels:
         assert "device_fingerprint" not in dims
 
     def test_model_sensitivity_tier_lookup(self):
-        from shared.scoring.extraction_models import get_model_tier, ModelSensitivityTier
+        from shared.scoring.extraction_models import ModelSensitivityTier, get_model_tier
         assert get_model_tier("churn_prediction") == ModelSensitivityTier.TIER_1_CRITICAL
         assert get_model_tier("bot_detection") == ModelSensitivityTier.TIER_2_HIGH
         assert get_model_tier("session_scorer") == ModelSensitivityTier.TIER_3_STANDARD
@@ -100,24 +96,24 @@ class TestExtractionModels:
         assert ExtractionRiskAssessment.band_from_score(90) == ExtractionRiskBand.RED
 
     def test_output_disclosure_policy_rounding(self):
-        from shared.scoring.extraction_models import OutputDisclosurePolicy, ConfidenceMode
+        from shared.scoring.extraction_models import ConfidenceMode, OutputDisclosurePolicy
         policy = OutputDisclosurePolicy(confidence_mode=ConfidenceMode.ROUNDED, output_precision=2)
         assert policy.apply_confidence(0.87654) == 0.88
 
     def test_output_disclosure_policy_bucketing(self):
-        from shared.scoring.extraction_models import OutputDisclosurePolicy, ConfidenceMode
+        from shared.scoring.extraction_models import ConfidenceMode, OutputDisclosurePolicy
         policy = OutputDisclosurePolicy(confidence_mode=ConfidenceMode.BUCKETED)
         assert policy.apply_confidence(0.87) == 0.9
         assert policy.apply_confidence(0.23) == 0.2
         assert policy.apply_confidence(0.55) == 0.6
 
     def test_output_disclosure_policy_exact(self):
-        from shared.scoring.extraction_models import OutputDisclosurePolicy, ConfidenceMode
+        from shared.scoring.extraction_models import ConfidenceMode, OutputDisclosurePolicy
         policy = OutputDisclosurePolicy(confidence_mode=ConfidenceMode.EXACT)
         assert policy.apply_confidence(0.87654321) == 0.87654321
 
     def test_output_disclosure_policy_hidden(self):
-        from shared.scoring.extraction_models import OutputDisclosurePolicy, ConfidenceMode
+        from shared.scoring.extraction_models import ConfidenceMode, OutputDisclosurePolicy
         policy = OutputDisclosurePolicy(confidence_mode=ConfidenceMode.HIDDEN)
         assert policy.apply_confidence(0.87) == -1.0
 
@@ -130,19 +126,19 @@ class TestBudgetKeys:
     """Test Redis key construction for distributed budgets."""
 
     def test_budget_key_format(self):
-        from shared.rate_limit.budget_keys import budget_key, BudgetAxis, BudgetWindow
+        from shared.rate_limit.budget_keys import BudgetAxis, BudgetWindow, budget_key
         key = budget_key(BudgetAxis.API_KEY, "test-key-123", BudgetWindow.MINUTE, now=1000000.0)
         assert key.startswith("aether:exbudget:api_key:test-key-123:1m:")
 
     def test_budget_key_rotation(self):
-        from shared.rate_limit.budget_keys import budget_key, BudgetAxis, BudgetWindow
+        from shared.rate_limit.budget_keys import BudgetAxis, BudgetWindow, budget_key
         key1 = budget_key(BudgetAxis.IP, "1.2.3.4", BudgetWindow.MINUTE, now=1000000.0)
         key2 = budget_key(BudgetAxis.IP, "1.2.3.4", BudgetWindow.MINUTE, now=1000060.0)
         # Different minute buckets should produce different keys
         assert key1 != key2
 
     def test_same_window_same_key(self):
-        from shared.rate_limit.budget_keys import budget_key, BudgetAxis, BudgetWindow
+        from shared.rate_limit.budget_keys import BudgetAxis, BudgetWindow, budget_key
         # Use timestamps that are clearly within the same 60-second bucket
         base = 1000020.0  # mid-bucket to avoid edge crossing
         key1 = budget_key(BudgetAxis.IP, "1.2.3.4", BudgetWindow.MINUTE, now=base)
@@ -158,9 +154,9 @@ class TestBudgetPolicies:
     """Test tier-based budget policy configuration."""
 
     def test_tier_1_has_stricter_limits(self):
+        from shared.rate_limit.budget_keys import BudgetAxis, BudgetWindow
         from shared.rate_limit.budget_policies import get_tier_policy
         from shared.scoring.extraction_models import ModelSensitivityTier
-        from shared.rate_limit.budget_keys import BudgetAxis, BudgetWindow
 
         t1 = get_tier_policy(ModelSensitivityTier.TIER_1_CRITICAL)
         t3 = get_tier_policy(ModelSensitivityTier.TIER_3_STANDARD)
@@ -335,8 +331,8 @@ class TestExtractionRiskScorer:
     """Test the sibling extraction risk scorer."""
 
     def test_low_score_for_no_signals(self):
-        from shared.scoring.extraction_score import ExtractionRiskScorer
         from shared.scoring.extraction_models import ExtractionIdentity, ExtractionRiskBand
+        from shared.scoring.extraction_score import ExtractionRiskScorer
 
         scorer = ExtractionRiskScorer()
         identity = ExtractionIdentity(api_key_id="clean-user")
@@ -352,10 +348,13 @@ class TestExtractionRiskScorer:
         assert assessment.policy_recommendation == "allow"
 
     def test_high_score_for_suspicious_signals(self):
-        from shared.scoring.extraction_score import ExtractionRiskScorer
         from shared.scoring.extraction_models import (
-            ExtractionIdentity, ExtractionSignal, SignalSeverity, ExtractionRiskBand,
+            ExtractionIdentity,
+            ExtractionRiskBand,
+            ExtractionSignal,
+            SignalSeverity,
         )
+        from shared.scoring.extraction_score import ExtractionRiskScorer
 
         scorer = ExtractionRiskScorer()
         identity = ExtractionIdentity(api_key_id="bad-actor")
@@ -380,10 +379,12 @@ class TestExtractionRiskScorer:
         assert assessment.policy_recommendation in ("deny", "restrict")
 
     def test_tier_1_amplification(self):
-        from shared.scoring.extraction_score import ExtractionRiskScorer
         from shared.scoring.extraction_models import (
-            ExtractionIdentity, ExtractionSignal, SignalSeverity,
+            ExtractionIdentity,
+            ExtractionSignal,
+            SignalSeverity,
         )
+        from shared.scoring.extraction_score import ExtractionRiskScorer
 
         scorer = ExtractionRiskScorer()
         identity = ExtractionIdentity(api_key_id="test-tier")
@@ -401,8 +402,8 @@ class TestExtractionRiskScorer:
         assert t1_score.score > t3_score.score
 
     def test_canary_floor(self):
-        from shared.scoring.extraction_score import ExtractionRiskScorer
         from shared.scoring.extraction_models import ExtractionIdentity
+        from shared.scoring.extraction_score import ExtractionRiskScorer
 
         scorer = ExtractionRiskScorer()
         identity = ExtractionIdentity(api_key_id="canary-hit")
@@ -423,7 +424,6 @@ class TestExtractionRiskScorer:
         """Verify extraction score is a sibling, not merged into trust."""
         from shared.scoring.extraction_score import ExtractionRiskScorer
         from shared.scoring.trust_score import TrustScoreComposite
-        from shared.scoring.extraction_models import ExtractionIdentity
 
         # These are completely separate systems
         extraction_scorer = ExtractionRiskScorer()
@@ -443,10 +443,12 @@ class TestExtractionPolicyEngine:
     """Test policy engine disclosure control and access gating."""
 
     def test_green_band_allows_with_rounding(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand, ConfidenceMode,
+            ConfidenceMode,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=10, band=ExtractionRiskBand.GREEN)
@@ -456,10 +458,12 @@ class TestExtractionPolicyEngine:
         assert decision.disclosure.confidence_mode == ConfidenceMode.ROUNDED
 
     def test_yellow_band_reduces_disclosure(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand, ConfidenceMode,
+            ConfidenceMode,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=40, band=ExtractionRiskBand.YELLOW)
@@ -470,10 +474,11 @@ class TestExtractionPolicyEngine:
         assert decision.disclosure.include_secondary_scores is False
 
     def test_orange_band_restricts(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=65, band=ExtractionRiskBand.ORANGE)
@@ -484,10 +489,11 @@ class TestExtractionPolicyEngine:
         assert decision.disclosure.include_probabilities is False
 
     def test_red_band_denies(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=90, band=ExtractionRiskBand.RED)
@@ -498,10 +504,11 @@ class TestExtractionPolicyEngine:
         assert decision.should_alert is True
 
     def test_batch_always_denied_for_non_privileged(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=5, band=ExtractionRiskBand.GREEN)
@@ -510,11 +517,13 @@ class TestExtractionPolicyEngine:
         assert decision.action == "deny"
 
     def test_privileged_caller_gets_exact_scores(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand, ExtractionIdentity,
             ConfidenceMode,
+            ExtractionIdentity,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine(
             privileged_tenants={"internal-tenant"},
@@ -532,10 +541,12 @@ class TestExtractionPolicyEngine:
         assert decision.disclosure.batch_allowed is True
 
     def test_service_caller_bypasses_restrictions(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand, ConfidenceMode,
+            ConfidenceMode,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=80, band=ExtractionRiskBand.RED)
@@ -548,10 +559,12 @@ class TestExtractionPolicyEngine:
         assert decision.disclosure.confidence_mode == ConfidenceMode.EXACT
 
     def test_tier_1_yellow_tightened(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand, ConfidenceMode,
+            ConfidenceMode,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=40, band=ExtractionRiskBand.YELLOW)
@@ -772,8 +785,8 @@ class TestStandardCallerRegression:
 
     def test_normal_caller_gets_green_score(self):
         from services.expectations.extraction_expectations import ExtractionExpectationEngine
-        from shared.scoring.extraction_score import ExtractionRiskScorer
         from shared.scoring.extraction_models import ExtractionIdentity, ExtractionRiskBand
+        from shared.scoring.extraction_score import ExtractionRiskScorer
 
         expect_engine = ExtractionExpectationEngine()
         scorer = ExtractionRiskScorer()
@@ -792,10 +805,12 @@ class TestStandardCallerRegression:
         assert assessment.policy_recommendation == "allow"
 
     def test_normal_caller_gets_rounded_disclosure(self):
-        from shared.scoring.extraction_policy import ExtractionPolicyEngine
         from shared.scoring.extraction_models import (
-            ExtractionRiskAssessment, ExtractionRiskBand, ConfidenceMode,
+            ConfidenceMode,
+            ExtractionRiskAssessment,
+            ExtractionRiskBand,
         )
+        from shared.scoring.extraction_policy import ExtractionPolicyEngine
 
         engine = ExtractionPolicyEngine()
         assessment = ExtractionRiskAssessment(score=5, band=ExtractionRiskBand.GREEN)
@@ -816,7 +831,8 @@ class TestAlertEmission:
 
     def test_alert_recorded_on_red_band(self):
         from services.intelligence.extraction_intel import (
-            record_extraction_alert, _alerts,
+            _alerts,
+            record_extraction_alert,
         )
 
         initial_count = len(_alerts)

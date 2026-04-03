@@ -16,20 +16,17 @@ Supports:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from shared.common.common import utc_now
 from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
 from shared.logger.logger import get_logger
 
 from services.web3.registries import (
-    ChainRegistry,
     ProtocolRegistry,
     ContractInstanceRegistry,
-    TokenRegistry,
     AppRegistry,
     FrontendDomainRegistry,
-    Web3ObservationRepository,
 )
 
 logger = get_logger("aether.web3.classifier")

@@ -20,7 +20,6 @@ Secrets generated:
 from __future__ import annotations
 
 import secrets
-import sys
 
 
 def generate_fernet_key() -> str:

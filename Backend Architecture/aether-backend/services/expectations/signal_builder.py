@@ -7,10 +7,9 @@ budget state, and fraud cross-signals. No public API.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from shared.scoring.extraction_models import (
-    ExtractionIdentity,
     ExtractionSignal,
     SignalSeverity,
 )

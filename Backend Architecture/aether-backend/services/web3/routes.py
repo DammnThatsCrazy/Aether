@@ -46,7 +46,6 @@ from services.web3.classifier import (
     build_graph_from_observation,
     detect_migration,
 )
-from services.web3.models import CoverageStatus
 
 logger = get_logger("aether.web3.routes")
 router = APIRouter(prefix="/v1/web3", tags=["web3"])

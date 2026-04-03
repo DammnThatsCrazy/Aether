@@ -12,9 +12,10 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
-
 from shared.common.common import (
-    APIResponse, BadRequestError, validate_required, utc_now,
+    APIResponse,
+    BadRequestError,
+    utc_now,
 )
 from shared.events.events import Event, EventProducer, Topic
 from shared.logger.logger import get_logger

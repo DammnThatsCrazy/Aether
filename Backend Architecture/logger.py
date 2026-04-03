@@ -12,7 +12,7 @@ import sys
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 # Context-local correlation ID — set per-request by middleware
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")

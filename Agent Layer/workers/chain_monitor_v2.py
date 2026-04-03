@@ -12,9 +12,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from enum import Enum
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 logger = logging.getLogger("aether.chain_monitor_v2")
 

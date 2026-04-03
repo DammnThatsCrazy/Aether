@@ -14,13 +14,11 @@ from __future__ import annotations
 import json
 import os
 from abc import ABC
-from dataclasses import dataclass, field
 from typing import Any, Optional, TypeVar
 
 from shared.common.common import NotFoundError, utc_now
 from shared.cache.cache import CacheClient, CacheKey, TTL
 from shared.graph.graph import GraphClient, Vertex, Edge, VertexType, EdgeType
-from shared.events.events import Event, EventProducer, Topic
 from shared.logger.logger import get_logger
 
 logger = get_logger("aether.repository")

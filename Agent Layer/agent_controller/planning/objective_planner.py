@@ -7,7 +7,7 @@ routable plan steps assigned to domain controllers and teams.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from models.objectives import (
     Objective,
@@ -15,7 +15,6 @@ from models.objectives import (
     Plan,
     PlanStep,
     Severity,
-    StepStatus,
 )
 
 logger = logging.getLogger("aether.planning.planner")

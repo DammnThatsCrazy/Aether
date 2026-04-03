@@ -14,16 +14,14 @@ Monitoring Stack:
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from config.aws_config import MONITORING_STACK, COMPUTE_SPECS
+from config.aws_config import MONITORING_STACK
 
 
 def _run(cmd: str) -> tuple[int, str]:
@@ -236,5 +234,5 @@ def run_full_monitoring_check(environment: str = "production"):
     print(f"  Services: {healthy}/{len(health)} healthy")
     print(f"  Alarms:   {len(alarm_status)} configured and active")
     print(f"  SLOs:     {slos_met}/{len(slos)} met")
-    print(f"  Logs:     12 groups, 30-day retention")
+    print("  Logs:     12 groups, 30-day retention")
     print(f"{'═' * 60}\n")

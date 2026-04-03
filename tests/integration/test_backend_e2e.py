@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import sys
 import threading
 
@@ -34,9 +33,7 @@ pytest.importorskip("fastapi", reason="Backend deps not installed (pip install -
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from unittest.mock import MagicMock
 
 # =========================================================================
 # Shared test utilities
@@ -121,8 +118,9 @@ class TestCampaignAttributionE2E:
     @pytest.mark.asyncio
     async def test_full_attribution_flow(self):
         from services.campaign.routes import (
-            _repo, _touchpoint_store, _compute_attribution,
-            CampaignCreate, TouchpointCreate,
+            _compute_attribution,
+            _repo,
+            _touchpoint_store,
         )
 
         tenant = FakeTenant()
@@ -198,7 +196,6 @@ class TestCampaignAttributionE2E:
     async def test_tenant_isolation_on_attribution(self):
         """Wrong tenant should get NotFoundError."""
         from services.campaign.routes import _repo
-        from shared.common.common import NotFoundError
 
         campaign_id = str(uuid.uuid4())
         await _repo.insert(campaign_id, {
@@ -442,7 +439,7 @@ class TestGeoEnrichmentE2E:
     """Full flow: IP extraction → enrichment → normalized output."""
 
     def test_private_ip_returns_empty_geo(self):
-        from services.ingestion.routes import _is_private_ip, _geo_lookup
+        from services.ingestion.routes import _geo_lookup, _is_private_ip
 
         assert _is_private_ip("192.168.1.1")
         assert _is_private_ip("10.0.0.1")
@@ -530,7 +527,6 @@ class TestConcurrencySafety:
         for t in threads:
             t.join()
 
-        import asyncio
         loop = asyncio.new_event_loop()
         items = loop.run_until_complete(store.get_list("campaign-1", limit=10000))
         loop.close()
@@ -558,7 +554,6 @@ class TestConcurrencySafety:
         for t in threads:
             t.join()
 
-        import asyncio
         loop = asyncio.new_event_loop()
         count = loop.run_until_complete(store.count())
         loop.close()
@@ -595,7 +590,7 @@ class TestA2HRelationshipLayerE2E:
     def test_a2h_edges_classified_correctly(self):
         """A2H edge types should classify into the A2H layer."""
         from shared.graph.graph import EdgeType
-        from shared.graph.relationship_layers import classify_edge_type, RelationshipLayer
+        from shared.graph.relationship_layers import RelationshipLayer, classify_edge_type
 
         a2h_edges = [
             EdgeType.NOTIFIES,
@@ -609,7 +604,7 @@ class TestA2HRelationshipLayerE2E:
     def test_h2a_edges_still_classified_correctly(self):
         """Existing H2A edges should remain unaffected."""
         from shared.graph.graph import EdgeType
-        from shared.graph.relationship_layers import classify_edge_type, RelationshipLayer
+        from shared.graph.relationship_layers import RelationshipLayer, classify_edge_type
 
         assert classify_edge_type(EdgeType.LAUNCHED_BY) == RelationshipLayer.H2A
         assert classify_edge_type(EdgeType.DELEGATES) == RelationshipLayer.H2A
@@ -617,7 +612,7 @@ class TestA2HRelationshipLayerE2E:
     def test_a2a_edges_still_classified_correctly(self):
         """Existing A2A edges should remain unaffected."""
         from shared.graph.graph import EdgeType
-        from shared.graph.relationship_layers import classify_edge_type, RelationshipLayer
+        from shared.graph.relationship_layers import RelationshipLayer, classify_edge_type
 
         assert classify_edge_type(EdgeType.HIRED) == RelationshipLayer.A2A
         assert classify_edge_type(EdgeType.DEPLOYED) == RelationshipLayer.A2A
@@ -666,8 +661,8 @@ class TestA2HRelationshipLayerE2E:
     @pytest.mark.asyncio
     async def test_a2h_subgraph_query(self):
         """get_layer_subgraph should return A2H-layer vertices."""
-        from shared.graph.graph import GraphClient, Vertex, Edge, EdgeType, VertexType
-        from shared.graph.relationship_layers import get_layer_subgraph, RelationshipLayer
+        from shared.graph.graph import Edge, EdgeType, GraphClient, Vertex, VertexType
+        from shared.graph.relationship_layers import RelationshipLayer, get_layer_subgraph
 
         graph = GraphClient()
         await graph.connect()

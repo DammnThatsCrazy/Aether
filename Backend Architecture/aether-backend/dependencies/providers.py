@@ -6,7 +6,6 @@ Eliminates module-level singletons — each resource has a single lifecycle.
 
 from __future__ import annotations
 
-from functools import lru_cache
 from typing import Any, Optional
 
 from config.settings import settings

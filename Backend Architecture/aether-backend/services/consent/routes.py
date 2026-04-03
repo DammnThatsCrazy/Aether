@@ -6,7 +6,7 @@ GDPR consent records, data subject requests (DSR), and audit logs.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field

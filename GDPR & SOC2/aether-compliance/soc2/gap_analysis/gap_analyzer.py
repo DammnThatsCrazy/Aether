@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from soc2.trust_criteria.trust_criteria_engine import (
-    TrustCriteriaEngine, SOC2Control, ControlStatus,
+    ControlStatus,
+    TrustCriteriaEngine,
 )
-from shared.logger import gap_log
 
 
 class Priority(str, Enum):
@@ -254,7 +254,7 @@ class GapAnalyzer:
         gaps = self.analyze() if not self._gaps else self._gaps
 
         print(f"\n{'=' * 70}")
-        print(f"  SOC 2 TYPE II — GAP ANALYSIS REPORT")
+        print("  SOC 2 TYPE II — GAP ANALYSIS REPORT")
         print(f"  Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
         print(f"{'=' * 70}\n")
 
@@ -282,7 +282,7 @@ class GapAnalyzer:
                 print(f"  [{g.control_id}] {g.control_name}")
                 print(f"    Criteria: {g.criteria}  |  Owner: {g.owner}  |  Effort: {g.effort.value} (~{g.estimated_weeks}w)")
                 print(f"    Gap: {g.gap_description}")
-                print(f"    Remediation steps:")
+                print("    Remediation steps:")
                 for i, step in enumerate(g.remediation_steps, 1):
                     print(f"      {i}. {step}")
                 if g.dependencies:

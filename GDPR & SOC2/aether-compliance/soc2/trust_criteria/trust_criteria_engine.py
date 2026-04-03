@@ -16,9 +16,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from config.compliance_config import SOC2_TRUST_CRITERIA
-from shared.logger import soc2_log
-
 
 class ControlStatus(str, Enum):
     IMPLEMENTED = "implemented"

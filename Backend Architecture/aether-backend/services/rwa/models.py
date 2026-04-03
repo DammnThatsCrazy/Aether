@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import uuid
 from enum import Enum
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from shared.common.common import utc_now

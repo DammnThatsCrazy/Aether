@@ -12,16 +12,17 @@ Enhanced:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
 
 from config.aws_config import (
-    VPC_CONFIGS, DNS_DOMAINS, AWS_ACCOUNTS, AccountType,
-    VPC_ENDPOINTS, VPCEndpointSpec,
+    AWS_ACCOUNTS,
+    DNS_DOMAINS,
+    VPC_CONFIGS,
+    VPC_ENDPOINTS,
+    AccountType,
 )
-from shared.runner import net_log, timed
 from shared.aws_client import aws_client
-
+from shared.runner import net_log, timed
 
 # =========================================================================
 # DATA MODELS
@@ -231,7 +232,7 @@ def verify_vpc_endpoints(environment: str = "production") -> list[NetworkCheckRe
                 status = "pass"
             else:
                 status = "warn"
-                net_log(f"    \u26a0 Endpoint not found — may increase NAT costs")
+                net_log("    \u26a0 Endpoint not found — may increase NAT costs")
         else:
             status = "pass"
 

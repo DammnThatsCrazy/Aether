@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any, Optional
-from uuid import uuid4
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field

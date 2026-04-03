@@ -11,10 +11,10 @@ Computes baselines from existing subsystems and detects:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from repositories.repos import BaseRepository, AnalyticsRepository
-from repositories.lake import silver_identity, silver_onchain, silver_social, gold_identity
+from repositories.lake import silver_identity, silver_onchain, silver_social
 from shared.graph.graph import GraphClient, VertexType
 from shared.cache.cache import CacheClient
 from shared.logger.logger import get_logger, metrics

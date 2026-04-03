@@ -7,9 +7,9 @@ severity classification, and routing into KIRA.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from models.objectives import Objective, ObjectiveStatus, Severity, PlanStep
+from models.objectives import Objective, PlanStep, Severity
 
 logger = logging.getLogger("aether.controllers.intake")
 

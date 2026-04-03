@@ -7,7 +7,6 @@ Breach Notification, SOC 2, and Audit.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from shared.logger import log
 
@@ -57,9 +56,14 @@ class ComplianceTestRunner:
 
     def _test_gdpr_data_protection(self):
         from gdpr.data_protection.data_protection import (
-            anonymize_ip, Pseudonymizer, IPAnonymizer,
-            DataMinimizer, DataMinimizationConfig, DataCategory,
-            DataProtectionPipeline, DataVectorizer,
+            DataCategory,
+            DataMinimizationConfig,
+            DataMinimizer,
+            DataProtectionPipeline,
+            DataVectorizer,
+            IPAnonymizer,
+            Pseudonymizer,
+            anonymize_ip,
         )
 
         # Test 1: IPv4 anonymization
@@ -103,7 +107,7 @@ class ComplianceTestRunner:
     # ── GDPR DSR Tests ───────────────────────────────────────────────
 
     def _test_gdpr_dsr(self):
-        from gdpr.data_subject_rights.dsr_engine import DSRExecutor, DSRRequest, DSRType, DSRStatus
+        from gdpr.data_subject_rights.dsr_engine import DSRExecutor, DSRRequest, DSRStatus, DSRType
 
         executor = DSRExecutor()
 
@@ -144,8 +148,8 @@ class ComplianceTestRunner:
     # ── GDPR Consent Tests ───────────────────────────────────────────
 
     def _test_gdpr_consent(self):
-        from gdpr.consent.consent_manager import ConsentManager, ConsentSource
         from config.compliance_config import ConsentPurpose
+        from gdpr.consent.consent_manager import ConsentManager, ConsentSource
 
         mgr = ConsentManager()
 
@@ -201,7 +205,7 @@ class ComplianceTestRunner:
     # ── SOC 2 Tests ──────────────────────────────────────────────────
 
     def _test_soc2(self):
-        from soc2.trust_criteria.trust_criteria_engine import TrustCriteriaEngine, ControlStatus
+        from soc2.trust_criteria.trust_criteria_engine import TrustCriteriaEngine
 
         engine = TrustCriteriaEngine()
 
@@ -223,7 +227,7 @@ class ComplianceTestRunner:
     # ── Audit Tests ──────────────────────────────────────────────────
 
     def _test_audit(self):
-        from audit.trails.audit_engine import AuditEngine, AuditAction
+        from audit.trails.audit_engine import AuditAction, AuditEngine
 
         audit = AuditEngine()
 

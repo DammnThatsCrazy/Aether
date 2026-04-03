@@ -8,7 +8,6 @@ utilities used across all 9 Aether ML models.
 
 from __future__ import annotations
 
-import io
 import logging
 import tempfile
 from dataclasses import asdict, dataclass

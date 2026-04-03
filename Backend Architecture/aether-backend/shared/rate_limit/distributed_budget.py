@@ -14,7 +14,6 @@ Backend:
 
 from __future__ import annotations
 
-import hashlib
 import os
 import time
 from dataclasses import dataclass, field
@@ -23,7 +22,6 @@ from typing import Any, Optional
 from shared.logger.logger import get_logger, metrics
 from shared.scoring.extraction_models import (
     ExtractionIdentity,
-    ModelSensitivityTier,
     get_model_tier,
 )
 from shared.rate_limit.budget_keys import (
@@ -32,12 +30,9 @@ from shared.rate_limit.budget_keys import (
     WINDOW_SECONDS,
     budget_key,
     budget_key_ttl,
-    feature_fingerprint_key,
     model_enumeration_key,
-    cluster_aggregate_key,
 )
 from shared.rate_limit.budget_policies import (
-    TierBudgetPolicy,
     get_tier_policy,
 )
 

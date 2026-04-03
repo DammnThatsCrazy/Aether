@@ -12,6 +12,11 @@ from __future__ import annotations
 
 import heapq
 import logging
+from queue.celery_app import is_celery_available
+from queue.tasks import (
+    register_worker_for_tasks,
+    submit_celery_task,
+)
 from typing import Optional
 
 from config.settings import (
@@ -20,16 +25,10 @@ from config.settings import (
     TaskStatus,
     WorkerType,
 )
-from models.core import AgentTask, TaskResult
-from guardrails.guardrails import Guardrails
-from workers.base import BaseWorker
 from feedback.learning import FeedbackLoop
-from queue.celery_app import is_celery_available
-from queue.tasks import (
-    register_worker_for_tasks,
-    submit_celery_task,
-    execute_task_sync,
-)
+from guardrails.guardrails import Guardrails
+from models.core import AgentTask, TaskResult
+from workers.base import BaseWorker
 
 logger = logging.getLogger("aether.controller")
 

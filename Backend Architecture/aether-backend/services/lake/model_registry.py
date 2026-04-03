@@ -10,8 +10,7 @@ Manages ML model lifecycle:
 
 from __future__ import annotations
 
-import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from repositories.repos import BaseRepository
 from shared.common.common import utc_now, NotFoundError

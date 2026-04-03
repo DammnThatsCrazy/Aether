@@ -14,13 +14,10 @@ All tiers use the same BaseRepository pattern (asyncpg in prod, in-memory local)
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Optional
 
-from repositories.repos import BaseRepository, get_pool
+from repositories.repos import BaseRepository
 from shared.common.common import utc_now
 from shared.logger.logger import get_logger, metrics
 

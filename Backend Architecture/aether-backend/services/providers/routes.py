@@ -22,7 +22,6 @@ from services.providers.models import (
     ProviderKeyCreate,
     ProviderKeyResponse,
     ProviderRouteRequest,
-    UsageQuery,
 )
 from shared.decorators import api_response
 from shared.logger.logger import get_logger, metrics

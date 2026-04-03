@@ -33,7 +33,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from config.pipeline_config import SDK_RELEASE_TARGETS
 from shared.runner import run_cmd, log
 
 # --------------------------------------------------------------------------- #

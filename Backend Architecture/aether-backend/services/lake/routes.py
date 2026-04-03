@@ -12,13 +12,12 @@ Exposes lake management endpoints:
 
 from __future__ import annotations
 
-import uuid
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from shared.common.common import APIResponse, BadRequestError, utc_now
+from shared.common.common import APIResponse, BadRequestError
 from shared.logger.logger import get_logger, metrics
 from repositories.lake import (
     BronzeRepository, SilverRepository, GoldRepository,

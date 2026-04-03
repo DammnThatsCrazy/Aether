@@ -12,9 +12,8 @@ from typing import Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
-
+from shared.auth.auth import APIKeyValidator, JWTHandler, TenantContext
 from shared.common.common import AetherError, UnauthorizedError
-from shared.auth.auth import JWTHandler, APIKeyValidator, TenantContext
 from shared.logger.logger import get_logger, set_request_context
 from shared.rate_limit.limiter import TokenBucketLimiter
 
@@ -115,7 +114,6 @@ def register_middleware(app: FastAPI):
 
 def _authenticate(request: Request) -> TenantContext:
     """Try API key first, then JWT bearer token."""
-    from shared.common.common import UnauthorizedError
 
     api_key = request.headers.get("X-API-Key")
     if api_key:

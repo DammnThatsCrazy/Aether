@@ -6,10 +6,9 @@ batch jobs, and audit trails.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
 
 from shared.common.common import APIResponse, NotFoundError
 from shared.cache.cache import CacheClient
@@ -19,7 +18,7 @@ from shared.logger.logger import get_logger
 from dependencies.providers import get_cache, get_graph, get_producer
 from repositories.repos import IdentityRepository
 
-from .models import ClusterResponse, MergeRequest, PendingResolutionResponse, ResolutionConfigUpdate
+from .models import ResolutionConfigUpdate
 from .repository import ResolutionRepository
 from .rules import ResolutionConfig, ResolutionRulesEngine
 from .signals import default_signals

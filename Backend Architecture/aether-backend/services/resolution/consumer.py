@@ -8,7 +8,6 @@ events for downstream services (analytics, notifications).
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from shared.events.events import Event, EventProducer, Topic

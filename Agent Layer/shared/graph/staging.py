@@ -11,7 +11,7 @@ Neptune, etc.) — it provides the agent-layer-side staging contract.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from models.mutations import MutationStatus, StagedMutation
 

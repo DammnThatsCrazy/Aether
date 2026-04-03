@@ -7,15 +7,15 @@ Run:  python main.py
 """
 
 import logging
-import sys
 import os
+import sys
 
 # Ensure project root is on the path
 sys.path.insert(0, os.path.dirname(__file__))
 
-from config.settings import AgentLayerSettings, WorkerType, TaskPriority
-from models.core import AgentTask
 from agent_controller.controller import AgentController
+from config.settings import AgentLayerSettings, TaskPriority, WorkerType
+from models.core import AgentTask
 from workers.registry import discover_workers
 
 logging.basicConfig(

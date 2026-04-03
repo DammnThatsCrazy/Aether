@@ -23,16 +23,17 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
-from agent_controller.runtime.checkpointing import CheckpointRecord, CheckpointStore
+from shared.events.objective_events import AgentEvent, EventBus, EventType
+
 from agent_controller.runtime.briefing import (
     BriefAudience,
-    BriefRecord,
     BriefingStore,
+    BriefRecord,
     BriefType,
 )
-from shared.events.objective_events import AgentEvent, EventBus, EventType
+from agent_controller.runtime.checkpointing import CheckpointRecord, CheckpointStore
 
 logger = logging.getLogger("aether.controllers.bolt")
 

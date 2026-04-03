@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
 
 from config.settings import WorkerType
-from models.core import AgentTask, TaskResult, AuditRecord
 from guardrails.guardrails import Guardrails
+from models.core import AgentTask, AuditRecord, TaskResult
 
 logger = logging.getLogger("aether.worker")
 

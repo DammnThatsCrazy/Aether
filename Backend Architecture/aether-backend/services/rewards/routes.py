@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -49,7 +49,6 @@ from services.rewards.eligibility import (
     RewardTier,
 )
 from services.rewards.queue import RewardQueue
-from shared.common.common import NotFoundError
 from shared.decorators import api_response
 from shared.logger.logger import get_logger, metrics
 

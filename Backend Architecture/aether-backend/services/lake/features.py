@@ -18,7 +18,7 @@ from shared.logger.logger import get_logger, metrics
 from shared.common.common import utc_now
 from repositories.lake import (
     silver_market, silver_onchain, silver_social, silver_identity,
-    gold_market, gold_onchain, gold_identity,
+    gold_market, gold_identity,
 )
 
 logger = get_logger("aether.lake.features")

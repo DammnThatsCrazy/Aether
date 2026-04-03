@@ -9,7 +9,6 @@ Dedicated unit tests for v8.7.0 services:
 from __future__ import annotations
 
 import asyncio
-import importlib
 import os
 import sys
 from contextlib import contextmanager
@@ -139,7 +138,7 @@ class TestDataClassification:
 
     def test_field_classifications(self):
         with backend_path():
-            from shared.privacy.classification import classify_field, DataClassification
+            from shared.privacy.classification import DataClassification, classify_field
             assert classify_field("email") == DataClassification.SENSITIVE_PII
             assert classify_field("ssn") == DataClassification.HIGHLY_SENSITIVE
             assert classify_field("balance") == DataClassification.FINANCIAL
@@ -148,14 +147,14 @@ class TestDataClassification:
 
     def test_sensitive_pii_rules(self):
         with backend_path():
-            from shared.privacy.classification import get_rules, DataClassification
+            from shared.privacy.classification import DataClassification, get_rules
             rules = get_rules(DataClassification.SENSITIVE_PII)
             assert rules.requires_consent is True
             assert rules.log_redaction_required is True
 
     def test_highly_sensitive_rules(self):
         with backend_path():
-            from shared.privacy.classification import get_rules, DataClassification
+            from shared.privacy.classification import DataClassification, get_rules
             rules = get_rules(DataClassification.HIGHLY_SENSITIVE)
             assert rules.exportable is False
             assert rules.graph_traversal_allowed is False
@@ -173,19 +172,19 @@ class TestAccessControl:
 
     def test_viewer_denied_regulated(self):
         with backend_path():
-            from shared.privacy.access_control import get_field_access_level, AccessLevel
+            from shared.privacy.access_control import AccessLevel, get_field_access_level
             access = get_field_access_level("kyc_status", role="viewer")
             assert access == AccessLevel.DENIED
 
     def test_compliance_sees_regulated(self):
         with backend_path():
-            from shared.privacy.access_control import get_field_access_level, AccessLevel
+            from shared.privacy.access_control import AccessLevel, get_field_access_level
             access = get_field_access_level("kyc_status", role="compliance", purpose="compliance")
             assert access == AccessLevel.FULL
 
     def test_pii_denied_without_consent(self):
         with backend_path():
-            from shared.privacy.access_control import get_field_access_level, AccessLevel
+            from shared.privacy.access_control import AccessLevel, get_field_access_level
             access = get_field_access_level("email", role="editor", consent_granted=False)
             assert access == AccessLevel.DENIED
 
@@ -264,8 +263,8 @@ class TestProfileResolverTenantIsolation:
     def test_resolve_rejects_empty_tenant(self):
         with backend_path():
             from services.profile.resolver import ProfileResolver
-            from shared.graph.graph import GraphClient
             from shared.cache.cache import CacheClient
+            from shared.graph.graph import GraphClient
             resolver = ProfileResolver(GraphClient(), CacheClient())
             with pytest.raises(ValueError, match="tenant_id is required"):
                 asyncio.get_event_loop().run_until_complete(
@@ -275,8 +274,8 @@ class TestProfileResolverTenantIsolation:
     def test_get_identifiers_rejects_empty_tenant(self):
         with backend_path():
             from services.profile.resolver import ProfileResolver
-            from shared.graph.graph import GraphClient
             from shared.cache.cache import CacheClient
+            from shared.graph.graph import GraphClient
             resolver = ProfileResolver(GraphClient(), CacheClient())
             with pytest.raises(ValueError, match="tenant_id is required"):
                 asyncio.get_event_loop().run_until_complete(

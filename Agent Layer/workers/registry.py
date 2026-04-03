@@ -19,6 +19,7 @@ import pkgutil
 from typing import TYPE_CHECKING
 
 from config.settings import WorkerType
+
 from workers.base import BaseWorker
 
 if TYPE_CHECKING:
