@@ -42,6 +42,13 @@ PACKAGE_JSONS = [
     ROOT / "Data Ingestion Layer" / "packages" / "logger" / "package.json",
     ROOT / "Data Ingestion Layer" / "services" / "ingestion" / "package.json",
     ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "packages" / "auth" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "packages" / "cache" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "packages" / "common" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "packages" / "events" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "packages" / "logger" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "services" / "data-lake" / "package.json",
+    ROOT / "Data Lake Architecture" / "aether-Datalake-backend" / "services" / "ingestion" / "package.json",
 ]
 
 # Native SDK version files (different format than package.json)
