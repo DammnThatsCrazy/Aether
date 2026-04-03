@@ -137,7 +137,7 @@ export class EventQueue {
     const payload = JSON.stringify({
       batch: events,
       sentAt: new Date().toISOString(),
-      context: { library: { name: '@aether/sdk', version: '__SDK_VERSION__' } },
+      context: { library: { name: '@aether/sdk', version: '8.7.1' } },
     });
 
     const response = await fetch(`${this.config.endpoint}/v1/batch`, {
@@ -180,7 +180,7 @@ export class EventQueue {
     const payload = JSON.stringify({
       batch: this.filterByConsent(events),
       sentAt: new Date().toISOString(),
-      context: { library: { name: '@aether/sdk', version: '__SDK_VERSION__' } },
+      context: { library: { name: '@aether/sdk', version: '8.7.1' } },
     });
     const blob = new Blob([payload], { type: 'application/json' });
     // API key sent via query param (sendBeacon does not support custom headers)

@@ -162,7 +162,7 @@ export class EventQueue {
       batch: events,
       sentAt: new Date().toISOString(),
       context: {
-        library: { name: '@aether/sdk', version: '8.7.0' },
+        library: { name: '@aether/sdk', version: '8.7.1' },
       },
     });
 
@@ -205,7 +205,7 @@ export class EventQueue {
     const payload = JSON.stringify({
       batch: this.filterByConsent(events),
       sentAt: new Date().toISOString(),
-      context: { library: { name: '@aether/sdk', version: '__SDK_VERSION__' } },
+      context: { library: { name: '@aether/sdk', version: '8.7.1' } },
     });
 
     const blob = new Blob([payload], { type: 'application/json' });
