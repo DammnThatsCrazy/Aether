@@ -319,7 +319,7 @@ Health check endpoint returning component-level status.
 ```json
 {
   "status": "healthy | degraded | unhealthy",
-  "version": "8.7.0",
+  "version": "8.7.1",
   "uptime": 12345,
   "timestamp": "2025-01-15T12:00:00.000Z",
   "checks": {

@@ -1,4 +1,4 @@
-# Aether Repository Alignment Audit v8.7.0
+# Aether Repository Alignment Audit v8.7.1
 
 **Audit Date:** 2026-03-25 (updated 2026-04-03)
 **Platform Version:** 8.7.0
@@ -10,7 +10,7 @@
 
 Full-repo alignment audit across every file, folder, module, language surface, config surface, test surface, documentation surface, and release surface. All identified drift has been corrected.
 
-**Platform Truth (v8.7.0):**
+**Platform Truth (v8.7.1):**
 - 31 backend services
 - 246 API endpoints
 - 24 provider connectors (all implemented)
@@ -22,7 +22,7 @@ Full-repo alignment audit across every file, folder, module, language surface, c
 
 ## 1. Version Truth
 
-### Aligned at v8.7.0
+### Aligned at v8.7.1
 
 | File | Type | Version | Status |
 |------|------|---------|--------|
@@ -35,26 +35,26 @@ Full-repo alignment audit across every file, folder, module, language surface, c
 | `packages/ios/Package.swift` | Swift | 8.7.0 | Aligned |
 | `packages/android/build.gradle.kts` (Maven) | Kotlin | 8.7.0 | Aligned |
 | `packages/android/build.gradle.kts` (buildConfigField) | Kotlin | 8.7.0 | Aligned |
-| `docs/ARCHITECTURE.md` | Doc | v8.7.0 | Aligned |
-| `docs/BACKEND-API.md` | Doc | v8.7.0 | Aligned |
-| `docs/SDK-WEB.md` | Doc | v8.7.0 | Aligned |
-| `docs/SDK-IOS.md` | Doc | v8.7.0 | Aligned |
-| `docs/SDK-ANDROID.md` | Doc | v8.7.0 | Aligned |
-| `docs/SDK-REACT-NATIVE.md` | Doc | v8.7.0 | Aligned |
-| `docs/IDENTITY-RESOLUTION.md` | Doc | v8.7.0 | Aligned |
-| `docs/INTELLIGENCE-GRAPH.md` | Doc | v8.7.0 | Aligned |
-| `docs/MODEL-EXTRACTION-DEFENSE.md` | Doc | v8.7.0 | Aligned |
-| `docs/AGENT-CONTROLLER.md` | Doc | v8.7.0 | Aligned |
-| `docs/OPERATIONS-RUNBOOK.md` | Doc | v8.7.0 | Aligned |
-| `docs/PRODUCTION-READINESS.md` | Doc | v8.7.0 | Aligned |
-| `Agent Layer/README.md` | Doc | v8.7.0 | Aligned |
-| `Data Ingestion Layer/README.md` | Doc | v8.7.0 | Aligned |
-| `Data Lake Architecture/README.md` | Doc | v8.7.0 | Aligned |
-| `AWS Deployment/aether-aws/README.md` | Doc | v8.7.0 | Aligned |
-| `cicd/aether-cicd/README.md` | Doc | v8.7.0 | Aligned |
-| `GDPR & SOC2/aether-compliance/README.md` | Doc | v8.7.0 | Aligned |
-| `CHANGELOG.md` (root) | Doc | v8.7.0 | Aligned |
-| `docs/CHANGELOG.md` | Doc | v8.7.0 | Aligned |
+| `docs/ARCHITECTURE.md` | Doc | v8.7.1 | Aligned |
+| `docs/BACKEND-API.md` | Doc | v8.7.1 | Aligned |
+| `docs/SDK-WEB.md` | Doc | v8.7.1 | Aligned |
+| `docs/SDK-IOS.md` | Doc | v8.7.1 | Aligned |
+| `docs/SDK-ANDROID.md` | Doc | v8.7.1 | Aligned |
+| `docs/SDK-REACT-NATIVE.md` | Doc | v8.7.1 | Aligned |
+| `docs/IDENTITY-RESOLUTION.md` | Doc | v8.7.1 | Aligned |
+| `docs/INTELLIGENCE-GRAPH.md` | Doc | v8.7.1 | Aligned |
+| `docs/MODEL-EXTRACTION-DEFENSE.md` | Doc | v8.7.1 | Aligned |
+| `docs/AGENT-CONTROLLER.md` | Doc | v8.7.1 | Aligned |
+| `docs/OPERATIONS-RUNBOOK.md` | Doc | v8.7.1 | Aligned |
+| `docs/PRODUCTION-READINESS.md` | Doc | v8.7.1 | Aligned |
+| `Agent Layer/README.md` | Doc | v8.7.1 | Aligned |
+| `Data Ingestion Layer/README.md` | Doc | v8.7.1 | Aligned |
+| `Data Lake Architecture/README.md` | Doc | v8.7.1 | Aligned |
+| `AWS Deployment/aether-aws/README.md` | Doc | v8.7.1 | Aligned |
+| `cicd/aether-cicd/README.md` | Doc | v8.7.1 | Aligned |
+| `GDPR & SOC2/aether-compliance/README.md` | Doc | v8.7.1 | Aligned |
+| `CHANGELOG.md` (root) | Doc | v8.7.1 | Aligned |
+| `docs/CHANGELOG.md` | Doc | v8.7.1 | Aligned |
 
 ### Independent Subsystem Versions (by design)
 
@@ -248,7 +248,7 @@ Files like `cache.py`, `repos.py`, `graph.py`, `auth.py`, `events.py` exist at t
 
 The following services do not have dedicated test files:
 - Profile 360, Population Omniview, Expectation Engine, Behavioral, RWA Intelligence
-- These are v8.7.0 additions. Their API contracts are tested via the E2E test suite.
+- These are v8.7.1 additions. Their API contracts are tested via the E2E test suite.
 
 ---
 
@@ -260,7 +260,7 @@ The following services do not have dedicated test files:
 |-----|------|--------|
 | v8.4.0 | 2026-03-24 | Infrastructure replacement release |
 | v8.5.0 | 2026-03-24 | Intelligence Graph + Lake + Providers |
-| v8.7.0 | 2026-03-25 | Profile + Population + Expectations + Behavioral + RWA |
+| v8.7.1 | 2026-03-25 | Profile + Population + Expectations + Behavioral + RWA |
 
 ### GitHub Releases
 
@@ -268,11 +268,11 @@ All three releases created via `gh release create` with comprehensive release no
 
 ### CHANGELOG Alignment
 
-Both `CHANGELOG.md` (root) and `docs/CHANGELOG.md` contain matching v8.7.0 entries with accurate:
+Both `CHANGELOG.md` (root) and `docs/CHANGELOG.md` contain matching v8.7.1 entries with accurate:
 - Service count: 31
 - Endpoint count: 246
 - Provider count: 24
-- New feature listings for all v8.7.0 additions
+- New feature listings for all v8.7.1 additions
 
 ---
 
@@ -299,7 +299,7 @@ Both `CHANGELOG.md` (root) and `docs/CHANGELOG.md` contain matching v8.7.0 entri
 | Backend Architecture root legacy files | P3 | `cache.py`, `repos.py` etc. at root — not imported, but could confuse new developers |
 | `mnt/user-data/outputs/` archive | P3 | Old stub copies — could be gitignored or documented |
 | ML Models README version | Info | aether-ml stays at 4.0.0 by design (independent package) |
-| Test coverage for v8.7.0 services | P2 | Profile, Population, Expectations, Behavioral, RWA need dedicated unit tests |
+| Test coverage for v8.7.1 services | P2 | Profile, Population, Expectations, Behavioral, RWA need dedicated unit tests |
 | `Data Ingestion Layer/` TypeScript sink implementations | Info | Production sink implementations (Kafka, ClickHouse, S3, Redis) using Node.js built-in modules |
 
 ---

@@ -9,7 +9,7 @@ import { createLogger } from '@aether/logger';
 import { readFileSync } from 'node:fs';
 
 const logger = createLogger('aether.ingestion.enricher');
-const PIPELINE_VERSION = '8.7.0';
+const PIPELINE_VERSION = '8.7.1';
 
 export interface EnrichmentConfig {
   enrichGeo: boolean;
