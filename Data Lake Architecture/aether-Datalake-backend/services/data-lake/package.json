@@ -1,6 +1,6 @@
 {
   "name": "@aether/data-lake",
-  "version": "0.1.0",
+  "version": "8.7.1",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -13,11 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aether/common": "*",
-    "@aether/logger": "*",
-    "@aether/auth": "*",
-    "@aether/cache": "*",
-    "@aether/events": "*"
+    "@aether/common": "8.7.1",
+    "@aether/logger": "8.7.1",
+    "@aether/auth": "8.7.1",
+    "@aether/cache": "8.7.1",
+    "@aether/events": "8.7.1"
   },
   "devDependencies": {
     "tsx": "^4.7.0",

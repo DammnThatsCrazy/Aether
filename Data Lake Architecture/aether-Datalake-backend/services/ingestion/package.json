@@ -1,9 +1,9 @@
 {
   "name": "@aether/ingestion",
-  "version": "4.0.0",
+  "version": "8.7.1",
   "private": true,
   "type": "module",
-  "description": "Aether event ingestion service — high-throughput HTTP ingest with multi-sink routing",
+  "description": "Aether event ingestion service \u2014 high-throughput HTTP ingest with multi-sink routing",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -13,10 +13,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@aether/auth": "*",
-    "@aether/cache": "*",
-    "@aether/common": "*",
-    "@aether/events": "*",
-    "@aether/logger": "*"
+    "@aether/auth": "8.7.1",
+    "@aether/cache": "8.7.1",
+    "@aether/common": "8.7.1",
+    "@aether/events": "8.7.1",
+    "@aether/logger": "8.7.1"
   }
 }
