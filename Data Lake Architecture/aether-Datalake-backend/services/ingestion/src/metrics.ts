@@ -138,10 +138,10 @@ export class MetricsCollector {
 
     return {
       uptime_seconds: Math.floor((Date.now() - this.startTime) / 1000),
-      events_received_total: this.getCounter('ingestion_events_received_total'),
-      events_processed_total: this.getCounter('ingestion_events_processed_total'),
+      events_received_total: this.sumCountersByPrefix('ingestion_events_received_total'),
+      events_processed_total: this.sumCountersByPrefix('ingestion_events_processed_total'),
       events_dropped_total: this.sumCountersByPrefix('ingestion_events_dropped_total'),
-      batches_received_total: this.getCounter('ingestion_batches_total'),
+      batches_received_total: this.sumCountersByPrefix('ingestion_batches_total'),
       active_connections: this.getGauge('active_connections'),
       processing_duration_ms: processing
         ? { avg: processing.sum / processing.count, p50: processing.p50, p95: processing.p95, p99: processing.p99 }

@@ -118,12 +118,12 @@ class ComplianceTestRunner:
         self._test("GDPR-DSR", "Access request (Art. 15) completes",
                     result.status == DSRStatus.COMPLETED and result.result is not None)
 
-        # Test 7: Erasure processes all 7 stores
+        # Test 7: Erasure processes all stores (7 base + 5 IG + 3 IG extra = 15)
         dsr2 = DSRRequest(type=DSRType.ERASURE, tenant_id="t1", user_id="u2")
         executor.submit(dsr2)
         result2 = executor.execute(dsr2.id)
         self._test("GDPR-DSR", "Erasure (Art. 17) processes all stores",
-                    len(result2.stores_processed) == 7 and len(result2.stores_remaining) == 0)
+                    len(result2.stores_processed) == 15 and len(result2.stores_remaining) == 0)
 
         # Test 8: Restriction is immediate (0-day SLA)
         dsr3 = DSRRequest(type=DSRType.RESTRICTION, tenant_id="t1", user_id="u3")

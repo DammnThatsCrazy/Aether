@@ -140,7 +140,7 @@ export class EventEnricher {
         receivedAt,
         projectId,
         enrichment,
-        partitionKey: partitionKey(event),
+        partitionKey: partitionKey(projectId, new Date(event.timestamp)),
         context: {
           ...event.context,
           // Override IP with anonymized version if configured
