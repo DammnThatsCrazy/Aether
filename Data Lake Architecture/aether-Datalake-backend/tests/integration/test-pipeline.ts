@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { IngestionPipeline } from '../../services/ingestion/src/pipeline.js';
-import { EventRouter, KafkaSink, S3Sink } from '../../packages/events/src/index.js';
+import { EventRouter, createSink } from '../../packages/events/src/index.js';
 import { InMemoryCache, DeduplicationFilter } from '../../packages/cache/src/index.js';
 import type { ProcessingConfig, SinkConfig } from '../../packages/common/src/types.js';
 import {
@@ -35,15 +35,15 @@ describe('IngestionPipeline — End-to-End', () => {
     cache = new InMemoryCache();
     dedup = new DeduplicationFilter(cache, 300_000);
 
-    // Add a mock sink (Kafka)
-    const kafkaSink = new KafkaSink({
+    // Add a dev sink (console-backed) via factory
+    const sink = createSink({
       type: 'kafka',
       enabled: true,
       config: { brokers: ['localhost:9092'], topic: 'test.events' },
       batchSize: 100,
       flushIntervalMs: 60_000,
     });
-    await router.addSink(kafkaSink);
+    await router.addSink(sink);
 
     pipeline = new IngestionPipeline(testConfig, router, dedup);
   });
