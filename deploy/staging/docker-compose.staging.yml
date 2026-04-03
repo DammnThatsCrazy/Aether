@@ -136,6 +136,7 @@ services:
     volumes:
       - staging_prometheus:/prometheus
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
     restart: unless-stopped
 
 volumes:

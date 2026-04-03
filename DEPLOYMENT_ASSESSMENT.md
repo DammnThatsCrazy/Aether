@@ -79,6 +79,9 @@
 | 5 | Security | ConsentModule innerHTML with unsanitized config interpolation | `ConsentModule.ts:86-88`, `packages/web/src/consent/index.ts:86-88` | Added input validation for position/theme/accent |
 | 6 | Deploy | Root docker-compose backend build context mismatch | `docker-compose.yml:83-84` | Changed context to repo root, dockerfile to relative path |
 | 7 | Deploy | Staging bootstrap missing WATERMARK/CANARY secret generation | `deploy/staging/bootstrap.sh` | Added auto-generation for both secrets |
+| 8 | Deploy | Root docker-compose Prometheus has no config or alert rules mounted | `docker-compose.yml` | Added volume mounts for prometheus.yml and alert_rules.yml |
+| 9 | CI/CD | No TypeScript CI in repo-health workflow; `security` deps missing from pip install | `.github/workflows/repo-health.yml` | Added Node.js setup, npm ci, typecheck/build/test steps; added `security` to pip install |
+| 10 | Deploy | Staging Prometheus references alert_rules.yml but file not mounted | `deploy/staging/docker-compose.staging.yml` | Added alert_rules.yml volume mount |
 
 ### P1 — Important (Patches Proposed)
 
@@ -91,7 +94,11 @@
 | 5 | Testing | React Native, iOS, Android SDKs have no tests | `packages/react-native/`, `packages/ios/`, `packages/android/` | Add platform-specific test suites |
 | 6 | Deploy | ML Dockerfile EXPOSE 8000 but compose runs on 8080 | `ML Models/aether-ml/docker/Dockerfile:60` | Change to EXPOSE 8080 |
 | 7 | Security | Base64 fallback for encryption in local mode | `Backend Architecture/aether-backend/shared/providers/key_vault.py:106` | Already gated to local-only; consider removing entirely |
-| 8 | Infra | No Grafana dashboards pre-configured | `deploy/observability/grafana/` | Add default dashboard JSON |
+| 8 | Deploy | CI/CD workflows in `cicd/aether-cicd/.github/` never execute (wrong path) | `cicd/aether-cicd/.github/workflows/*.yml` | Move/symlink to root `.github/workflows/` or delete; they also reference nonexistent directories |
+| 9 | Deploy | Root docker-compose `env_file: .env` but only `.env.example` exists | `docker-compose.yml:94` | Document that `cp .env.example .env` is required, or make env_file optional |
+| 10 | Deploy | ClickHouse service defined in docker-compose but nothing connects to it | `docker-compose.yml:69-77` | Remove or connect to a consumer |
+| 11 | Testing | `packages/react-native` has no `build` or `test` scripts (silently skipped by npm workspaces) | `packages/react-native/package.json` | Add build and test scripts |
+| 12 | Infra | Makefile has no Node/TypeScript targets | `Makefile` | Add `npm-install`, `npm-build`, `npm-test` targets |
 
 ### P2 — Minor / Future
 
@@ -144,8 +151,8 @@
 
 | Priority | Total | Fixed | Remaining |
 |----------|-------|-------|-----------|
-| **P0** | 7 | 7 | 0 |
-| **P1** | 8 | 0 | 8 |
+| **P0** | 10 | 10 | 0 |
+| **P1** | 12 | 0 | 12 |
 | **P2** | 7 | 0 | 7 |
 
 ---
