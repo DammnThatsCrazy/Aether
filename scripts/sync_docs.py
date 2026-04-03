@@ -5,19 +5,22 @@ This script gives the repo a deterministic, machine-generated documentation
 surface that can be checked in CI. It is intentionally conservative: it does
 not attempt to rewrite authored architecture docs, but it does keep a living
 index of important areas and the automation that protects them.
+
+Uses `git ls-files` to count only tracked files, ensuring deterministic output
+regardless of build artifacts, caches, or virtual environments.
 """
 
 from __future__ import annotations
 
+import subprocess
 from collections import defaultdict
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 INDEX_PATH = DOCS / "REPO-INDEX.md"
 AUTOMATION_PATH = DOCS / "AUTOMATION.md"
 
-IGNORED_PARTS = {".git", "node_modules", "__pycache__", ".pytest_cache", ".venv", ".gradle", "dist"}
 TOP_LEVEL_DOC_FOCUS = {
     "security",
     "scripts",
@@ -34,36 +37,42 @@ TOP_LEVEL_DOC_FOCUS = {
 }
 
 
-def should_ignore(path: Path) -> bool:
-    return any(
-        part in IGNORED_PARTS or part.endswith(".egg-info")
-        for part in path.parts
+def _git_tracked_files() -> list[str]:
+    """Return all git-tracked file paths relative to ROOT."""
+    result = subprocess.run(
+        ["git", "ls-files"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
     )
+    return [line for line in result.stdout.splitlines() if line]
 
 
-def collect_counts(base: Path) -> tuple[int, int]:
+def collect_counts(area: str, tracked: list[str]) -> tuple[int, int]:
+    """Count directories and files under a top-level area using git-tracked files."""
+    prefix = area + "/"
     files = 0
-    dirs: set[Path] = set()
-    for path in base.rglob("*"):
-        if should_ignore(path):
+    dirs: set[str] = set()
+    for fpath in tracked:
+        if not fpath.startswith(prefix):
             continue
-        if path.is_dir():
-            dirs.add(path)
-        elif path.is_file():
-            files += 1
-            if path.parent != base:
-                dirs.add(path.parent)
+        files += 1
+        parent = str(PurePosixPath(fpath).parent)
+        if parent != area:
+            dirs.add(parent)
+            # Add intermediate directories
+            parts = PurePosixPath(fpath).parts
+            for i in range(2, len(parts)):
+                dirs.add(str(PurePosixPath(*parts[:i])))
     return len(dirs), files
 
 
-def top_level_summary() -> list[tuple[str, int, int]]:
+def top_level_summary(tracked: list[str]) -> list[tuple[str, int, int]]:
     rows: list[tuple[str, int, int]] = []
-    for path in sorted(ROOT.iterdir(), key=lambda p: p.name.lower()):
-        if should_ignore(path) or path.name.startswith("."):
-            continue
-        if path.is_dir() and path.name in TOP_LEVEL_DOC_FOCUS:
-            dirs, files = collect_counts(path)
-            rows.append((path.name, dirs, files))
+    for area in sorted(TOP_LEVEL_DOC_FOCUS, key=str.lower):
+        dirs, files = collect_counts(area, tracked)
+        if files > 0:
+            rows.append((area, dirs, files))
     return rows
 
 
@@ -82,8 +91,8 @@ def authored_docs() -> dict[str, list[str]]:
     return dict(sorted(groups.items()))
 
 
-def write_index() -> None:
-    rows = top_level_summary()
+def write_index(tracked: list[str]) -> None:
+    rows = top_level_summary(tracked)
     lines = [
         "# Repository Index",
         "",
@@ -150,7 +159,8 @@ def write_automation() -> None:
 
 if __name__ == "__main__":
     DOCS.mkdir(exist_ok=True)
-    write_index()
+    tracked = _git_tracked_files()
+    write_index(tracked)
     write_automation()
     print(f"Updated {INDEX_PATH.relative_to(ROOT)}")
     print(f"Updated {AUTOMATION_PATH.relative_to(ROOT)}")
