@@ -104,6 +104,26 @@ class VertexType:
     SECTOR = "Sector"
     CORPORATE_ACTION = "CorporateAction"
 
+    # ── Agentic Commerce — Control Plane vertices ──────────────────────
+    PAYMENT_REQUIREMENT = "PaymentRequirement"
+    PAYMENT_AUTHORIZATION = "PaymentAuthorization"
+    PAYMENT_RECEIPT = "PaymentReceipt"
+    SETTLEMENT = "Settlement"
+    ENTITLEMENT = "Entitlement"
+    ACCESS_GRANT = "AccessGrant"
+    FACILITATOR = "Facilitator"
+    PRICE_POLICY = "PricePolicy"
+    BUDGET_POLICY = "BudgetPolicy"
+    TREASURY = "Treasury"
+    STABLECOIN_ASSET = "StablecoinAsset"
+    SERVICE_PLAN = "ServicePlan"
+    PAYMENT_ROUTE = "PaymentRoute"
+    FULFILLMENT = "Fulfillment"
+    POLICY_DECISION = "PolicyDecision"
+    APPROVAL_REQUEST = "ApprovalRequest"
+    APPROVAL_DECISION = "ApprovalDecision"
+    PROTECTED_RESOURCE = "ProtectedResource"
+
 
 class EdgeType:
     HAS_SESSION = "HAS_SESSION"
@@ -234,6 +254,30 @@ class EdgeType:
     # ── Cross-Domain — Identity fusion ─────────────────────────────────
     OVERLAPS_WITH = "OVERLAPS_WITH"           # Profile → Profile (cross-domain identity)
     LINKED_VIA = "LINKED_VIA"                 # Entity → Entity (with link_signal property)
+
+    # ── Agentic Commerce — Control Plane edges ─────────────────────────
+    REQUIRES_PAYMENT = "REQUIRES_PAYMENT"         # ProtectedResource → PaymentRequirement
+    OFFERS_PAYMENT_OPTION = "OFFERS_PAYMENT_OPTION"  # PaymentRequirement → StablecoinAsset
+    AUTHORIZED_BY = "AUTHORIZED_BY"               # PaymentRequirement → PaymentAuthorization
+    VERIFIED_BY = "VERIFIED_BY"                   # PaymentAuthorization → Facilitator
+    SETTLED_BY = "SETTLED_BY"                     # PaymentReceipt → Settlement
+    GRANTS_ACCESS_TO = "GRANTS_ACCESS_TO"         # Entitlement → ProtectedResource
+    FULFILLED_BY = "FULFILLED_BY"                 # AccessGrant → Fulfillment
+    PRICES_IN = "PRICES_IN"                       # ServicePlan → StablecoinAsset
+    ACCEPTS_ASSET = "ACCEPTS_ASSET"               # ProtectedResource → StablecoinAsset
+    PREFERS_NETWORK = "PREFERS_NETWORK"           # Treasury → Chain
+    CONSTRAINED_BY = "CONSTRAINED_BY"             # Agent/User → BudgetPolicy
+    SUBSCRIBES_TO = "SUBSCRIBES_TO"               # User/Agent → ServicePlan
+    REUSES_ENTITLEMENT = "REUSES_ENTITLEMENT"     # Agent → Entitlement
+    RETRIED_AS = "RETRIED_AS"                     # Settlement → Settlement
+    ESCALATES_PAYMENT_TO = "ESCALATES_PAYMENT_TO"  # ApprovalRequest → User
+    GUARDED_BY_POLICY = "GUARDED_BY_POLICY"       # ProtectedResource → PricePolicy/BudgetPolicy
+    ROUTES_VIA = "ROUTES_VIA"                     # PaymentAuthorization → PaymentRoute
+    APPROVED_BY = "APPROVED_BY"                   # ApprovalDecision → User
+    REJECTED_BY = "REJECTED_BY"                   # ApprovalDecision → User
+    REQUESTS_APPROVAL_FROM = "REQUESTS_APPROVAL_FROM"  # ApprovalRequest → User
+    GOVERNED_BY_POLICY = "GOVERNED_BY_POLICY"     # Tenant/Agent → PolicyDecision
+    FUNDED_FROM_TREASURY = "FUNDED_FROM_TREASURY"  # PaymentAuthorization → Treasury
 
 
 # ═══════════════════════════════════════════════════════════════════════════

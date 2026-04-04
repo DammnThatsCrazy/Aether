@@ -1,5 +1,44 @@
 # Changelog
 
+## vNext+1 — Agentic Commerce Control Plane (L3b+)
+
+### New
+- **Full x402 v2 commerce control plane** extending the existing x402 capture subsystem (L3b).
+  Orchestrates: preflight → challenge → policy → approval → authorize → verify → settle → entitle → grant → fulfill.
+- **Mandatory approval for ALL spend classes** (Day-1 GA default via `COMMERCE_APPROVAL_REQUIRED_ALL=true`).
+- **Protected Resource Registry** covering all 5 Aether-native resource classes: `api`, `agent_tool`, `priced_endpoint`, `service_plan`, `internal_capability`. Seeded with 7 Aether-native resources at tenant provisioning.
+- **Stablecoin rails:** USDC on Base (`eip155:8453`) + USDC on Solana (`solana:mainnet`) with local + Circle v2 facilitators.
+- **18 new graph vertex types + 22 new edge types** in the Intelligence Graph modeling the full commerce lifecycle.
+- **28 new commerce event topics** under `aether.commerce.*` namespace.
+- **Explainability endpoint** `GET /v1/x402/explain/{challenge_id}` returning full lifecycle trace including graph writes + events emitted.
+- **Payment-Identifier idempotency** with 24h TTL, preventing duplicate settlements.
+- **Entitlement service** with TTL expiry, SIWX binding hook, reuse tracking, and revocation.
+- **Approval workflow FSM** with priority-based SLA (5m/15m/1h/4h), auto-expiry, escalation chain, evidence bundles, deterministic replay.
+
+### SHIKI integration
+- New **Commerce Approvals** tab on Review page with real approve/reject/escalate/revoke actions wired through PermissionGate.
+- New adapter `lib/api/commerce.ts`, schemas `lib/schemas/commerce.ts`, fixtures `fixtures/commerce.ts`.
+- New feature hooks `features/approvals`, `features/commerce`, `features/entitlements` with mocked/live mode parity.
+- New components `ApprovalQueue`, `LifecycleTraceView` under `components/commerce/`.
+
+### Auth / Audit
+- 13 new permission scopes and 18 new audit actions for the commerce subsystem.
+
+### Tests
+- Backend: 21 passing commerce tests (11 lifecycle integration + 10 unit).
+- SHIKI: 27 new commerce tests (16 schema + 11 component) — 79/79 total SHIKI tests passing.
+
+### Feature flags
+- `COMMERCE_CONTROL_PLANE_ENABLED=true`, `COMMERCE_APPROVAL_REQUIRED_ALL=true`, `COMMERCE_V2_PROTOCOL=true`.
+
+### Docs
+- `docs/COMMERCE-CONTROL-PLANE.md`, `docs/APPROVAL-MODEL.md`, `docs/STABLECOIN-RAILS.md`, `docs/COMMERCE-OPERATOR-RUNBOOK.md`, `docs/AGENTIC_COMMERCE_BUILD_SPEC.md`, `docs/X402_AUDIT_REPORT.md`.
+
+### Preserved
+- Legacy x402 capture endpoints + models unchanged. Neptune/GraphClient, Kafka, lake tiers, SHIKI adapter pattern untouched.
+
+---
+
 ## vNext — Agent Layer: Multi-Controller Internal Autonomy Architecture (Unreleased)
 
 ### Architecture
