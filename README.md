@@ -1,6 +1,23 @@
 # Aether
 
-Cross-platform Unified Intelligence Graph with Web3 wallet tracking, cross-device identity resolution, data lake, ML-powered intelligence, and on-chain reward automation.
+**Unified observation layer for hybrid companies** — Web2, Web3, or any mix.
+Cross-platform SDKs capture canonical events (analytics, identity, consent,
+commerce, wallet, agent, x402) and deliver them to a Python/FastAPI backend
+that owns all enrichment, identity resolution, graph mutation, and
+orchestration.
+
+> **Source of truth** for SDK behavior lives in [`docs/source-of-truth/`](docs/source-of-truth/).
+> Canonical SDK contracts live in [`packages/shared/`](packages/shared/).
+> Anything outside those locations that contradicts them is wrong.
+
+## Quick links
+
+- [`docs/source-of-truth/SDK_SCOPE.md`](docs/source-of-truth/SDK_SCOPE.md) — what the SDK is and is not
+- [`docs/source-of-truth/EVENT_REGISTRY.md`](docs/source-of-truth/EVENT_REGISTRY.md) — every event the SDK emits
+- [`docs/source-of-truth/CONSENT_MODEL.md`](docs/source-of-truth/CONSENT_MODEL.md) — 5 canonical consent purposes
+- [`docs/source-of-truth/INGESTION_CONTRACT.md`](docs/source-of-truth/INGESTION_CONTRACT.md) — `POST /v1/batch`
+- [`docs/source-of-truth/ENTITY_MODEL.md`](docs/source-of-truth/ENTITY_MODEL.md) — entities shared across Web2 + Web3
+- [`docs/source-of-truth/PLATFORM_PARITY.md`](docs/source-of-truth/PLATFORM_PARITY.md) — tiers A/B/C
 
 ## Architecture
 
@@ -73,12 +90,18 @@ All stores auto-select real backends in staging/production and fall back to in-m
 
 ## SDKs
 
-| Platform | Package | Size |
+Thin observation clients. All four POST to `/v1/batch`. All four share the
+canonical contracts in [`packages/shared/`](packages/shared/). Parity tiers
+are documented in
+[`docs/source-of-truth/PLATFORM_PARITY.md`](docs/source-of-truth/PLATFORM_PARITY.md).
+
+| Platform | Package | Entry |
 |---|---|---|
-| **Web** | `@aether/web` | ~5,200 LOC |
-| **iOS** | `AetherSDK` (Swift) | ~535 LOC |
-| **Android** | `io.aether:sdk-android` (Kotlin) | ~493 LOC |
-| **React Native** | `@aether/react-native` | ~497 LOC |
+| **Web** | `@aether/web` | `packages/web/src/index.ts` |
+| **iOS** | `AetherSDK` (Swift SPM) | `packages/ios/Sources/AetherSDK/Aether.swift` |
+| **Android** | `io.aether:sdk-android` (Kotlin) | `packages/android/src/main/java/com/aether/sdk/Aether.kt` |
+| **React Native** | `@aether/react-native` | `packages/react-native/src/index.tsx` |
+| **Shared contracts** | `packages/shared/` | canonical event / consent / identity / commerce / agent / wallet types |
 
 ## Provider Connectors (24)
 

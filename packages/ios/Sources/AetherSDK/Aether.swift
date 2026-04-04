@@ -327,6 +327,13 @@ public final class Aether {
     }
 
     // MARK: - Consent Management
+    //
+    // Canonical purposes (see packages/shared/consent.ts):
+    //   "analytics", "marketing", "web3", "agent", "commerce"
+    // Callers SHOULD only pass these strings. Backend validator ignores others.
+
+    public static let canonicalConsentPurposes: [String] =
+        ["analytics", "marketing", "web3", "agent", "commerce"]
 
     public func grantConsent(categories: [String]) {
         consentState = categories

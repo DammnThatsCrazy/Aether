@@ -8,6 +8,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [vNext] — Unreleased
 
+### Changed — SDK alignment & repo cleanup (unified-hybrid-v1 contract)
+
+- **Canonical contracts** promoted to `packages/shared/*.ts`:
+  `events.ts`, `consent.ts`, `wallet.ts`, `identity.ts`, `entities.ts`,
+  `commerce.ts`, `agent.ts`, `provenance.ts`, `capabilities.ts`,
+  `schema-version.ts`, `index.ts`. Web, iOS, Android, and React Native SDKs
+  now mirror these. `CONTRACT_SCHEMA_VERSION = 1.0.0`.
+- **Unified commerce/access model** replaces ad-hoc payment events. New
+  canonical types: `payment_initiated`, `payment_completed`, `payment_failed`,
+  `approval_requested`, `approval_resolved`, `entitlement_granted`,
+  `entitlement_revoked`, `access_granted`, `access_denied`. Each carries a
+  `rail` (`fiat | stripe | invoice | onchain | x402 | internal_credit`)
+  so one code path covers Web2, Web3, and hybrid flows.
+- **Web SDK** exposes thin canonical emitters on the public interface:
+  `aether.commerce.*`, `aether.agent.*`, `aether.x402.*`. These replace
+  "type-only" event definitions that were previously unreachable.
+- **Event type union** pruned: 16 never-emitted Web3 sub-type events
+  (`defi_interaction`, `whale_alert`, `portfolio_update`, etc.) removed from
+  the SDK. Backend still computes those downstream from `wallet`/`transaction`.
+- **`ModuleConfig`** pruned to only the 13 flags the runtime actually reads.
+- **Consent** normalized: 5 canonical purposes (`analytics`, `marketing`,
+  `web3`, `agent`, `commerce`) across all four SDKs. `ConsentState` gains
+  `agent` + `commerce` on native / RN. SDK event-queue `CONSENT_MAP`
+  aligned with `EVENT_CONSENT_PURPOSE` in shared.
+- **Ingestion contract** clarified: SDKs target `POST /v1/batch` exclusively
+  (served by the Data Lake ingestion service). The FastAPI
+  `/v1/ingest/events[/batch]` path is server-to-server connector-only.
+- **Platform parity** tiers A/B/C are now declared explicitly in
+  `docs/source-of-truth/PLATFORM_PARITY.md` — forced parity is not pursued.
+
+### Added — source-of-truth docs
+
+- `docs/source-of-truth/{SDK_SCOPE,ENTITY_MODEL,EVENT_REGISTRY,CONSENT_MODEL,INGESTION_CONTRACT,PLATFORM_PARITY,CAPABILITY_MANIFEST,GRAPH_ALIGNMENT}.md`.
+
+### Removed / archived
+
+- 13 root-level orphan `.ts` spec files (`MainAetherSDKClass.ts`,
+  `CoreEventQueue.ts`, `CoreIdentityManager.ts`, `CoreSessionManager.ts`,
+  `ConsentModule.ts`, `Web3Module.ts`, `AutoDiscoveryModule.ts`,
+  `EdgeMLModule.ts`, `ExperimentModule.ts`, `PerformanceModule.ts`,
+  `SDKUtilityFunctions.ts`, `WebSDKTypes(CoreTypeDefinitions).ts`,
+  `event-validator.ts`) moved to `docs/archive/legacy-spec/`. They were
+  never imported by any `packages/*` build.
+- 24 stale root-level audit / design / policy markdowns moved to
+  `docs/archive/audits/` (web3 coverage, profile 360, population omniview,
+  extraction defense, release hardening, repo audits, etc.).
+
 ### Added — Agent Layer: Multi-Controller Internal Autonomy Architecture
 - **Governance Controller** — top-level policy authority with budget ceilings, kill switch, audit invariants, conflict arbitration, and autonomy boundaries
 - **KIRA Controller** — top orchestration controller coordinating across all domain controllers with plan supervision, synthesis, and replan/escalation
