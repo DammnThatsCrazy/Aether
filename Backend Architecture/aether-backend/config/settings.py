@@ -156,6 +156,10 @@ class IntelligenceGraphConfig:
     enable_trust_scoring: bool = _env_bool("IG_TRUST_SCORING", False)       # Composite
     enable_bytecode_risk: bool = _env_bool("IG_BYTECODE_RISK", False)       # Rule-based
     enable_rpc_gateway: bool = _env_bool("IG_RPC_GATEWAY", False)           # L6
+    # Agentic Commerce (L3b+) — extends x402 capture into full control plane.
+    enable_commerce_control_plane: bool = _env_bool("COMMERCE_CONTROL_PLANE_ENABLED", True)
+    commerce_approval_required_all: bool = _env_bool("COMMERCE_APPROVAL_REQUIRED_ALL", True)
+    commerce_v2_protocol: bool = _env_bool("COMMERCE_V2_PROTOCOL", True)
 
 
 @dataclass(frozen=True)

@@ -266,6 +266,19 @@ def create_app() -> FastAPI:
         app.include_router(x402_router)
         logger.info("Intelligence Graph: x402 Interceptor service (L3b) mounted")
 
+        # Agentic Commerce control plane (L3b+) — mounted alongside legacy capture.
+        from services.x402.commerce_routes import (
+            router as commerce_cp_router,
+            approvals_router,
+            entitlements_router,
+            diagnostics_router as commerce_diag_router,
+        )
+        app.include_router(commerce_cp_router)
+        app.include_router(approvals_router)
+        app.include_router(entitlements_router)
+        app.include_router(commerce_diag_router)
+        logger.info("Intelligence Graph: Agentic Commerce control plane (L3b+) mounted")
+
     return app
 
 

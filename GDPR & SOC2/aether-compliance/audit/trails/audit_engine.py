@@ -50,6 +50,26 @@ class AuditAction(str, Enum):
     GROUND_TRUTH_SUBMITTED = "ground_truth_submitted"
     CONFIDENCE_DELTA_COMPUTED = "confidence_delta_computed"
 
+    # Agentic Commerce (L3b+) audit actions
+    COMMERCE_CHALLENGE_ISSUED = "commerce_challenge_issued"
+    COMMERCE_APPROVAL_REQUESTED = "commerce_approval_requested"
+    COMMERCE_APPROVAL_DECIDED = "commerce_approval_decided"
+    COMMERCE_APPROVAL_OVERRIDE = "commerce_approval_override"
+    COMMERCE_APPROVAL_REVOKED = "commerce_approval_revoked"
+    COMMERCE_VERIFICATION_COMPLETED = "commerce_verification_completed"
+    COMMERCE_SETTLEMENT_COMPLETED = "commerce_settlement_completed"
+    COMMERCE_ENTITLEMENT_MINTED = "commerce_entitlement_minted"
+    COMMERCE_ENTITLEMENT_REVOKED = "commerce_entitlement_revoked"
+    COMMERCE_ACCESS_GRANTED = "commerce_access_granted"
+    COMMERCE_ACCESS_DENIED = "commerce_access_denied"
+    COMMERCE_POLICY_DENIED = "commerce_policy_denied"
+    COMMERCE_RESOURCE_REGISTERED = "commerce_resource_registered"
+    COMMERCE_FACILITATOR_REGISTERED = "commerce_facilitator_registered"
+    COMMERCE_TREASURY_UPDATED = "commerce_treasury_updated"
+    COMMERCE_POLICY_UPDATED = "commerce_policy_updated"
+    COMMERCE_SHIKI_ACTION = "commerce_shiki_action"
+    COMMERCE_OVERRIDE = "commerce_override"
+
 
 @dataclass
 class AuditEntry:

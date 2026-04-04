@@ -12,6 +12,7 @@ import { cn, formatRelativeTime, formatTimestamp } from '@shiki/lib/utils';
 import { useAuth } from '@shiki/features/auth';
 import { usePermissions, PermissionGate } from '@shiki/features/permissions';
 import { useReviewData } from '@shiki/features/review';
+import { ApprovalQueue } from '@shiki/components/commerce/approval-queue';
 import type {
   ReviewBatch, ReviewItem, ReviewStatus, AuditEntry,
   ActionClass, ActionAttribution, GraphDiff,
@@ -432,6 +433,7 @@ export function ReviewPage() {
                     </TabsTrigger>
                   ))}
                   <TabsTrigger value="__audit__">Audit Trail</TabsTrigger>
+                  <TabsTrigger value="__commerce__">Commerce Approvals</TabsTrigger>
                 </TabsList>
 
                 {/* Item Detail Panels */}
@@ -592,6 +594,23 @@ export function ReviewPage() {
                     <CardContent>
                       <ScrollArea maxHeight="calc(100vh - 400px)">
                         <AuditTrailPanel entries={batchAuditEntries} />
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Commerce Approvals Tab — mandatory approval for all spend classes (Day-1 GA) */}
+                <TabsContent value="__commerce__">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Commerce Approval Queue (mandatory for all spend classes)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea maxHeight="calc(100vh - 400px)">
+                        <ApprovalQueue
+                          canApprove={permissions.canApprove}
+                          currentUserId={user?.id ?? 'unknown'}
+                        />
                       </ScrollArea>
                     </CardContent>
                   </Card>
