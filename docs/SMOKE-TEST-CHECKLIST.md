@@ -1,4 +1,4 @@
-# Smoke Test & Post-Deploy Verification Checklist — Aether Platform v8.7.1
+# Smoke Test & Post-Deploy Verification Checklist — Aether Platform v8.8.0
 
 Run after every deployment. Failures in the **Smoke Tests** section are rollback triggers. Failures in **Extended Verification** may be acceptable depending on context.
 
@@ -66,7 +66,7 @@ curl -sf -X POST ${BASE_URL}/v1/ingest/events \
     "events": [{
       "type": "smoke_test",
       "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
-      "properties": {"source": "smoke_test", "deploy_version": "v8.7.1"}
+      "properties": {"source": "smoke_test", "deploy_version": "v8.8.0"}
     }]
   }'
 # Expected: 200/202 with event ID(s)

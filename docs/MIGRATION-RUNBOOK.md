@@ -1,4 +1,4 @@
-# Migration Runbook — Aether Platform v8.7.1
+# Migration Runbook — Aether Platform v8.8.0
 
 Procedures for deploying new versions of the Aether platform with zero or minimal downtime. Covers database migrations, service rollouts, and phased traffic shifting.
 
@@ -87,7 +87,7 @@ kafka-topics --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS --describe --topic aeth
 
 ```bash
 # Tag with version
-export VERSION=v8.7.1
+export VERSION=v8.8.0
 docker compose build
 docker tag aether-backend:latest aether-backend:${VERSION}
 docker tag aether-ml-serving:latest aether-ml-serving:${VERSION}
@@ -218,7 +218,7 @@ Watch for:
 For SDK migration details (breaking changes, removed APIs, new features), see `docs/MIGRATION-v7.md`.
 
 **Key steps:**
-1. Deploy backend v8.7.1 first (new endpoints required by v7 SDKs)
+1. Deploy backend v8.8.0 first (new endpoints required by v7 SDKs)
 2. Update Web SDK: `npm install @aether/web-sdk@7.0.0`
 3. Update mobile SDKs (iOS/Android/React Native)
 4. Remove deprecated module flags from SDK config

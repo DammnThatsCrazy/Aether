@@ -21,39 +21,51 @@ orchestration.
 
 ## Architecture
 
-Aether is a **hybrid Python/FastAPI + Node/TypeScript** monorepo with three operational planes:
+Aether is a **hybrid Python/FastAPI + Node/TypeScript** monorepo with four operational planes:
 
 ```
-┌─────────────────────────────┐     ┌──────────────────────────────────────┐
-│   Client SDKs               │     │   Python/FastAPI Backend              │
-│   (Web/iOS/Android/RN)      │     │   31 service routers + intelligence  │
-│                             │     │                                      │
-│   Raw events, fingerprints  │ ──> │   /v1/ingest/*    Event ingestion    │
-│   Wallet connections        │     │   /v1/lake/*      Data lake CRUD     │
-│   Session + identity        │     │   /v1/intelligence/* Live outputs    │
-│   Consent gates             │     │   /v1/identity/*  Identity/graph     │
-│                             │     │   /v1/ml/*        ML inference       │
-└─────────────────────────────┘     │   /v1/admin/*     Tenant/key mgmt   │
-                                    │   /v1/providers/*  BYOK gateway      │
-┌─────────────────────────────┐     │   /v1/agent/*     Agent orchestration│
-│   External Data Providers   │     │   /v1/rewards/*   On-chain rewards   │
-│   (24 connectors)           │ ──> │   /v1/analytics/* Dashboards/export  │
-│                             │     │   /v1/profile/*   Profile 360        │
-│                             │     │   /v1/population/* Group intelligence │
-│                             │     │   /v1/expectations/* Negative-space  │
-│                             │     │   /v1/behavioral/* Friction signals  │
-│                             │     │   /v1/rwa/*       RWA intelligence   │
-│   Market, social, on-chain  │     └──────────────────────────────────────┘
-│   TradFi, prediction mkts   │                    │
-│   Identity enrichment       │     ┌──────────────┴───────────────────────┐
-└─────────────────────────────┘     │   Infrastructure                     │
-                                    │   PostgreSQL (asyncpg)               │
-                                    │   Redis (redis.asyncio)              │
-                                    │   Neptune (gremlinpython)            │
-                                    │   Kafka (aiokafka)                   │
-                                    │   S3 (model artifacts + lake)        │
-                                    │   Prometheus (metrics)               │
-                                    └──────────────────────────────────────┘
+┌─────────────────────────────┐     ┌──────────────────────────────────────────┐
+│   Client SDKs (@aether/*)   │     │   Python/FastAPI Backend                  │
+│   web · ios · android · rn  │     │   35 service routers (28 core + 7 gated) │
+│   shared contracts          │     │                                          │
+│                             │     │   /v1/ingest/*       Event ingestion     │
+│   Raw events, fingerprints  │ ──> │   /v1/lake/*         Data lake CRUD      │
+│   Wallet connections        │     │   /v1/intelligence/* Live outputs        │
+│   Session + identity        │     │   /v1/identity/*     Identity/graph      │
+│   Consent gates             │     │   /v1/ml/*           ML inference        │
+│   Commerce + x402 + agent   │     │   /v1/admin/*        Tenant/key mgmt     │
+└─────────────────────────────┘     │   /v1/providers/*    BYOK gateway        │
+                                    │   /v1/agent/*        Agent orchestration │
+┌─────────────────────────────┐     │   /v1/rewards/*      On-chain rewards    │
+│   External Data Providers   │     │   /v1/analytics/*    Dashboards/export   │
+│   (24 connectors)           │ ──> │   /v1/profile/*      Profile 360         │
+│                             │     │   /v1/population/*   Group intelligence  │
+│                             │     │   /v1/expectations/* Negative-space      │
+│                             │     │   /v1/behavioral/*   Friction signals    │
+│                             │     │   /v1/rwa/*          RWA intelligence    │
+│                             │     │   /v1/web3/*         Web3 coverage       │
+│                             │     │   /v1/crossdomain/*  TradFi/Web2 entity  │
+│   Market, social, on-chain  │     │   /v1/fraud/*        Fraud evaluation    │
+│   TradFi, prediction mkts   │     │   /v1/attribution/*  Attribution models  │
+│   Identity enrichment       │     │   /v1/oracle/*       Oracle proof/verify │
+└─────────────────────────────┘     │   /v1/automation/*   Pipeline metrics    │
+                                    │   /v1/diagnostics/*  System diagnostics  │
+┌─────────────────────────────┐     │   — feature-flagged (Day-1 GA):          │
+│   Shiki Operator Console    │     │   /v1/commerce/*     Commerce events     │
+│   (@aether/shiki, React)    │ ──> │   /v1/onchain/*      On-chain capture    │
+│   Review / Mission / Live   │     │   /v1/x402/*         x402 protocol       │
+│   GOUF / Lab / Diagnostics  │     │   /v1/commerce-cp/*  Control plane       │
+│   Command / Entities        │     │   /v1/approvals/*    Approval workflow   │
+└─────────────────────────────┘     │   /v1/entitlements/* Entitlement service │
+                                    └──────────────────────────────────────────┘
+                                                      │
+                                    ┌─────────────────┴────────────────────────┐
+                                    │   Infrastructure                         │
+                                    │   PostgreSQL (asyncpg) · Redis (asyncio) │
+                                    │   Neptune (gremlinpython) · Kafka        │
+                                    │   S3 (model artifacts + lake)            │
+                                    │   Prometheus (metrics @ /v1/metrics)     │
+                                    └──────────────────────────────────────────┘
 ```
 
 ### Data Flow: Extraction to Intelligence
@@ -156,77 +168,164 @@ Model artifacts require training run before serving. See `docs/ML-TRAINING-GUIDE
 
 ```bash
 # Local development (no infrastructure required)
-pip install -e ".[dev,backend]"
+pip install -e ".[dev,backend,agent,ml]"
+npm ci                                 # install TypeScript workspaces
 export AETHER_ENV=local
-make test                              # 191+ tests pass
+make test                              # Python tests (163 unit + integration + security)
+npm test                               # JS tests (web + react-native + shiki, 89 tests)
 
-# Staging with Docker
+# Full-stack Docker compose
+docker compose up -d                   # postgres, redis, kafka, clickhouse, backend, ml-serving, shiki, prometheus
+curl http://localhost:8000/v1/health   # backend
+curl http://localhost:8080/health      # ml-serving
+curl http://localhost:8081/health      # shiki operator console
+
+# Staging
 cd deploy/staging
-./bootstrap.sh                         # starts PostgreSQL, Redis, Kafka, backend, ML serving
-curl http://localhost:8000/v1/health   # verify all dependencies healthy
+./bootstrap.sh
+```
+
+### Deployment Topology
+
+```
+          ┌─────────────────┐
+          │   Shiki (8081)  │  ◄──── operator console (React SPA via nginx)
+          └────────┬────────┘
+                   │
+        ┌──────────┴──────────┐
+        │   Backend (8000)    │  ◄──── FastAPI · 35 routers · JWT auth · tenants
+        └──┬──────────────┬───┘
+           │              │
+  ┌────────┴─────┐  ┌─────┴───────────┐
+  │ ml-serving   │  │ Infrastructure   │
+  │ (8080)       │  │ postgres · redis │
+  │ FastAPI infer│  │ kafka · clickhouse│
+  └──────────────┘  │ prometheus (9090)│
+                    └───────────────────┘
 ```
 
 ## Project Structure
 
 ```
-Backend Architecture/aether-backend/   Python/FastAPI backend (31 services)
+Backend Architecture/aether-backend/   Python/FastAPI backend (35 routers, 246+ endpoints)
+  main.py          FastAPI app factory, middleware, router mounting
   services/
-    ingestion/     SDK event ingestion + IP enrichment
-    lake/          Data lake API (Bronze/Silver/Gold + audit + rollback)
-    intelligence/  Intelligence outputs (risk, analytics, clusters, alerts)
-    identity/      Identity management + graph
-    resolution/    Cross-device identity resolution
-    analytics/     Dashboard queries, GraphQL, export
-    ml_serving/    ML model inference
-    agent/         Agent orchestration + A2H
-    rewards/       On-chain reward automation
-    admin/         Tenant + API key management
-    providers/     BYOK provider gateway
-    ...            + 13 more service routers
-  repositories/
-    repos.py       Base repository (asyncpg PostgreSQL)
-    lake.py        Bronze/Silver/Gold repositories
+    ingestion/         SDK event ingestion + IP enrichment
+    lake/              Data lake API (Bronze/Silver/Gold + audit + rollback)
+    intelligence/      Intelligence outputs (risk, analytics, clusters, alerts)
+    identity/          Identity management + graph
+    analytics/         Dashboard queries, GraphQL, export
+    ml_serving/        ML model inference
+    agent/             Agent orchestration + A2H
+    rewards/           On-chain reward automation
+    admin/             Tenant + API key management
+    providers/         BYOK provider gateway
+    profile/           Profile 360 endpoints
+    population/        Group intelligence
+    expectations/      Negative-space/expectation signals
+    behavioral/        Friction & behavioral signals
+    rwa/               RWA intelligence
+    web3/              Web3 coverage + registry
+    crossdomain/       TradFi/Web2 entity resolution
+    fraud/             Fraud evaluation
+    attribution/       Multi-touch attribution models
+    oracle/            Oracle proof generation + verification
+    analytics_automation/  Pipeline metrics + overview
+    diagnostics/       System diagnostics
+    traffic/           Traffic source detection
+    campaign/          Campaign management
+    consent/           Consent records + DSR workflow
+    notification/      Webhooks + alerts
+    gateway/           API gateway + health
+    commerce/          Commerce events (feature-flagged)
+    onchain/           On-chain capture (feature-flagged)
+    x402/              x402 protocol + commerce control plane (feature-flagged)
+  repositories/    Base repository (asyncpg PostgreSQL) + lake tiers
   shared/
-    graph/         Neptune graph client + relationship layers
-    events/        Kafka event bus
-    cache/         Redis cache
-    providers/     24 provider adapters (11 categories)
-    auth/          API key validation + JWT
-    scoring/       Trust score + bytecode risk
+    graph/           Neptune graph client + 4 relationship layers (H2H/H2A/A2H/A2A)
+    events/          Kafka event bus + topic registry
+    cache/           Redis cache
+    providers/       24 provider adapters (11 categories)
+    auth/            API key validation + JWT + tenant context
+    scoring/         Trust score + bytecode risk + extraction score
+    rate_limit/      Token-bucket distributed budget enforcement
+    privacy/         PII detection + retention + redaction
+
+packages/                              Client SDKs + shared contracts
+  shared/          @aether/shared — canonical TypeScript contracts (events,
+                   consent, wallet, identity, entities, commerce, agent,
+                   capabilities, provenance, schema-version)
+  web/             @aether/web — Web SDK (rollup → CJS/ESM/DTS)
+  ios/             AetherSDK — Swift SPM package
+  android/         io.aether:sdk-android — Kotlin
+  react-native/    @aether/react-native — thin native bridge
+
+apps/                                  First-party applications
+  shiki/           @aether/shiki — operator control surface (React + Vite)
+                   Mission · Live · GOUF · Entities · Command · Diagnostics
+                   · Review · Lab; Playwright E2E + vitest unit/component/integ
 
 ML Models/aether-ml/                   ML training + serving
   training/        9 model training pipelines
-  serving/         FastAPI inference API (port 8080)
+  serving/         FastAPI inference API (container port 8080)
   features/        Feature engineering pipeline
-
-packages/                              Client SDKs
-  web/             Web SDK (TypeScript)
-  ios/             iOS SDK (Swift)
-  android/         Android SDK (Kotlin)
-  react-native/    React Native SDK
-
-deploy/staging/                        Staging deployment package
-  bootstrap.sh     One-command staging setup
-  docker-compose.staging.yml
+  monitoring/      Drift + model health monitoring
+  edge/            Edge inference models
+  docker/          Multi-stage Dockerfile (serving · features · monitoring)
 
 Agent Layer/                           Autonomous agent workers
-  agent_controller/      Multi-controller autonomy hierarchy
-  workers/               10 specialist workers (discovery + enrichment)
-  guardrails/            PII detection, policy enforcement
+  agent_controller/  Multi-controller autonomy: Governance > KIRA > domain
+                     controllers (Intake, Discovery, Enrichment, Verification,
+                     Commit, Recovery, BOLT, TRIGGER) + LOOP runtime + UNITS
+  workers/           10 specialist workers (5 discovery + 5 enrichment)
+  guardrails/        PII detection, policy enforcement, kill switch
 
 Data Ingestion Layer/                  Node.js event ingestion service
-  packages/              5 shared packages (common, auth, cache, events, logger)
-  services/ingestion/    HTTP ingestion server (port 3001)
+  packages/        5 shared packages (common, auth, cache, events, logger)
+  services/ingestion/  HTTP ingestion server (port 3001) with Kafka/ClickHouse/
+                       S3/Redis production sinks (zero external deps)
+
+Data Lake Architecture/                Data lake service (TypeScript)
+  aether-Datalake-backend/  Bronze/Silver/Gold tiers + catalog + governance
 
 security/                              Model extraction defense
-  model_extraction_defense/  6-component defense layer
+  model_extraction_defense/  watermark · canary detector · output perturbation
+                             · pattern detector · risk scorer · rate limiter
+
+Smart Contracts/                       Solidity contracts + deployer
+  AnalyticsRewards · RewardRegistry · multi-chain deployer
+
+AWS Deployment/                        Cloud infrastructure
+  aether-aws/      Terraform/CloudFormation + operational runbooks
+
+GDPR & SOC2/                           Compliance package
+  aether-compliance/  7-tier data classification · GDPR DSAR · SOC2 controls
+
+cicd/aether-cicd/                      CI/CD pipeline definitions
+  stages/          SDK manifest publisher · multichain deployer · seed data
 
 scripts/                               Operational scripts
   generate_secrets.py    Production secret generation
-  bump_version.py        Atomic version bumping across all files
-  validate_infra.py      Infrastructure validation
-  validate_docs.py       Documentation version checks
+  bump_version.py        Atomic version bumping across all files + docs
+  validate_infra.py      Infrastructure connectivity validation
+  validate_docs.py       Documentation version parity checks
   sync_docs.py           Regenerate deterministic doc artifacts
+  migrate_extraction_mesh.py  Extraction defense mesh migrations
+
+deploy/                                Deployment manifests
+  staging/         docker-compose.staging.yml + bootstrap.sh + prometheus.yml
+  observability/   Prometheus alert rules
+
+tests/                                 Python test suite (163+ tests)
+  unit/            Auth middleware, tenant isolation, API contracts,
+                   cache layer, onchain RPC, privacy enforcement
+  integration/     Backend end-to-end
+  security/        Extraction defense + mesh tests
+  load/            Locust load-test file
+
+.github/workflows/                     CI/CD workflows
+  repo-health.yml  Validate: lint, typecheck, build, test, madge, docs drift
+  shiki-e2e.yml    Path-scoped Playwright E2E for apps/shiki + packages/shared
 ```
 
 ## Documentation

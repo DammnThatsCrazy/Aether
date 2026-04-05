@@ -6,7 +6,79 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ---
 
-## [vNext] — Unreleased
+## [v8.8.0] — 2026-04-05
+
+### Added — Production audit remediation (monorepo-wide)
+
+- **`@aether/shared` workspace** — `packages/shared/` promoted to first-class
+  npm workspace with its own `package.json`, `exports` map, and
+  `"@aether/shared": "*"` dependency in `packages/react-native`. Replaces
+  fragile `../../../shared/` relative imports.
+- **Shiki E2E workflow** — dedicated `.github/workflows/shiki-e2e.yml`
+  gate with path-scoped triggers (`apps/shiki/**`, `packages/shared/**`),
+  runs component + integration + Playwright E2E against a live dev server,
+  uploads `playwright-report/` artifact on failure.
+- **Circular-dependency CI gate** — `npx madge --circular` across
+  `packages/web/src`, `packages/react-native/src`, `apps/shiki/src` on
+  every push.
+- **React Native test suite** — real vitest suite mocking NativeModules via
+  `vi.hoisted()` (8 tests covering FeatureFlags + Ecommerce bridges);
+  replaces the placeholder `echo "No tests configured yet"` script.
+- **`.dockerignore`** at repo root — strips `.git/`, `node_modules/`,
+  unrelated subsystems, docs, and archives from every backend build
+  context.
+- **Shiki service in `docker-compose.yml`** — host port `8081:8080`
+  (container nginx on 8080) with wget-based `/health` check, removing
+  the prior latent port collision with `ml-serving`.
+- **`target: serving`** pinned for `ml-serving` in root + staging compose,
+  preventing the Docker default-to-last-stage bug that would have shipped
+  a `monitoring`-stage image and crashed at `uvicorn serving.src.api:app`.
+
+### Fixed — Production blockers
+
+- **Backend Dockerfile COPY paths** (`Backend Architecture/aether-backend/
+  Dockerfile`) — rewrote instructions that referenced `shared/` and
+  `main.py` at a non-existent repo-root layout; now explicitly copies
+  `Backend Architecture/aether-backend/{config,dependencies,middleware,
+  repositories,services,shared}/`, `main.py`, and top-level `security/`.
+  Image is now buildable end-to-end.
+- **Staging ml-serving compose context** — `deploy/staging/
+  docker-compose.staging.yml` was pointing at repo-root context with
+  repo-root-prefixed dockerfile path, which made the ML Dockerfile's
+  relative `COPY common/ common/` fail. Context now pinned to
+  `../../ML Models/aether-ml` with `target: serving`.
+- **`vi.mock` hoisting ReferenceError** in RN test suite (vitest strict
+  hoisting TDZ bug) — migrated shared mock state to `vi.hoisted()`.
+- **Shiki E2E `text=Command` locator collision** — strict-mode violation
+  with the top-bar role badge containing "engineering command"; scoped
+  to `getByRole('heading', { name: 'Command', level: 1 })`.
+- **Backend orphan `main.py`** at `Backend Architecture/main.py`
+  (stale 10-service entrypoint) removed; canonical is the 37-service
+  `Backend Architecture/aether-backend/main.py`.
+
+### Changed — Release / workspace hygiene
+
+- **Version floor** raised across the monorepo: Python `requires-python`
+  to `>=3.10` (matches `ML Models/aether-ml`), `ruff target-version` to
+  `py310`.
+- **License field** added to every package (`apps/shiki`,
+  `Data Ingestion Layer`, `Data Lake Architecture/aether-Datalake-backend`,
+  `playground`) — all now aligned to SPDX `UNLICENSED`.
+- **`RootPackageSDK.json`** removed (stale duplicate of the root
+  `package.json` diverging from the authoritative workspace list).
+- **`apps/shiki` version** aligned to platform version (was `0.1.0`).
+- **`bump_version.py` + `validate_docs.py`** now cover
+  `packages/shared/package.json`, `apps/shiki/package.json`, plus the
+  rollback, migration, and smoke-test runbook headers.
+- **CI path parameterization** — `BACKEND_DIR`, `ML_DIR`, `AGENT_DIR`
+  hoisted to an `env:` block in `repo-health.yml` and variables in the
+  `Makefile`, so future directory renames need a single-point edit.
+- **Root `lint`** normalized to `npm run lint --workspaces --if-present`;
+  per-workspace `lint` scripts added to `@aether/web` and
+  `@aether/react-native`.
+- **Root `typecheck`** extended to include `packages/react-native`.
+- **`deps:circular` / `deps:unused`** scripts added at the root
+  (`madge` / `depcheck` via `npx --yes`, no new devDependencies).
 
 ### Changed — SDK alignment & repo cleanup (unified-hybrid-v1 contract)
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## v8.8.0 — SDK Alignment, Agent Layer Multi-Controller, Commerce Control Plane, Audit Remediation (2026-04-05)
+
+### Production audit remediation (monorepo-wide)
+- **`@aether/shared` workspace**: `packages/shared/` promoted to first-class npm workspace with `exports` map; React Native imports migrated from fragile relative paths to `@aether/shared/*`.
+- **Backend Docker buildable**: repaired broken `COPY` paths in `Backend Architecture/aether-backend/Dockerfile`; added `.dockerignore` to strip unrelated subsystems from every backend build context.
+- **ml-serving stage pinned**: `target: serving` added to both root and staging docker-compose so Docker no longer builds the default-last `monitoring` stage that lacked the `serving/` module.
+- **Staging compose context fix**: staging ml-serving now points at `../../ML Models/aether-ml` (where the ML Dockerfile's relative COPY instructions resolve).
+- **Shiki service added to docker-compose** with host port 8081→8080 (no ml-serving collision) and wget `/health` check.
+- **Python version floor** raised to `>=3.10` across root + ML subsystems; ruff `target-version = py310`.
+- **React Native test suite**: real vitest suite with hoisted NativeModule mocks (replaced placeholder `echo` script); 8 tests passing.
+- **Shiki E2E workflow**: new path-scoped `.github/workflows/shiki-e2e.yml` running component + integration + Playwright on every apps/shiki or packages/shared change; strict-mode locator collision fixed (`text=Command` → `getByRole('heading', {level: 1})`).
+- **Circular-dependency CI gate** via `npx madge --circular`.
+- **CI path parameterization**: `BACKEND_DIR`, `ML_DIR`, `AGENT_DIR` hoisted to env/vars in `repo-health.yml` and `Makefile`.
+- **License parity**: every package.json aligned to `UNLICENSED`.
+- **Stale removals**: `RootPackageSDK.json` (duplicate manifest) and `Backend Architecture/main.py` (stale 10-service entrypoint) deleted.
+- **Release tooling**: `bump_version.py` + `validate_docs.py` now cover `packages/shared`, `apps/shiki`, and the rollback/migration/smoke-test runbook headers.
+
+---
+
 ## vNext+1 — Agentic Commerce Control Plane (L3b+)
 
 ### New
