@@ -1,4 +1,4 @@
-# Aether Identity Resolution v8.7.1 — Technical Guide
+# Aether Identity Resolution v8.8.0 — Technical Guide
 
 ## Overview
 

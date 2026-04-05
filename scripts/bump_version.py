@@ -71,6 +71,9 @@ DOC_HEADERS = [
     ROOT / "docs" / "AGENT-CONTROLLER.md",
     ROOT / "docs" / "PRODUCTION-READINESS.md",
     ROOT / "docs" / "OPERATIONS-RUNBOOK.md",
+    ROOT / "docs" / "ROLLBACK-RUNBOOK.md",
+    ROOT / "docs" / "MIGRATION-RUNBOOK.md",
+    ROOT / "docs" / "SMOKE-TEST-CHECKLIST.md",
     ROOT / "EXTRACTION_DEFENSE_AUDIT.md",
 ]
 

@@ -1,4 +1,4 @@
-# Rollback Runbook — Aether Platform v8.7.1
+# Rollback Runbook — Aether Platform v8.8.0
 
 Step-by-step procedures for rolling back the Aether platform after a failed deployment or production incident.
 

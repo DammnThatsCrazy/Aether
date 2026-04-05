@@ -12,7 +12,7 @@ android {
         minSdk = 21
         targetSdk = 34
 
-        buildConfigField("String", "AETHER_SDK_VERSION", "\"8.7.1\"")
+        buildConfigField("String", "AETHER_SDK_VERSION", "\"8.8.0\"")
 
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -52,7 +52,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.aether"
             artifactId = "sdk-android"
-            version = "8.7.1"
+            version = "8.8.0"
 
             afterEvaluate {
                 from(components["release"])

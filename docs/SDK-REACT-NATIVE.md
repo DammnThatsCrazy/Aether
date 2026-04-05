@@ -1,4 +1,4 @@
-# Aether React Native SDK v8.7.1 — Integration Guide
+# Aether React Native SDK v8.8.0 — Integration Guide
 
 ## Installation
 
