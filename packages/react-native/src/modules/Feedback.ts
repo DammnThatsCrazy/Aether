@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { NativeModules } from 'react-native';
-import type { Survey, SurveyResponse, SurveyTrigger } from '../../../shared/feedback-types';
+import type { Survey, SurveyResponse, SurveyTrigger } from '@aether/shared/feedback-types';
 
 export type { Survey, SurveyResponse, SurveyTrigger };
 

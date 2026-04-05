@@ -13,6 +13,12 @@ concurrency:
   group: repo-health-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Centralized paths so directory renames require a single-point update.
+  BACKEND_DIR: "Backend Architecture/aether-backend"
+  ML_DIR: "ML Models/aether-ml"
+  AGENT_DIR: "Agent Layer"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -53,13 +59,13 @@ jobs:
         run: python -m pytest tests/ -v --tb=short
 
       - name: Run ML model tests
-        run: python -m pytest "ML Models/aether-ml/tests/" -v --tb=short
+        run: python -m pytest "$ML_DIR/tests/" -v --tb=short
 
       - name: Verify Python syntax (all modules)
         run: |
           python -m compileall security -q
-          python -m compileall "Agent Layer" -q
-          python -m compileall "Backend Architecture/aether-backend" -q
+          python -m compileall "$AGENT_DIR" -q
+          python -m compileall "$BACKEND_DIR" -q
 
       - name: TypeScript type check
         run: npm run typecheck
@@ -70,12 +76,15 @@ jobs:
       - name: TypeScript tests
         run: npm run test
 
+      - name: Circular dependency check (madge)
+        run: npx --yes madge --circular --extensions ts,tsx packages/web/src packages/react-native/src apps/shiki/src
+
       - name: Check env vars documented
         run: |
           # Verify every ENABLE_* and *_SECRET_* env var in settings.py
           # has a corresponding entry in .env.example
           missing=0
-          for var in $(grep -oP '"\K[A-Z_]+(?=")' "Backend Architecture/aether-backend/config/settings.py" | sort -u); do
+          for var in $(grep -oP '"\K[A-Z_]+(?=")' "$BACKEND_DIR/config/settings.py" | sort -u); do
             if ! grep -q "^${var}=" .env.example 2>/dev/null; then
               echo "WARNING: $var not in .env.example"
             fi

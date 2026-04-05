@@ -108,8 +108,13 @@ services:
 
   ml-serving:
     build:
-      context: ../../
-      dockerfile: ML Models/aether-ml/docker/Dockerfile
+      # Dockerfile uses WORKDIR /app and COPY-s common/, serving/, etc. as
+      # if the build context were ML Models/aether-ml itself. Point the
+      # context directly at that subtree (not the repo root) so the COPY
+      # sources resolve correctly.
+      context: ../../ML Models/aether-ml
+      dockerfile: docker/Dockerfile
+      target: serving
     ports:
       - "8080:8080"
     depends_on:

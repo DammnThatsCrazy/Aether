@@ -18,7 +18,7 @@
 name = "aether"
 version = "8.7.1"
 description = "Aether Platform — Cross-platform Unified Intelligence Graph"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "Proprietary"}
 
 # Core dependencies shared by security module and basic operation
@@ -110,7 +110,7 @@ filterwarnings = [
 # ---------------------------------------------------------------------------
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]

@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 PACKAGE_JSONS = [
     ROOT / "package.json",
+    ROOT / "packages" / "shared" / "package.json",
     ROOT / "packages" / "web" / "package.json",
     ROOT / "packages" / "react-native" / "package.json",
     ROOT / "apps" / "shiki" / "package.json",

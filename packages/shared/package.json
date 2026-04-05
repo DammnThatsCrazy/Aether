@@ -1,0 +1,25 @@
+{
+  "name": "@aether/shared",
+  "version": "8.7.1",
+  "description": "Aether SDK — canonical shared TypeScript contracts (events, consent, wallet, identity, entities, commerce, agent, capabilities). Single source of truth for Web, React Native, iOS, and Android SDKs.",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
+    "./*": {
+      "types": "./*.ts",
+      "default": "./*.ts"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "*.ts",
+    "!*.test.ts",
+    "!*.spec.ts"
+  ],
+  "license": "UNLICENSED"
+}

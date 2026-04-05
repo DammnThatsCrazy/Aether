@@ -8,13 +8,29 @@ git clone https://github.com/DammnThatsCrazy/Aether.git
 cd Aether
 pip install -e ".[dev,backend,ml]"
 
+# Install Node workspace deps (shared, web, react-native, shiki)
+npm ci
+
 # Run tests
 make test
+npm test
 
-# Start local development stack
-docker compose up redis kafka postgres -d
+# Start local infrastructure only (no application services)
+docker compose up -d postgres redis kafka zookeeper clickhouse
+
+# Start backend in dev mode
 export AETHER_ENV=local
-make serve-backend
+make serve-backend          # backend → http://localhost:8000
+make serve-ml               # ML serving → http://localhost:8080
+
+# Optional: start the Shiki operator control surface
+cd apps/shiki && npm run dev   # → http://localhost:5174
+
+# Full stack via docker compose (backend + ml + shiki + infra)
+docker compose up -d
+# → backend   http://localhost:8000
+# → ml-serving http://localhost:8080
+# → shiki     http://localhost:8081   (host port 8081 -> container 8080)
 ```
 
 ## Environment
@@ -23,9 +39,10 @@ Set `AETHER_ENV=local` for development. This enables in-memory fallbacks for all
 
 ## Code Standards
 
-- Python 3.9+
+- Python 3.10+
+- Node 18+
 - Formatting: `ruff format .`
-- Linting: `ruff check .`
+- Linting: `ruff check .` and `npm run lint`
 - Type hints on all public functions
 - Docstrings on all classes and public methods
 
@@ -72,7 +89,12 @@ Backend Architecture/aether-backend/   Python FastAPI backend (31 services)
 ML Models/aether-ml/                   ML training + serving
 Agent Layer/                           Autonomous agent workers
 security/                              Model extraction defense
-packages/                              Web, iOS, Android, React Native SDKs
+packages/shared/                       Canonical TypeScript contracts (@aether/shared)
+packages/web/                          Web SDK (@aether/web)
+packages/react-native/                 React Native SDK (@aether/react-native)
+packages/ios/                          Native iOS SDK
+packages/android/                      Native Android SDK
+apps/shiki/                            Internal operator control surface (React SPA)
 ```
 
 ## Subsystem Documentation

@@ -110,6 +110,7 @@ services:
     build:
       context: "ML Models/aether-ml"
       dockerfile: docker/Dockerfile
+      target: serving
     ports:
       - "8080:8080"
     depends_on:
@@ -120,6 +121,24 @@ services:
       AETHER_ENV: staging
       REDIS_HOST: redis
     command: uvicorn serving.src.api:app --host 0.0.0.0 --port 8080
+
+  shiki:
+    build:
+      context: .
+      dockerfile: apps/shiki/Dockerfile
+    # Host port 8081 avoids collision with ml-serving on 8080.
+    # Container still listens on 8080 internally (nginx default).
+    ports:
+      - "8081:8080"
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # ── Monitoring ────────────────────────────────────────────────────
 

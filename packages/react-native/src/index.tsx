@@ -10,7 +10,7 @@ import { semanticContext } from './context/SemanticContext';
 import { RNEcommerce } from './modules/Ecommerce';
 import { RNFeatureFlags } from './modules/FeatureFlags';
 import { RNFeedback } from './modules/Feedback';
-import type { ConsentState, ConsentPurpose } from '../../shared/consent';
+import type { ConsentState, ConsentPurpose } from '@aether/shared/consent';
 
 const { AetherNative } = NativeModules;
 const emitter = AetherNative ? new NativeEventEmitter(AetherNative) : null;
