@@ -1,8 +1,12 @@
 // =============================================================================
-// AETHER SDK — MAIN CLASS v7.0.0 (Tier 2 Thin Client)
-// Public API orchestrating all modules: identity, session, events, web3
-// Removed: EdgeML, Experiments, Performance, Feedback, UpdateManager
-// Added: fetchConfig() for backend-driven configuration
+// AETHER SDK — MAIN CLASS (Tier 2 Thin Client)
+// Public API orchestrating: identity, session, events, web3, commerce,
+// agent, x402.
+//
+// Canonical contracts live in packages/shared/*.ts. This SDK mirrors them.
+// The SDK is OBSERVATION-ONLY: no workflow, approvals, or settlement logic
+// runs client-side. The backend owns enrichment, classification, graph
+// mutation, and all orchestration.
 // =============================================================================
 
 import type {
@@ -10,6 +14,7 @@ import type {
   IdentityData, Identity, WalletInfo, TransactionOptions,
   VMType, ConsentCallback, ConnectedWallet,
   ConsentState, ConsentBannerConfig, WalletInterface, ConsentInterface,
+  CommerceInterface, AgentInterface, X402Interface,
 } from './types';
 import { EventQueue } from './core/event-queue';
 import { SessionManager } from './core/session';
@@ -247,6 +252,33 @@ class AetherSDK implements AetherSDKInterface {
     onWalletChange: (callback: (wallets: ConnectedWallet[]) => void): (() => void) => {
       return this.web3Module?.onWalletChange(callback) ?? (() => {});
     },
+  };
+
+  // =========================================================================
+  // COMMERCE / AGENT / x402 — thin canonical emitters
+  // Backend owns workflow. SDK only records events.
+  // =========================================================================
+
+  commerce: CommerceInterface = {
+    paymentInitiated: (props) => this.enqueueEvent('payment_initiated', props as Record<string, unknown>),
+    paymentCompleted: (props) => this.enqueueEvent('payment_completed', props as Record<string, unknown>),
+    paymentFailed: (props) => this.enqueueEvent('payment_failed', props as Record<string, unknown>),
+    approvalRequested: (props) => this.enqueueEvent('approval_requested', props as Record<string, unknown>),
+    approvalResolved: (props) => this.enqueueEvent('approval_resolved', props as Record<string, unknown>),
+    entitlementGranted: (props) => this.enqueueEvent('entitlement_granted', props as Record<string, unknown>),
+    entitlementRevoked: (props) => this.enqueueEvent('entitlement_revoked', props as Record<string, unknown>),
+    accessGranted: (props) => this.enqueueEvent('access_granted', props as Record<string, unknown>),
+    accessDenied: (props) => this.enqueueEvent('access_denied', props as Record<string, unknown>),
+  };
+
+  agent: AgentInterface = {
+    task: (props) => this.enqueueEvent('agent_task', props as Record<string, unknown>),
+    decision: (props) => this.enqueueEvent('agent_decision', props as Record<string, unknown>),
+    interaction: (props) => this.enqueueEvent('a2h_interaction', props as Record<string, unknown>),
+  };
+
+  x402: X402Interface = {
+    payment: (props) => this.enqueueEvent('x402_payment', props as Record<string, unknown>),
   };
 
   consent: ConsentInterface = {

@@ -268,7 +268,14 @@ object Aether : DefaultLifecycleObserver {
 
     // =========================================================================
     // CONSENT MANAGEMENT
+    //
+    // Canonical purposes (see packages/shared/consent.ts):
+    //   "analytics", "marketing", "web3", "agent", "commerce"
+    // Callers SHOULD only pass these strings. Backend validator ignores others.
     // =========================================================================
+
+    val canonicalConsentPurposes: List<String> =
+        listOf("analytics", "marketing", "web3", "agent", "commerce")
 
     fun grantConsent(categories: List<String>) {
         consentState.addAll(categories)

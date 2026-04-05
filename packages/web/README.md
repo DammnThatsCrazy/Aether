@@ -1,13 +1,22 @@
 # @aether/web
 
 <!-- Badges -->
-![Version](https://img.shields.io/badge/version-8.2.0-blue)
+![Version](https://img.shields.io/badge/version-8.7.1-blue)
+![Contract](https://img.shields.io/badge/contract-unified--hybrid--v1-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![Build](https://img.shields.io/badge/build-Rollup-EC4A3F)
 ![Tests](https://img.shields.io/badge/tests-Vitest-6E9F18)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey)
 
-**Behavioral analytics SDK for the browser with multi-chain Web3 support.** Track user interactions, resolve identities across sessions, monitor Web3 wallets across 7 VM families (EVM, Solana, Bitcoin, MoveVM, NEAR, TRON, Cosmos), and manage GDPR consent — all with a thin-client architecture that ships raw events to the Aether backend for processing, ML inference, and classification.
+**Thin observation client for hybrid companies.** Captures canonical events
+(analytics, identity, consent, commerce, wallet, agent, x402) for Web2, Web3,
+and hybrid flows and POSTs them to `/v1/batch`. No client-side workflow,
+classification, settlement, or orchestration — the backend owns all of that.
+
+Canonical contracts live in [`../shared/`](../shared/). See
+[`../../docs/source-of-truth/`](../../docs/source-of-truth/) for the
+authoritative event registry, consent model, ingestion contract, and platform
+parity tiers.
 
 ---
 

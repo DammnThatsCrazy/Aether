@@ -1,5 +1,12 @@
 // =============================================================================
-// AETHER SDK — CORE TYPE DEFINITIONS
+// AETHER SDK — CORE TYPE DEFINITIONS (web package)
+//
+// These types MIRROR the canonical contracts in packages/shared/*.ts.
+// Keep in sync with: packages/shared/{events,consent,wallet,identity,
+// entities,commerce,agent,provenance,capabilities,schema-version}.ts
+//
+// Any change to an EventType, ConsentPurpose, VMType, or envelope field MUST
+// also be made in packages/shared and bump CONTRACT_SCHEMA_VERSION.
 // =============================================================================
 
 /** SDK configuration passed to Aether.init() */
@@ -22,47 +29,29 @@ export interface AetherConfig {
   advanced?: AdvancedConfig;
 }
 
+/**
+ * Module toggles read by AetherSDK.init().
+ *
+ * Flags are declared here ONLY if the SDK runtime actually gates behavior on
+ * them. DeFi/NFT/portfolio/whale classification is performed backend-side
+ * from `wallet` + `transaction` events — no client-side flags exist for it.
+ */
 export interface ModuleConfig {
-  walletTracking?: boolean;
-  formTracking?: boolean;
-  errorTracking?: boolean;
-  scrollDepth?: boolean;
-  onChainAttribution?: boolean;
-  tokenGating?: boolean;
-  gasTracking?: boolean;
-  whaleTracking?: boolean;
-  cohortAnalysis?: boolean;
+  // Core analytics
   autoDiscovery?: boolean;
   ecommerce?: boolean;
+  formAnalytics?: boolean;
   featureFlags?: boolean;
   heatmaps?: boolean;
   funnels?: boolean;
-  formAnalytics?: boolean;
-  // Multi-VM Web3 modules
+  // Wallet / multi-VM capture
+  walletTracking?: boolean;   // evm
   svmTracking?: boolean;
   bitcoinTracking?: boolean;
   moveTracking?: boolean;
   nearTracking?: boolean;
   tronTracking?: boolean;
   cosmosTracking?: boolean;
-  // DeFi tracking modules (backend classifies — SDK ships raw tx)
-  tokenTracking?: boolean;
-  nftDetection?: boolean;
-  defiTracking?: boolean;
-  portfolioTracking?: boolean;
-  whaleAlerts?: boolean;
-  walletClassification?: boolean;
-  bridgeTracking?: boolean;
-  cexTracking?: boolean;
-  perpetualsTracking?: boolean;
-  optionsTracking?: boolean;
-  yieldTracking?: boolean;
-  governanceTracking?: boolean;
-  insuranceTracking?: boolean;
-  launchpadTracking?: boolean;
-  paymentsTracking?: boolean;
-  nftMarketplaceTracking?: boolean;
-  restakingTracking?: boolean;
 }
 
 export interface PrivacyConfig {
@@ -346,42 +335,45 @@ export interface ProtocolInfo {
 // EVENT TYPES
 // =============================================================================
 
+/**
+ * Canonical EventType — mirrors packages/shared/events.ts.
+ *
+ * Do NOT add web3 sub-type events (defi_interaction, whale_alert, etc.) —
+ * those are computed backend-side from `wallet`/`transaction` events.
+ */
 export type EventType =
+  // Core analytics
   | 'track'
   | 'page'
   | 'screen'
+  | 'heartbeat'
+  | 'error'
+  | 'performance'
+  | 'experiment'
+  // Identity
   | 'identify'
+  | 'consent'
+  // Commerce / access (Web2 + Web3 unified)
   | 'conversion'
+  | 'payment_initiated'
+  | 'payment_completed'
+  | 'payment_failed'
+  | 'approval_requested'
+  | 'approval_resolved'
+  | 'entitlement_granted'
+  | 'entitlement_revoked'
+  | 'access_granted'
+  | 'access_denied'
+  // Wallet / on-chain (optional)
   | 'wallet'
   | 'transaction'
-  | 'error'
-  | 'consent'
-  | 'heartbeat'
-  | 'experiment'
-  | 'performance'
-  // Multi-VM Web3 events
-  | 'token_balance'
-  | 'nft_detection'
-  | 'whale_alert'
-  | 'portfolio_update'
-  | 'defi_interaction'
-  | 'bridge_transfer'
-  | 'cex_transfer'
-  | 'perpetual_trade'
-  | 'options_trade'
-  | 'governance_vote'
-  | 'yield_harvest'
-  | 'nft_trade'
-  | 'staking_action'
-  | 'insurance_action'
-  | 'launchpad_action'
-  | 'payment_stream'
-  // Intelligence Graph events
+  | 'contract_action'
+  // Agent (optional)
   | 'agent_task'
   | 'agent_decision'
-  | 'payment'
-  | 'x402_payment'
-  | 'contract_action';
+  | 'a2h_interaction'
+  // x402 (optional)
+  | 'x402_payment';
 
 export interface BaseEvent {
   id: string;
@@ -532,12 +524,20 @@ export interface ErrorEvent extends BaseEvent {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Agent events (L2 — IG_AGENT_LAYER)
+// ---------------------------------------------------------------------------
+
 export interface AgentTaskEvent extends BaseEvent {
   type: 'agent_task';
   properties: {
-    task_id: string;
-    agent_id: string;
-    event_type: string;
+    taskId: string;
+    agent: { kind: 'agent'; id: string; label?: string };
+    status: 'started' | 'running' | 'completed' | 'failed' | 'cancelled';
+    workerType?: string;
+    stateRef?: string;
+    confidenceDelta?: number;
+    durationMs?: number;
     [key: string]: unknown;
   };
 }
@@ -545,41 +545,147 @@ export interface AgentTaskEvent extends BaseEvent {
 export interface AgentDecisionEvent extends BaseEvent {
   type: 'agent_decision';
   properties: {
-    task_id: string;
-    agent_id: string;
-    chosen_action: string;
+    decisionId: string;
+    agent: { kind: 'agent'; id: string; label?: string };
+    taskId?: string;
+    chosen: string;
+    alternatives?: string[];
+    confidence?: number;
     [key: string]: unknown;
   };
 }
 
-export interface PaymentEvent extends BaseEvent {
-  type: 'payment';
+export interface A2HInteractionEvent extends BaseEvent {
+  type: 'a2h_interaction';
   properties: {
-    payment_id: string;
-    amount: number;
-    currency: string;
-    method: string;
+    interactionId: string;
+    agent: { kind: 'agent'; id: string; label?: string };
+    user: { kind: 'user'; id: string };
+    interaction: 'notify' | 'recommend' | 'deliver' | 'escalate';
+    channel?: 'push' | 'email' | 'sms' | 'inapp' | 'webhook';
     [key: string]: unknown;
   };
 }
+
+// ---------------------------------------------------------------------------
+// Commerce / access events (unified Web2 + Web3)
+// ---------------------------------------------------------------------------
+
+export type PaymentRail = 'fiat' | 'stripe' | 'invoice' | 'onchain' | 'x402' | 'internal_credit';
+
+interface CommercePaymentProps {
+  paymentId: string;
+  amount: number;
+  currency: string;
+  rail: PaymentRail;
+  payer?: { kind: string; id: string };
+  payee?: { kind: string; id: string };
+  subject?: { kind: string; id: string };
+  external_ref?: string;
+  [key: string]: unknown;
+}
+
+export interface PaymentInitiatedEvent extends BaseEvent {
+  type: 'payment_initiated';
+  properties: CommercePaymentProps;
+}
+export interface PaymentCompletedEvent extends BaseEvent {
+  type: 'payment_completed';
+  properties: CommercePaymentProps;
+}
+export interface PaymentFailedEvent extends BaseEvent {
+  type: 'payment_failed';
+  properties: CommercePaymentProps & { reason?: string };
+}
+
+export interface ApprovalRequestedEvent extends BaseEvent {
+  type: 'approval_requested';
+  properties: {
+    approvalId: string;
+    requester?: { kind: string; id: string };
+    subject?: { kind: string; id: string };
+    reason?: string;
+    [key: string]: unknown;
+  };
+}
+export interface ApprovalResolvedEvent extends BaseEvent {
+  type: 'approval_resolved';
+  properties: {
+    approvalId: string;
+    status: 'approved' | 'rejected' | 'escalated' | 'expired';
+    decidedBy?: string;
+    reason?: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface EntitlementGrantedEvent extends BaseEvent {
+  type: 'entitlement_granted';
+  properties: {
+    entitlementId: string;
+    holder?: { kind: string; id: string };
+    resource?: { kind: string; id: string };
+    expiresAt?: string;
+    [key: string]: unknown;
+  };
+}
+export interface EntitlementRevokedEvent extends BaseEvent {
+  type: 'entitlement_revoked';
+  properties: {
+    entitlementId: string;
+    reason?: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface AccessGrantedEvent extends BaseEvent {
+  type: 'access_granted';
+  properties: {
+    resource: { kind: string; id: string };
+    actor?: { kind: string; id: string };
+    [key: string]: unknown;
+  };
+}
+export interface AccessDeniedEvent extends BaseEvent {
+  type: 'access_denied';
+  properties: {
+    resource: { kind: string; id: string };
+    actor?: { kind: string; id: string };
+    reason?: string;
+    [key: string]: unknown;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// x402 (L3b — IG_X402_LAYER)
+// ---------------------------------------------------------------------------
 
 export interface X402PaymentEvent extends BaseEvent {
   type: 'x402_payment';
   properties: {
-    capture_id: string;
-    payer_agent_id: string;
-    payee_service_id: string;
-    amount_usd: number;
+    captureId: string;
+    payerAgentId: string;
+    payeeServiceId: string;
+    amount: number;
+    currency: string;
+    chain?: string;
+    txHash?: string;
     [key: string]: unknown;
   };
 }
 
+// ---------------------------------------------------------------------------
+// On-chain action (L0 — IG_ONCHAIN_LAYER)
+// ---------------------------------------------------------------------------
+
 export interface ContractActionEvent extends BaseEvent {
   type: 'contract_action';
   properties: {
-    action_type: string;
-    chain_id: string;
-    contract_address?: string;
+    actionType: string;
+    chainId: string;
+    contractAddress?: string;
+    txHash?: string;
+    method?: string;
     [key: string]: unknown;
   };
 }
@@ -594,7 +700,16 @@ export type AetherEvent =
   | ErrorEvent
   | AgentTaskEvent
   | AgentDecisionEvent
-  | PaymentEvent
+  | A2HInteractionEvent
+  | PaymentInitiatedEvent
+  | PaymentCompletedEvent
+  | PaymentFailedEvent
+  | ApprovalRequestedEvent
+  | ApprovalResolvedEvent
+  | EntitlementGrantedEvent
+  | EntitlementRevokedEvent
+  | AccessGrantedEvent
+  | AccessDeniedEvent
   | X402PaymentEvent
   | ContractActionEvent;
 
@@ -794,7 +909,39 @@ export interface AetherSDKInterface {
   destroy(): void;
   wallet: WalletInterface;
   consent: ConsentInterface;
+  /** Thin emitter for commerce/access events (rail-agnostic). */
+  commerce: CommerceInterface;
+  /** Thin emitter for agent events (L2 + A2H). */
+  agent: AgentInterface;
+  /** Thin emitter for x402 payment capture (L3b). */
+  x402: X402Interface;
   use(plugin: AetherPlugin): void;
+}
+
+/**
+ * Thin commerce emitter — the SDK does no workflow logic; backend owns
+ * approval, settlement, entitlement orchestration. SDK only records events.
+ */
+export interface CommerceInterface {
+  paymentInitiated(props: PaymentInitiatedEvent['properties']): void;
+  paymentCompleted(props: PaymentCompletedEvent['properties']): void;
+  paymentFailed(props: PaymentFailedEvent['properties']): void;
+  approvalRequested(props: ApprovalRequestedEvent['properties']): void;
+  approvalResolved(props: ApprovalResolvedEvent['properties']): void;
+  entitlementGranted(props: EntitlementGrantedEvent['properties']): void;
+  entitlementRevoked(props: EntitlementRevokedEvent['properties']): void;
+  accessGranted(props: AccessGrantedEvent['properties']): void;
+  accessDenied(props: AccessDeniedEvent['properties']): void;
+}
+
+export interface AgentInterface {
+  task(props: AgentTaskEvent['properties']): void;
+  decision(props: AgentDecisionEvent['properties']): void;
+  interaction(props: A2HInteractionEvent['properties']): void;
+}
+
+export interface X402Interface {
+  payment(props: X402PaymentEvent['properties']): void;
 }
 
 export interface WalletInterface {

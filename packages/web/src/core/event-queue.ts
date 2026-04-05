@@ -27,23 +27,29 @@ const DEFAULT_RETRY: Required<RetryConfig> = {
   backoffMultiplier: 2,
 };
 
-// Maps every event type to its required consent purpose.
-// Events not listed here (or mapped to 'none') are always allowed through.
+/**
+ * Maps every canonical event type to its required consent purpose.
+ * MUST stay in sync with packages/shared/events.ts EVENT_CONSENT_PURPOSE.
+ * Events not listed here are always allowed through.
+ */
 const CONSENT_MAP: Record<string, string> = {
+  // Core analytics
   track: 'analytics', page: 'analytics', screen: 'analytics',
-  performance: 'analytics', heartbeat: 'analytics', error: 'analytics',
+  heartbeat: 'analytics', error: 'analytics', performance: 'analytics',
   identify: 'analytics',
-  conversion: 'marketing', experiment: 'marketing',
-  wallet: 'web3', transaction: 'web3', token_balance: 'web3',
-  nft_detection: 'web3', whale_alert: 'web3', portfolio_update: 'web3',
-  defi_interaction: 'web3', bridge_transfer: 'web3', cex_transfer: 'web3',
-  perpetual_trade: 'web3', options_trade: 'web3', governance_vote: 'web3',
-  yield_harvest: 'web3', nft_trade: 'web3', staking_action: 'web3',
-  insurance_action: 'web3', launchpad_action: 'web3', payment_stream: 'web3',
-  // Intelligence Graph events
-  agent_task: 'agent', agent_decision: 'agent',
-  payment: 'commerce', x402_payment: 'commerce',
-  contract_action: 'web3',
+  // Marketing
+  experiment: 'marketing', conversion: 'marketing',
+  // Commerce / access (Web2 + Web3 unified)
+  payment_initiated: 'commerce', payment_completed: 'commerce', payment_failed: 'commerce',
+  approval_requested: 'commerce', approval_resolved: 'commerce',
+  entitlement_granted: 'commerce', entitlement_revoked: 'commerce',
+  access_granted: 'commerce', access_denied: 'commerce',
+  // Wallet / on-chain
+  wallet: 'web3', transaction: 'web3', contract_action: 'web3',
+  // Agent
+  agent_task: 'agent', agent_decision: 'agent', a2h_interaction: 'agent',
+  // x402
+  x402_payment: 'commerce',
 };
 
 export class EventQueue {

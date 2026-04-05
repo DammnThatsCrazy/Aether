@@ -10,6 +10,7 @@ import { semanticContext } from './context/SemanticContext';
 import { RNEcommerce } from './modules/Ecommerce';
 import { RNFeatureFlags } from './modules/FeatureFlags';
 import { RNFeedback } from './modules/Feedback';
+import type { ConsentState, ConsentPurpose } from '../../shared/consent';
 
 const { AetherNative } = NativeModules;
 const emitter = AetherNative ? new NativeEventEmitter(AetherNative) : null;
@@ -131,15 +132,18 @@ const Aether = {
     },
   },
 
-  // Consent
+  // Consent — 5 canonical purposes (see packages/shared/consent.ts)
   consent: {
-    async getState(): Promise<{ analytics: boolean; marketing: boolean; web3: boolean }> {
-      return AetherNative?.getConsentState() ?? { analytics: false, marketing: false, web3: false };
+    async getState(): Promise<ConsentState> {
+      return AetherNative?.getConsentState() ?? {
+        analytics: false, marketing: false, web3: false, agent: false, commerce: false,
+        updatedAt: '', policyVersion: '',
+      };
     },
-    grant(purposes: string[]): void {
+    grant(purposes: ConsentPurpose[]): void {
       AetherNative?.grantConsent(purposes);
     },
-    revoke(purposes: string[]): void {
+    revoke(purposes: ConsentPurpose[]): void {
       AetherNative?.revokeConsent(purposes);
     },
   },
