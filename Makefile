@@ -16,6 +16,11 @@
         docker-up docker-down docker-logs \
         clean validate-docs bump-version help
 
+# Centralized subsystem paths — single place to rename if directories move.
+BACKEND_DIR := Backend Architecture/aether-backend
+ML_DIR      := ML Models/aether-ml
+AGENT_DIR   := Agent Layer
+
 # ---------------------------------------------------------------------------
 # Setup
 # ---------------------------------------------------------------------------
@@ -34,18 +39,18 @@ setup-minimal: ## Install minimal dependencies (security module only)
 # ---------------------------------------------------------------------------
 
 test: ## Run ALL tests across all subsystems (matches pyproject.toml testpaths)
-	python -m pytest tests/ "ML Models/aether-ml/tests/" -v
+	python -m pytest tests/ "$(ML_DIR)/tests/" -v
 
 test-security: ## Run extraction defense tests only
 	python -m pytest tests/security/ -v
 
 test-ml: ## Run ML model tests only
-	python -m pytest "ML Models/aether-ml/tests/" -v
+	python -m pytest "$(ML_DIR)/tests/" -v
 
 test-coverage: ## Run tests with coverage report (all subsystems)
-	python -m pytest tests/ "ML Models/aether-ml/tests/" \
+	python -m pytest tests/ "$(ML_DIR)/tests/" \
 		--cov=security \
-		--cov="Backend Architecture/aether-backend" \
+		--cov="$(BACKEND_DIR)" \
 		--cov-report=term-missing -v
 
 # ---------------------------------------------------------------------------
@@ -66,11 +71,11 @@ typecheck: ## Run mypy type checking
 # ---------------------------------------------------------------------------
 
 serve-backend: ## Start the backend API server (port 8000)
-	cd "Backend Architecture/aether-backend" && \
+	cd "$(BACKEND_DIR)" && \
 	python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 serve-ml: ## Start the ML serving API (port 8080)
-	cd "ML Models/aether-ml" && \
+	cd "$(ML_DIR)" && \
 	python -m uvicorn serving.src.api:app --host 0.0.0.0 --port 8080 --reload
 
 # ---------------------------------------------------------------------------
