@@ -115,6 +115,7 @@ def run_checks() -> None:
     print("1. Checking package.json versions...")
     for pj in [
         ROOT / "package.json",
+        ROOT / "packages" / "shared" / "package.json",
         ROOT / "packages" / "web" / "package.json",
         ROOT / "packages" / "react-native" / "package.json",
         ROOT / "apps" / "shiki" / "package.json",

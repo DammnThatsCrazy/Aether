@@ -6,6 +6,7 @@ WORKDIR /app
 # Copy workspace root files for dependency resolution
 COPY package.json package-lock.json ./
 COPY apps/shiki/package.json ./apps/shiki/
+COPY packages/shared/package.json ./packages/shared/
 COPY packages/web/package.json ./packages/web/
 COPY packages/react-native/package.json ./packages/react-native/
 

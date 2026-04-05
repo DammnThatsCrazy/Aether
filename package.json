@@ -4,6 +4,7 @@
   "private": true,
   "description": "Aether SDK \u2014 Multi-platform behavioral analytics and Web3 data collection",
   "workspaces": [
+    "packages/shared",
     "packages/web",
     "packages/react-native",
     "apps/shiki"
@@ -11,10 +12,12 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "lint": "eslint 'packages/*/src/**/*.ts' --fix && npm run lint --workspace=apps/shiki --if-present",
-    "typecheck": "tsc --noEmit --project packages/web/tsconfig.json && npm run typecheck --workspace=apps/shiki --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "tsc --noEmit --project packages/web/tsconfig.json && npm run typecheck --workspace=apps/shiki --if-present && npm run typecheck --workspace=packages/react-native --if-present",
     "clean": "rm -rf packages/*/dist packages/*/node_modules",
-    "docs": "typedoc --entryPoints packages/web/src/index.ts --out docs/api"
+    "docs": "typedoc --entryPoints packages/web/src/index.ts --out docs/api",
+    "deps:circular": "madge --circular --extensions ts,tsx packages/web/src packages/react-native/src apps/shiki/src",
+    "deps:unused": "depcheck packages/web && depcheck packages/react-native && depcheck apps/shiki"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -26,7 +29,9 @@
     "@rollup/plugin-typescript": "^11.0.0",
     "@rollup/plugin-terser": "^0.4.0",
     "@rollup/plugin-node-resolve": "^15.0.0",
-    "tslib": "^2.6.0"
+    "tslib": "^2.6.0",
+    "madge": "^7.0.0",
+    "depcheck": "^1.4.7"
   },
   "engines": {
     "node": ">=18.0.0"
